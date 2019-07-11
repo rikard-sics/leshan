@@ -24,6 +24,8 @@ import static org.eclipse.leshan.core.LwM2mId.*;
 
 import java.io.File;
 import java.net.InetAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
