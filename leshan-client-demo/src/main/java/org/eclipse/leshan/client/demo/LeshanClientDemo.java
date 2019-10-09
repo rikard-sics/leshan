@@ -53,6 +53,7 @@ import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.elements.Connector;
 import org.eclipse.californium.elements.util.SslContextUtil;
+import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.californium.oscore.OSCoreCoapStackFactory;
 import org.eclipse.californium.scandium.DTLSConnector;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
@@ -812,9 +813,10 @@ public class LeshanClientDemo {
                 initializer.setInstancesForObject(SECURITY, oscoreOnly(serverURI, 123, oscoreObject.getId()));
                 initializer.setInstancesForObject(OSCORE, oscoreObject);
                 initializer.setInstancesForObject(SERVER, new Server(123, lifetime));
-            } else if (useOSCore) {
-                String clientName = Hex.encodeHexString(endpoint.getBytes());
-                Oscore oscoreObject = new Oscore(12345, "11223344", clientName, "BB"); // Partially hardcoded values
+            } else if (oscoreSettings != null) {
+                Oscore oscoreObject = new Oscore(12345, oscoreSettings.masterSecret, oscoreSettings.senderId,
+                        oscoreSettings.recipientId, oscoreSettings.aeadAlgorithm, oscoreSettings.hkdfAlgorithm,
+                        oscoreSettings.masterSalt);
                 initializer.setInstancesForObject(SECURITY, oscoreOnly(serverURI, 123, oscoreObject.getId()));
                 initializer.setInstancesForObject(OSCORE, oscoreObject);
                 initializer.setInstancesForObject(SERVER, new Server(123, lifetime));
