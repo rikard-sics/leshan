@@ -107,8 +107,6 @@
             } else if(config.secmode === "OSCORE"){
                 var oscoreVals = tag.refs.oscore.get_value();
                 
-                config.secmode = "NO_SEC"; // Act as no sec
-                
                 // Relay to config object
                 config.oscore = {};
                 

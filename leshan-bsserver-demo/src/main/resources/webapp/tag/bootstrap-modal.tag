@@ -94,62 +94,67 @@
             var lwserver = tag.refs.lwserver.get_value()
             var bsserver = tag.refs.bsserver.get_value()
             
-            var bsserverOscore = bsserver.oscore;
-            var lwserverOscore = lwserver.oscore;
-
+            if(bsserver.secmode === "OSCORE") {
+            	var bsserverOscore = bsserver.oscore;
+            	var oscore =
+                {
+            		objectInstanceId : 111,
+                    oscoreMasterSecret : bsserverOscore.masterSecret,
+                    oscoreSenderId : bsserverOscore.senderId,
+                    oscoreRecipientId : bsserverOscore.recipientId,
+                    oscoreAeadAlgorithm : bsserverOscore.aeadAlgorithm,
+                    oscoreHmacAlgorithm : bsserverOscore.hkdfAlgorithm,
+                    oscoreMasterSalt : bsserverOscore.masterSalt,
+                    oscoreIdContext : bsserverOscore.idContext
+                }
+            	bsserver.secmode = "NO_SEC"; // act as no_sec
+            }
+            
+            var data = {
+                    dm:[{
+                        binding : "U",
+                        defaultMinPeriod : 1,
+                        lifetime : 20,
+                        notifIfDisabled : true,
+                        shortId : 123,
+                        security : {
+                            bootstrapServer : false,
+                            clientOldOffTime : 1,
+                            publicKeyOrId : lwserver.id,
+                            secretKey : lwserver.key,
+                            securityMode : lwserver.secmode,
+                            serverId : 123,
+                            serverPublicKey : lwserver.serverKey,
+                            serverSmsNumber : "",
+                            smsBindingKeyParam : [  ],
+                            smsBindingKeySecret : [  ],
+                            smsSecurityMode : "NO_SEC",
+                            uri : lwserver.uri,
+                            oscoreSecurityMode : 123 // link to oscore object
+                          }
+                    }],
+                     bs:[{
+                        security : {
+                            bootstrapServer : true,
+                            clientOldOffTime : 1,
+                            publicKeyOrId : bsserver.id,
+                            secretKey : bsserver.key,
+                            securityMode : bsserver.secmode,
+                            serverId : 111,
+                            serverPublicKey : bsserver.serverKey,
+                            serverSmsNumber : "",
+                            smsBindingKeyParam : [  ],
+                            smsBindingKeySecret : [  ],
+                            smsSecurityMode : "NO_SEC",
+                            uri : bsserver.uri,
+                            oscoreSecurityMode : 111 // link to oscore object
+                          },
+                          oscore
+                    }]
+                }
+           
             // add config to the store
-            bsConfigStore.add(endpoint.value, {
-                 dm:[{
-                    binding : "U",
-                    defaultMinPeriod : 1,
-                    lifetime : 20,
-                    notifIfDisabled : true,
-                    shortId : 123,
-                    security : {
-                        bootstrapServer : false,
-                        clientOldOffTime : 1,
-                        publicKeyOrId : lwserver.id,
-                        secretKey : lwserver.key,
-                        securityMode : lwserver.secmode,
-                        serverId : 123,
-                        serverPublicKey : lwserver.serverKey,
-                        serverSmsNumber : "",
-                        smsBindingKeyParam : [  ],
-                        smsBindingKeySecret : [  ],
-                        smsSecurityMode : "NO_SEC",
-                        uri : lwserver.uri,
-                        oscoreSecurityMode : 123 // link to oscore object
-                      }
-                }],
-                 bs:[{
-                    security : {
-                        bootstrapServer : true,
-                        clientOldOffTime : 1,
-                        publicKeyOrId : bsserver.id,
-                        secretKey : bsserver.key,
-                        securityMode : bsserver.secmode,
-                        serverId : 111,
-                        serverPublicKey : bsserver.serverKey,
-                        serverSmsNumber : "",
-                        smsBindingKeyParam : [  ],
-                        smsBindingKeySecret : [  ],
-                        smsSecurityMode : "NO_SEC",
-                        uri : bsserver.uri,
-                        oscoreSecurityMode : 111 // link to oscore object
-                      }//,
-                      //oscore : {
-                    	
-                    //	objectInstanceId : 111,
-                    //	oscoreMasterSecret : bsserverOscore.masterSecret,
-                    //	oscoreSenderId : bsserverOscore.senderId,
-                    //	oscoreRecipientId : bsserverOscore.recipientId,
-                    //	oscoreAeadAlgorithm : bsserverOscore.aeadAlgorithm,
-                    //	oscoreHmacAlgorithm : bsserverOscore.hkdfAlgorithm,
-                    //	oscoreMasterSalt : bsserverOscore.masterSalt,
-                    //	oscoreIdContext : bsserverOscore.idContext
-                     // }
-                }]
-            });
+            bsConfigStore.add(endpoint.value, data);
             $('#bootstrap-modal').modal('hide');
             return false;
         }
