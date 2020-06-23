@@ -60,7 +60,7 @@
 
         // Tag Functions
         function default_uri() {
-            if (!tag.refs.secMode || tag.refs.secMode.value == "no_sec")
+            if (!tag.refs.secMode || tag.refs.secMode.value == "no_sec" || tag.refs.secMode.value == "oscore")
                 return opts.unsecuri;
             else
                 return opts.securi;
@@ -106,6 +106,8 @@
                 config.serverKey = fromHex(x509.servCert);
             } else if(config.secmode === "OSCORE"){
                 var oscoreVals = tag.refs.oscore.get_value();
+                
+                config.secmode = "NO_SEC"; // Act as no sec
                 
                 // Relay to config object
                 config.oscore = {};

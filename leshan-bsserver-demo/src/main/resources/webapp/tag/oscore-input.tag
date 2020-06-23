@@ -176,10 +176,11 @@
             tag.masterSalt.error = false;
             tag.masterSalt.toolong = false;
             tag.masterSalt.nothexa = false;
+            var isEmpty = !str || 0 === str.length;
             if (str.length > 64){
                 tag.masterSalt.error = true;
                 tag.masterSalt.toolong = true;
-            }else if (! /^[0-9a-fA-F]+$/i.test(str)){
+            }else if (!isEmpty && ! /^[0-9a-fA-F]+$/i.test(str)){
                 tag.masterSalt.error = true;
                 tag.masterSalt.nothexa = true;
             }
@@ -191,10 +192,11 @@
             tag.idContext.error = false;
             tag.idContext.toolong = false;
             tag.idContext.nothexa = false;
+            var isEmpty = !str || 0 === str.length;
             if (str.length > 32){
                 tag.idContext.error = true;
                 tag.idContext.toolong = true;
-            }else if (! /^[0-9a-fA-F]+$/i.test(str)){
+            }else if (!isEmpty && ! /^[0-9a-fA-F]+$/i.test(str)){
                 tag.idContext.error = true;
                 tag.idContext.nothexa = true;
             }
@@ -206,10 +208,11 @@
             tag.senderId.error = false;
             tag.senderId.toolong = false;
             tag.senderId.nothexa = false;
+            var isEmpty = !str || 0 === str.length;
             if (str.length > 16){
                 tag.senderId.error = true;
                 tag.senderId.toolong = true;
-            }else if (! /^[0-9a-fA-F]+$/i.test(str)){
+            }else if (!isEmpty && ! /^[0-9a-fA-F]+$/i.test(str)){
                 tag.senderId.error = true;
                 tag.senderId.nothexa = true;
             }
@@ -221,10 +224,11 @@
             tag.recipientId.error = false;
             tag.recipientId.toolong = false;
             tag.recipientId.nothexa = false;
+            var isEmpty = !str || 0 === str.length;
             if (str.length > 16){
                 tag.recipientId.error = true;
                 tag.recipientId.toolong = true;
-            }else if (! /^[0-9a-fA-F]+$/i.test(str)){
+            }else if (!isEmpty && ! /^[0-9a-fA-F]+$/i.test(str)){
                 tag.recipientId.error = true;
                 tag.recipientId.nothexa = true;
             }

@@ -136,18 +136,18 @@
                         smsSecurityMode : "NO_SEC",
                         uri : bsserver.uri,
                         oscoreSecurityMode : 111 // link to oscore object
-                      },
-                      oscore : {
+                      }//,
+                      //oscore : {
                     	
-                    	objectInstanceId : 111,
-                    	oscoreMasterSecret : bsserverOscore.masterSecret,
-                    	oscoreSenderId : bsserverOscore.senderId,
-                    	oscoreRecipientId : bsserverOscore.recipientId,
-                    	oscoreAeadAlgorithm : bsserverOscore.aeadAlgorithm,
-                    	oscoreHmacAlgorithm : bsserverOscore.hkdfAlgorithm,
-                    	oscoreMasterSalt : bsserverOscore.masterSalt,
-                    	oscoreIdContext : bsserverOscore.idContext
-                      }
+                    //	objectInstanceId : 111,
+                    //	oscoreMasterSecret : bsserverOscore.masterSecret,
+                    //	oscoreSenderId : bsserverOscore.senderId,
+                    //	oscoreRecipientId : bsserverOscore.recipientId,
+                    //	oscoreAeadAlgorithm : bsserverOscore.aeadAlgorithm,
+                    //	oscoreHmacAlgorithm : bsserverOscore.hkdfAlgorithm,
+                    //	oscoreMasterSalt : bsserverOscore.masterSalt,
+                    //	oscoreIdContext : bsserverOscore.idContext
+                     // }
                 }]
             });
             $('#bootstrap-modal').modal('hide');

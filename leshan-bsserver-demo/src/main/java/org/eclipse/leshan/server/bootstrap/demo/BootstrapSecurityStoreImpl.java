@@ -94,7 +94,12 @@ public class BootstrapSecurityStoreImpl implements BootstrapSecurityStore {
             else if (value.bootstrapServer && value.securityMode == SecurityMode.X509) {
                 SecurityInfo securityInfo = SecurityInfo.newX509CertInfo(endpoint);
                 return Arrays.asList(securityInfo);
-            }
+			} // Extract OSCORE security info
+			else if (false && value.bootstrapServer) {
+				SecurityInfo securityInfo = SecurityInfo.newPreSharedKeyInfo(endpoint,
+						new String(value.publicKeyOrId, StandardCharsets.UTF_8), value.secretKey);
+				return Arrays.asList(securityInfo);
+			}
         }
         return null;
 
