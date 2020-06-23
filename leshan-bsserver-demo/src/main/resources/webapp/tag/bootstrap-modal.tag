@@ -93,6 +93,9 @@
         function submit(){
             var lwserver = tag.refs.lwserver.get_value()
             var bsserver = tag.refs.bsserver.get_value()
+            
+            var bsserverOscore = bsserver.oscore;
+            var lwserverOscore = lwserver.oscore;
 
             // add config to the store
             bsConfigStore.add(endpoint.value, {
@@ -131,10 +134,10 @@
                         smsBindingKeySecret : [  ],
                         smsSecurityMode : "NO_SEC",
                         uri : bsserver.uri,
-                        oscoreSecurityMode : 0 // link to OSCORE object
+                        oscoreSecurityMode : 0 // link to OSCORE object instance
                       },
                       oscore : {
-                    	  lol : bsserver.test
+                    	  lol : bsserverOscore.aeadAlgorithm
                       }
                 }]
             });

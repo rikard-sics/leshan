@@ -105,12 +105,21 @@
                 config.key = fromHex(x509.key);
                 config.serverKey = fromHex(x509.servCert);
             } else if(config.secmode === "OSCORE"){
-                var oscore = tag.refs.oscore.get_value();
+                var oscoreVals = tag.refs.oscore.get_value();
+                
+                // Relay to config object
                 config.oscore = {};
-                //config.oscore.testb = "hello";
-                config.test = "ABC123";
-                config.id = fromAscii(oscore.id);
-                config.key = fromHex(oscore.key);
+                
+                config.oscore.masterSecret = fromHex(oscoreVals.masterSecret);
+                config.oscore.masterSalt = fromHex(oscoreVals.masterSalt);
+                config.oscore.idContext = fromHex(oscoreVals.idContext);
+                config.oscore.senderId = fromHex(oscoreVals.senderId);
+                config.oscore.recipientId = fromHex(oscoreVals.recipientId);
+                config.oscore.aeadAlgorithm = oscoreVals.aeadAlgorithm;
+                config.oscore.hkdfAlgorithm = oscoreVals.hkdfAlgorithm;
+                
+                config.id = fromAscii(oscoreVals.id);
+                config.key = fromHex(oscoreVals.key);
             }
 
             return config;
