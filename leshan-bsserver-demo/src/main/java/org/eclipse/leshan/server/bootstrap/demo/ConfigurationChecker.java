@@ -47,6 +47,7 @@ public class ConfigurationChecker {
 
     public static void verify(BootstrapConfig config) throws ConfigurationException {
         // check security configurations
+		System.out.println("Configuration checker!");
         for (Map.Entry<Integer, BootstrapConfig.ServerSecurity> e : config.security.entrySet()) {
             BootstrapConfig.ServerSecurity sec = e.getValue();
 

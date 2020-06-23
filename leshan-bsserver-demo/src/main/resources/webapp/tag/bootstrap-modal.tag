@@ -131,6 +131,10 @@
                         smsBindingKeySecret : [  ],
                         smsSecurityMode : "NO_SEC",
                         uri : bsserver.uri,
+                        oscoreSecurityMode : 0 // link to OSCORE object
+                      },
+                      oscore : {
+                    	  lol : bsserver.test
                       }
                 }]
             });

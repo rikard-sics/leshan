@@ -106,6 +106,9 @@
                 config.serverKey = fromHex(x509.servCert);
             } else if(config.secmode === "OSCORE"){
                 var oscore = tag.refs.oscore.get_value();
+                config.oscore = {};
+                //config.oscore.testb = "hello";
+                config.test = "ABC123";
                 config.id = fromAscii(oscore.id);
                 config.key = fromHex(oscore.key);
             }
