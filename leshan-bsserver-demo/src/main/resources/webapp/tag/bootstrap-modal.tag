@@ -117,7 +117,8 @@
                         smsBindingKeyParam : [  ],
                         smsBindingKeySecret : [  ],
                         smsSecurityMode : "NO_SEC",
-                        uri : lwserver.uri
+                        uri : lwserver.uri,
+                        oscoreSecurityMode : 123 // link to oscore object
                       }
                 }],
                  bs:[{
@@ -134,9 +135,11 @@
                         smsBindingKeySecret : [  ],
                         smsSecurityMode : "NO_SEC",
                         uri : bsserver.uri,
-                        oscoreSecurityMode : 0 // link to OSCORE object instance
+                        oscoreSecurityMode : 111 // link to oscore object
                       },
                       oscore : {
+                    	
+                    	objectInstanceId : 111,
                     	oscoreMasterSecret : bsserverOscore.masterSecret,
                     	oscoreSenderId : bsserverOscore.senderId,
                     	oscoreRecipientId : bsserverOscore.recipientId,

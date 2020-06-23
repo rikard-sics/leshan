@@ -37,7 +37,6 @@ var toConfig = function(config){
     for (var i = 0; i < config.bs.length; i++) {
         var bs = config.bs[i];
         newConfig.security[i] = bs.security;
-        newConfig.security[i].oscoreSecurityMode = i;
         newConfig.oscore[i] = bs.oscore;
     }
     for (var j = 0; j < config.dm.length; j++) {

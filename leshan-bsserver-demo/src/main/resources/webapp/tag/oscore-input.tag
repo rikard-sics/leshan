@@ -256,10 +256,10 @@
         function has_error(){
             return  typeof tag.oscoreId.error === "undefined" || tag.oscoreId.error || typeof tag.oscoreVal.error === "undefined" || tag.oscoreVal.error
             || typeof tag.masterSecret.error === "undefined" || tag.masterSecret.error
-            || typeof tag.masterSalt.error === "undefined" || tag.masterSalt.error
-            || typeof tag.idContext.error === "undefined" || tag.idContext.error
-            || typeof tag.senderId.error === "undefined" || tag.senderId.error
-            || typeof tag.recipientId.error === "undefined" || tag.recipientId.error
+            || tag.masterSalt.error
+            || tag.idContext.error
+            || tag.senderId.error
+            || tag.recipientId.error
             || tag.aeadAlgorithm.error
             || tag.hkdfAlgorithm.error;
         }

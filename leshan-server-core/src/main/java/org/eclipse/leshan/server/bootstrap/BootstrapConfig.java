@@ -12,6 +12,7 @@
  * 
  * Contributors:
  *     Sierra Wireless - initial API and implementation
+ *     Rikard Höglund (RISE) - additions to support OSCORE
  *******************************************************************************/
 package org.eclipse.leshan.server.bootstrap;
 
@@ -34,6 +35,8 @@ public class BootstrapConfig implements Serializable {
     public Map<Integer, ServerSecurity> security = new HashMap<>();
 
     public Map<Integer, ACLConfig> acls = new HashMap<>();
+
+	public Map<Integer, OscoreObject> oscore = new HashMap<>();
 
     /** server configuration (object 1) */
     static public class ServerConfig implements Serializable {
@@ -68,6 +71,7 @@ public class BootstrapConfig implements Serializable {
         public Integer serverId;
         public Integer clientOldOffTime = 1;
         public Integer bootstrapServerAccountTimeout = 0;
+		public Integer oscoreSecurityMode;
 
         @Override
         public String toString() {
@@ -93,6 +97,24 @@ public class BootstrapConfig implements Serializable {
                     objectId, objectInstanceId, acls, AccessControlOwner);
         }
     }
+
+	/** oscore configuration (object 17) */
+	static public class OscoreObject implements Serializable {
+
+		public int objectInstanceId;
+		public byte[] oscoreMasterSecret = new byte[] {};
+		public byte[] oscoreSenderId = new byte[] {};
+		public byte[] oscoreRecipientId = new byte[] {};
+		public String oscoreAeadAlgorithm = "";
+		public String oscoreHmacAlgorithm = "";
+		public byte[] oscoreMasterSalt = new byte[] {};
+		public byte[] oscoreIdContext = new byte[] {};
+
+		@Override
+		public String toString() {
+			return String.format("OscoreObject FIXME");
+		}
+	}
 
     @Override
     public String toString() {
