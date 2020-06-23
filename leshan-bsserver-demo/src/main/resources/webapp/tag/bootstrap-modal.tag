@@ -137,7 +137,13 @@
                         oscoreSecurityMode : 0 // link to OSCORE object instance
                       },
                       oscore : {
-                    	  lol : bsserverOscore.aeadAlgorithm
+                    	oscoreMasterSecret : bsserverOscore.masterSecret,
+                    	oscoreSenderId : bsserverOscore.senderId,
+                    	oscoreRecipientId : bsserverOscore.recipientId,
+                    	oscoreAeadAlgorithm : bsserverOscore.aeadAlgorithm,
+                    	oscoreHmacAlgorithm : bsserverOscore.hkdfAlgorithm,
+                    	oscoreMasterSalt : bsserverOscore.masterSalt,
+                    	oscoreIdContext : bsserverOscore.idContext
                       }
                 }]
             });
