@@ -36,7 +36,7 @@
                                                     serverpubkey= {serversecurity.rpk.hexDer}
                                                     servercertificate= {serversecurity.certificate.hexDer}
                                                     disable = { {uri:true, serverpubkey:true, servercertificate:true}}
-                                                    secmode = { {no_sec:true, psk:true,rpk:true, x509:true}}
+                                                    secmode = { {no_sec:true, psk:true,rpk:true, x509:true, oscore:true}}
                                                     ></securityconfig-input>
                         </div>
 
