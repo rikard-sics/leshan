@@ -68,7 +68,7 @@ public class SecurityChecker {
      * @return true if the security info is valid.
      */
     public boolean checkSecurityInfo(String endpoint, Identity clientIdentity, SecurityInfo securityInfo) {
-
+		System.out.println("EEE" + clientIdentity.isOSCORE());
         // if this is a secure end-point, we must check that the registering client is using the right identity.
         if (clientIdentity.isSecure()) {
             if (securityInfo == null) {
@@ -94,6 +94,7 @@ public class SecurityChecker {
             }
         } else {
             if (clientIdentity.isOSCORE()) {
+				LOG.trace("Checking incoming client's OSCORE identity.");
                 return checkOscoreIdentity(endpoint, clientIdentity, securityInfo);
             } else if (securityInfo != null) {
                 LOG.debug("Client '{}' must connect using DTLS", endpoint);

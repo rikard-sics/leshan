@@ -78,7 +78,7 @@ public class Security extends BaseInstanceEnabler {
 	 * Returns a new security instance (OSCORE only) for a bootstrap server.
 	 */
     public static Security oscoreOnlyBootstrap(String serverUri, int shortServerId, int oscoreObjectInstanceId) {
-        return new Security(serverUri, false, SecurityMode.NO_SEC.code, new byte[0], new byte[0], new byte[0],
+		return new Security(serverUri, true, SecurityMode.NO_SEC.code, new byte[0], new byte[0], new byte[0],
                 shortServerId, new ObjectLink(OSCORE, oscoreObjectInstanceId));
     }
     
