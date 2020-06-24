@@ -62,7 +62,7 @@ public class ServersInfoExtractor {
         LwM2mObjectEnabler securityEnabler = objectEnablers.get(SECURITY);
         LwM2mObjectEnabler serverEnabler = objectEnablers.get(SERVER);
         LwM2mObjectEnabler oscoreEnabler = objectEnablers.get(OSCORE);
-
+		System.out.println("                 1234                5 ");
         if (securityEnabler == null || serverEnabler == null)
             return null;
 
@@ -81,6 +81,14 @@ public class ServersInfoExtractor {
                     if (infos.bootstrap != null) {
                         LOG.warn("There is more than one bootstrap configuration in security object.");
                     } else {
+
+						// NEW123 FIXME
+						ObjectLink oscoreObjLink = (ObjectLink) security.getResource(SEC_OSCORE_SECURITY_MODE)
+								.getValue();
+						int oscoreObjectInstanceId = oscoreObjLink.getObjectInstanceId();
+						boolean useOscore = oscoreObjLink.getObjectId() == OSCORE;
+						System.out.println("USINGOSOCRE555 " + useOscore);
+
                         // create bootstrap info
                         ServerInfo info = new ServerInfo();
                         LwM2mResource serverIdResource = security.getResource(SEC_SERVER_ID);
@@ -101,6 +109,8 @@ public class ServersInfoExtractor {
                             info.clientCertificate = getClientCertificate(security);
                             info.serverCertificate = getServerCertificate(security);
                             info.privateKey = getPrivateKey(security);
+						} else if (info.useOscore == true) {
+							System.out.println("????????????????OSCOOREO");
                         }
                         infos.bootstrap = info;
                     }
@@ -115,6 +125,7 @@ public class ServersInfoExtractor {
                     ObjectLink oscoreObjLink = (ObjectLink) security.getResource(SEC_OSCORE_SECURITY_MODE).getValue();
                     int oscoreObjectInstanceId = oscoreObjLink.getObjectInstanceId();
                     boolean useOscore = oscoreObjLink.getObjectId() == OSCORE;
+					System.out.println("USINGOSOCRE " + useOscore);
 
                     if (useOscore) {
                         // get corresponding oscore object

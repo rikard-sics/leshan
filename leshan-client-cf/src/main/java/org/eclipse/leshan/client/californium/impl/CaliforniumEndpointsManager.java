@@ -91,6 +91,8 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
             currentEndpoint.destroy();
         }
 
+		System.out.println("BBBBBBBBBBBBBBBBBBBBBBBBb=====================");
+
         // Create new endpoint
         Identity serverIdentity;
         if (serverInfo.isSecure()) {
@@ -173,6 +175,7 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
                 currentEndpoint = builder.build();
             }
         } else if (serverInfo.useOscore) {
+			System.out.println("AAAAAAAAAAAAAA=====================");
             // oscore only mode
             LOG.info("Adding OSCORE context for " + serverInfo.getFullUri().toASCIIString());
             HashMapCtxDB db = OscoreHandler.getContextDB(); // TODO: Do not use singleton here but give it to endpoint

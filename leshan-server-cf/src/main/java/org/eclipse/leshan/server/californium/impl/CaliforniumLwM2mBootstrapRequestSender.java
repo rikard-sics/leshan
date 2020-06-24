@@ -19,6 +19,9 @@ import org.eclipse.californium.core.coap.MessageObserver;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.network.Endpoint;
+import org.eclipse.californium.elements.util.Bytes;
+import org.eclipse.californium.oscore.HashMapCtxDB;
+import org.eclipse.californium.oscore.OSException;
 import org.eclipse.leshan.core.californium.AsyncRequestObserver;
 import org.eclipse.leshan.core.californium.SyncRequestObserver;
 import org.eclipse.leshan.core.model.LwM2mModel;
@@ -61,6 +64,20 @@ public class CaliforniumLwM2mBootstrapRequestSender implements LwM2mBootstrapReq
 
         final Request coapRequest = coapClientRequestBuilder.getRequest();
 
+		// // Toggle OSCORE use in the request if the target URI of the request
+		// has
+		// // an OSCORE context registered
+		// HashMapCtxDB db = OscoreHandler.getContextDB();
+		// try {
+		// if (db.getContext(coapRequest.getURI()) != null) {
+		// coapRequest.getOptions().setOscore(Bytes.EMPTY);
+		// }
+		// } catch (OSException e) {
+		// System.err.println("Failed to retrieve OSCORE Context for request");
+		// e.printStackTrace();
+		// }
+		System.out.println("ABC-------------------------1");
+
         // Send CoAP request synchronously
         SyncRequestObserver<T> syncMessageObserver = new SyncRequestObserver<T>(coapRequest, timeout) {
             @Override
@@ -96,6 +113,21 @@ public class CaliforniumLwM2mBootstrapRequestSender implements LwM2mBootstrapReq
         CoapRequestBuilder coapClientRequestBuilder = new CoapRequestBuilder(destination, model, encoder);
         request.accept(coapClientRequestBuilder);
         final Request coapRequest = coapClientRequestBuilder.getRequest();
+
+		System.out.println("ABC-------------------------2");
+
+		// // Toggle OSCORE use in the request if the target URI of the request
+		// has
+		// // an OSCORE context registered
+		// HashMapCtxDB db = OscoreHandler.getContextDB();
+		// try {
+		// if (db.getContext(coapRequest.getURI()) != null) {
+		// coapRequest.getOptions().setOscore(Bytes.EMPTY);
+		// }
+		// } catch (OSException e) {
+		// System.err.println("Failed to retrieve OSCORE Context for request");
+		// e.printStackTrace();
+		// }
 
         // Add CoAP request callback
         MessageObserver obs = new AsyncRequestObserver<T>(coapRequest, responseCallback, errorCallback, timeout) {

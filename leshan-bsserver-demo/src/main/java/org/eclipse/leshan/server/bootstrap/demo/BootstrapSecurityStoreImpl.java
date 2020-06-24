@@ -72,27 +72,23 @@ public class BootstrapSecurityStoreImpl implements BootstrapSecurityStore {
 
         BootstrapConfig bsConfig = bsStore.getBootstrap(endpoint, null);
 
-		// // Extract OSCORE security info
-		// if (bsConfig != null && bsConfig.oscore != null &&
-		// !bsConfig.oscore.isEmpty()) {
-		// LOG.trace("Extracting OSCORE security info for endpoint {}",
-		// endpoint);
-		//
-		// // First find the context for this endpoint
-		// for (Map.Entry<Integer, BootstrapConfig.OscoreObject> oscoreEntry :
-		// bsConfig.oscore.entrySet()) {
-		// OscoreObject value = oscoreEntry.getValue();
-		//
-		// HashMapCtxDB db = OscoreHandler.getContextDB();
-		// OSCoreCtx ctx = db.getContext(value.oscoreRecipientId);
-		//
-		// // Create the security info (will re-add the context to the db)
-		// SecurityInfo securityInfo = SecurityInfo.newOSCoreInfo(endpoint,
-		// ctx);
-		//
-		// return Arrays.asList(securityInfo);
-		// }
-		// }
+		// Extract OSCORE security info
+		if (bsConfig != null && bsConfig.oscore != null && !bsConfig.oscore.isEmpty()) {
+			LOG.trace("Extracting OSCORE security info for endpoint {}", endpoint);
+
+			// First find the context for this endpoint
+			for (Map.Entry<Integer, BootstrapConfig.OscoreObject> oscoreEntry : bsConfig.oscore.entrySet()) {
+				OscoreObject value = oscoreEntry.getValue();
+
+				HashMapCtxDB db = OscoreHandler.getContextDB();
+				OSCoreCtx ctx = db.getContext(value.oscoreRecipientId);
+
+				// Create the security info (will re-add the context to the db)
+				SecurityInfo securityInfo = SecurityInfo.newOSCoreInfo(endpoint, ctx);
+
+				return Arrays.asList(securityInfo);
+			}
+		}
         
         if (bsConfig == null || bsConfig.security == null)
             return null;
