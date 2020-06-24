@@ -12,6 +12,7 @@
  * 
  * Contributors:
  *     Sierra Wireless - initial API and implementation
+ *     Rikard Höglund (RISE) - additions to support OSCORE
  *******************************************************************************/
 package org.eclipse.leshan.server.bootstrap.demo;
 
@@ -65,8 +66,22 @@ public class BootstrapSecurityStoreImpl implements BootstrapSecurityStore {
     @Override
     public List<SecurityInfo> getAllByEndpoint(String endpoint) {
 
+		System.out.println("ENDPOINT: " + endpoint);
+
         BootstrapConfig bsConfig = bsStore.getBootstrap(endpoint, null);
 
+		System.out.println("YELLO2");
+        // Extract OSCORE security info
+		if (bsConfig != null && bsConfig.oscore != null && !bsConfig.oscore.isEmpty()) {
+			System.out.println("FOUND OSCORE INFO");
+
+			for (Map.Entry<Integer, BootstrapConfig.OscoreObject> oscoreEntry : bsConfig.oscore.entrySet()) {
+				System.out.println("AEAD" + oscoreEntry.getValue().oscoreAeadAlgorithm);
+			}
+
+
+		}
+        
         if (bsConfig == null || bsConfig.security == null)
             return null;
 
@@ -94,11 +109,6 @@ public class BootstrapSecurityStoreImpl implements BootstrapSecurityStore {
             else if (value.bootstrapServer && value.securityMode == SecurityMode.X509) {
                 SecurityInfo securityInfo = SecurityInfo.newX509CertInfo(endpoint);
                 return Arrays.asList(securityInfo);
-			} // Extract OSCORE security info
-			else if (false && value.bootstrapServer) {
-				SecurityInfo securityInfo = SecurityInfo.newPreSharedKeyInfo(endpoint,
-						new String(value.publicKeyOrId, StandardCharsets.UTF_8), value.secretKey);
-				return Arrays.asList(securityInfo);
 			}
         }
         return null;
