@@ -58,6 +58,7 @@ public class DefaultBootstrapSessionManager implements BootstrapSessionManager {
         } else {
             authorized = true;
         }
+
         return new DefaultBootstrapSession(endpoint, clientIdentity, authorized);
     }
 

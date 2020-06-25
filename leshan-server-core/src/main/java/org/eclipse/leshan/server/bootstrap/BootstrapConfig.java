@@ -112,7 +112,11 @@ public class BootstrapConfig implements Serializable {
 
         @Override
         public String toString() {
-            return String.format("OscoreObject FIXME");
+            // Note : oscoreMasterSecret and oscoreMasterSalt are explicitly excluded from the display for security purposes
+            return String.format(
+                    "OscoreObject [objectInstanceId=%s, oscoreSenderId=%s, oscoreRecipientId=%s, oscoreAeadAlgorithm=%s, oscoreHmacAlgorithm=%s, oscoreIdContext=%s]",
+                    objectInstanceId, Arrays.toString(oscoreSenderId), Arrays.toString(oscoreRecipientId),
+                    oscoreAeadAlgorithm, oscoreHmacAlgorithm, Arrays.toString(oscoreIdContext));
         }
     }
 

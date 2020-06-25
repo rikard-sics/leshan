@@ -76,7 +76,7 @@ public class SecurityChecker {
      */
     public boolean checkSecurityInfo(String endpoint, Identity clientIdentity, SecurityInfo securityInfo) {
         // if this is a secure end-point, we must check that the registering client is using the right identity.
-		if (clientIdentity.isSecure()) {
+        if (clientIdentity.isSecure()) {
             if (securityInfo == null) {
 
                 LOG.debug("Client '{}' without security info try to connect through the secure endpoint", endpoint);
@@ -197,7 +197,7 @@ public class SecurityChecker {
         }
 
         if (!matchOscoreIdentity(endpoint, clientIdentity.getOscoreIdentity(), securityInfo.getOscoreIdentity())) {
-			return false;
+            return false;
         }
 
         LOG.trace("Authenticated client '{}' using OSCORE", endpoint);

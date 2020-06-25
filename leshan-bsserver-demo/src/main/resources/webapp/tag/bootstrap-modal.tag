@@ -98,7 +98,7 @@
             	var bsserverOscore = bsserver.oscore;
             	var oscore =
                 {
-            		objectInstanceId : 111,
+                    objectInstanceId : 111,
                     oscoreMasterSecret : bsserverOscore.masterSecret,
                     oscoreSenderId : bsserverOscore.senderId,
                     oscoreRecipientId : bsserverOscore.recipientId,
