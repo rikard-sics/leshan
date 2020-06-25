@@ -14,6 +14,7 @@
  *     Sierra Wireless - initial API and implementation
  *     Achim Kraus (Bosch Software Innovations GmbH) - add parameter for 
  *                                                     configuration filename
+ *     Rikard Höglund (RISE) - additions to support OSCORE
  *******************************************************************************/
 
 package org.eclipse.leshan.server.bootstrap.demo;
@@ -164,8 +165,8 @@ public class LeshanBootstrapServerDemo {
             String secureLocalAddress, int secureLocalPort, String modelsFolderPath, String configFilename)
             throws Exception {
 
-		// Enable OSCORE context db as default
-		OSCoreCoapStackFactory.useAsDefault(OscoreHandler.getContextDB());
+        // Enable OSCORE stack (fine to do even when using DTLS or only CoAP)
+        OSCoreCoapStackFactory.useAsDefault(OscoreHandler.getContextDB());
 
         // Create Models
         List<ObjectModel> models = ObjectLoader.loadDefault();

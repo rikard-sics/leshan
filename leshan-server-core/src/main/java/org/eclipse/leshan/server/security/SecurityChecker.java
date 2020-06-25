@@ -53,6 +53,13 @@ public class SecurityChecker {
                 }
                 return false;
             }
+		} else if (clientIdentity.isOSCORE()) {
+			LOG.trace("Checking incoming clients OSCORE identity.");
+			for (SecurityInfo securityInfo : securityInfos) {
+				if (checkSecurityInfo(endpoint, clientIdentity, securityInfo)) {
+					return true;
+				}
+			}
         } else if (securityInfos != null && !securityInfos.isEmpty()) {
             LOG.debug("Client '{}' must connect using DTLS", endpoint);
             return false;
@@ -186,6 +193,7 @@ public class SecurityChecker {
     protected boolean checkOscoreIdentity(String endpoint, Identity clientIdentity, SecurityInfo securityInfo) {
         // Manage OSCORE authentication
         // ----------------------------------------------------
+		System.out.println("CHECK OSCORE AUTH!");
         if (!securityInfo.useOSCORE()) {
             LOG.debug("Client '{}' is not supposed to use OSCORE to authenticate", endpoint);
 			System.out.println("Client '{}' is not supposed to use OSCORE to authenticate");

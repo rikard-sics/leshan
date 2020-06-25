@@ -51,39 +51,39 @@ public class ConfigurationChecker {
         for (Map.Entry<Integer, BootstrapConfig.ServerSecurity> e : config.security.entrySet()) {
             BootstrapConfig.ServerSecurity sec = e.getValue();
 
-			// Check OSCORE object for the bootstrap server security object
-			boolean usingOscore = false;
-			if (sec.bootstrapServer) {
+            // Check OSCORE object for the bootstrap server security object
+            boolean usingOscore = false;
+            if (sec.bootstrapServer) {
 
-				BootstrapConfig.OscoreObject osc = null;
-				for (Map.Entry<Integer, BootstrapConfig.OscoreObject> o : config.oscore.entrySet()) {
-					osc = o.getValue();
-					if (osc.objectInstanceId == sec.oscoreSecurityMode) {
-						usingOscore = true;
-						break;
-					}
-				}
-				if (usingOscore) {
-					LOG.trace("Bootstrapping information contains OSCORE security object.");
-					assertIf(usingOscore == false, "no oscore object found for bootstrap server security object");
-					assertIf(ArrayUtils.isEmpty(osc.oscoreMasterSecret), "master secret must not be empty");
-					assertIf(ArrayUtils.isEmpty(osc.oscoreSenderId) && ArrayUtils.isEmpty(osc.oscoreRecipientId),
-							"either sender ID or recipient ID must be filled");
-				}
+                BootstrapConfig.OscoreObject osc = null;
+                for (Map.Entry<Integer, BootstrapConfig.OscoreObject> o : config.oscore.entrySet()) {
+                    osc = o.getValue();
+                    if (osc.objectInstanceId == sec.oscoreSecurityMode) {
+                        usingOscore = true;
+                        break;
+                    }
+                }
+                if (usingOscore) {
+                    LOG.trace("Bootstrapping information contains OSCORE security object.");
+                    assertIf(usingOscore == false, "no oscore object found for bootstrap server security object");
+                    assertIf(ArrayUtils.isEmpty(osc.oscoreMasterSecret), "master secret must not be empty");
+                    assertIf(ArrayUtils.isEmpty(osc.oscoreSenderId) && ArrayUtils.isEmpty(osc.oscoreRecipientId),
+                            "either sender ID or recipient ID must be filled");
+                }
 
-			}
+            }
 
-			// checks mandatory fields
-			if (StringUtils.isEmpty(sec.uri))
-				throw new ConfigurationException("LwM2M Server URI is mandatory");
-			if (sec.securityMode == null)
-				throw new ConfigurationException("Security Mode is mandatory");
+            // checks mandatory fields
+            if (StringUtils.isEmpty(sec.uri))
+                throw new ConfigurationException("LwM2M Server URI is mandatory");
+            if (sec.securityMode == null)
+                throw new ConfigurationException("Security Mode is mandatory");
 
-			// End loop here (since OSCORE is not a proper securityMode)
-			if (usingOscore) {
-				continue;
-			}
-            
+            // End loop here (since OSCORE is not a proper securityMode)
+            if (usingOscore) {
+                continue;
+            }
+
             // checks security config
             switch (sec.securityMode) {
             case NO_SEC:
@@ -121,7 +121,7 @@ public class ConfigurationChecker {
                 assertIf(decodeCertificate(sec.serverPublicKey) == null,
                         "x509 mode, server public key must be DER encoded X.509 certificate");
                 break;
-			}
+            }
 
         }
 
