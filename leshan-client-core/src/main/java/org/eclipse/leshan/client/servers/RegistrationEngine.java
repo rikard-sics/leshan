@@ -140,8 +140,6 @@ public class RegistrationEngine {
     private Collection<Server> clientInitiatedBootstrap() throws InterruptedException {
         ServerInfo bootstrapServerInfo = ServersInfoExtractor.getBootstrapServerInfo(objectEnablers);
 
-		System.out.println("BOOTSTREPPING)()()()(");
-
         if (bootstrapServerInfo == null) {
             LOG.error("Trying to bootstrap device but there is no bootstrap server config.");
             return null;

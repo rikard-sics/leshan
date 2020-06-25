@@ -40,7 +40,6 @@ public class SecurityChecker {
      */
     public boolean checkSecurityInfos(String endpoint, Identity clientIdentity, List<SecurityInfo> securityInfos) {
         // if this is a secure end-point, we must check that the registering client is using the right identity.
-		System.out.println("CHECKING1 " + endpoint + " " + clientIdentity.isOSCORE());
         if (clientIdentity.isSecure()) {
             if (securityInfos == null || securityInfos.isEmpty()) {
                 LOG.debug("Client '{}' without security info try to connect through the secure endpoint", endpoint);
@@ -53,13 +52,13 @@ public class SecurityChecker {
                 }
                 return false;
             }
-		} else if (clientIdentity.isOSCORE()) {
-			LOG.trace("Checking incoming clients OSCORE identity.");
-			for (SecurityInfo securityInfo : securityInfos) {
-				if (checkSecurityInfo(endpoint, clientIdentity, securityInfo)) {
-					return true;
-				}
-			}
+        } else if (clientIdentity.isOSCORE()) {
+            LOG.trace("Checking incoming clients OSCORE identity.");
+            for (SecurityInfo securityInfo : securityInfos) {
+                if (checkSecurityInfo(endpoint, clientIdentity, securityInfo)) {
+                    return true;
+                }
+            }
         } else if (securityInfos != null && !securityInfos.isEmpty()) {
             LOG.debug("Client '{}' must connect using DTLS", endpoint);
             return false;
@@ -77,7 +76,6 @@ public class SecurityChecker {
      */
     public boolean checkSecurityInfo(String endpoint, Identity clientIdentity, SecurityInfo securityInfo) {
         // if this is a secure end-point, we must check that the registering client is using the right identity.
-		System.out.println("CHECKING2 " + endpoint + " " + clientIdentity.isOSCORE());
 		if (clientIdentity.isSecure()) {
             if (securityInfo == null) {
 
@@ -102,7 +100,7 @@ public class SecurityChecker {
             }
         } else {
             if (clientIdentity.isOSCORE()) {
-				LOG.trace("Checking incoming client's OSCORE identity.");
+                LOG.trace("Checking incoming client's OSCORE identity.");
                 return checkOscoreIdentity(endpoint, clientIdentity, securityInfo);
             } else if (securityInfo != null) {
                 LOG.debug("Client '{}' must connect using DTLS", endpoint);
@@ -193,15 +191,12 @@ public class SecurityChecker {
     protected boolean checkOscoreIdentity(String endpoint, Identity clientIdentity, SecurityInfo securityInfo) {
         // Manage OSCORE authentication
         // ----------------------------------------------------
-		System.out.println("CHECK OSCORE AUTH!");
         if (!securityInfo.useOSCORE()) {
             LOG.debug("Client '{}' is not supposed to use OSCORE to authenticate", endpoint);
-			System.out.println("Client '{}' is not supposed to use OSCORE to authenticate");
             return false;
         }
 
         if (!matchOscoreIdentity(endpoint, clientIdentity.getOscoreIdentity(), securityInfo.getOscoreIdentity())) {
-			System.out.println("False match");
 			return false;
         }
 

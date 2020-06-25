@@ -62,6 +62,7 @@ public class ServersInfoExtractor {
         LwM2mObjectEnabler securityEnabler = objectEnablers.get(SECURITY);
         LwM2mObjectEnabler serverEnabler = objectEnablers.get(SERVER);
         LwM2mObjectEnabler oscoreEnabler = objectEnablers.get(OSCORE);
+
         if (securityEnabler == null || serverEnabler == null)
             return null;
 
@@ -80,36 +81,16 @@ public class ServersInfoExtractor {
                     if (infos.bootstrap != null) {
                         LOG.warn("There is more than one bootstrap configuration in security object.");
                     } else {
-
                         // create bootstrap info
                         ServerInfo info = new ServerInfo();
                         LwM2mResource serverIdResource = security.getResource(SEC_SERVER_ID);
-						if (serverIdResource != null && serverIdResource.getValue() != null)
-							info.serverId = (long) serverIdResource.getValue();
-						else
-							info.serverId = 0;
-						info.serverUri = new URI((String) security.getResource(SEC_SERVER_URI).getValue());
-						info.secureMode = getSecurityMode(security);
-                        
-						// find instance id of the associated oscore object (if any)
-                        ObjectLink oscoreObjLink = (ObjectLink) security.getResource(SEC_OSCORE_SECURITY_MODE).getValue();
-                        int oscoreObjectInstanceId = oscoreObjLink.getObjectInstanceId();
-                        boolean useOscore = oscoreObjLink.getObjectId() == OSCORE;
-
-                        if (useOscore) {
-                            // get corresponding oscore object
-                            LwM2mObjectInstance oscoreInstance = oscores.getInstance(oscoreObjectInstanceId);
-							LOG.trace("Bootstrap connection is using OSCORE.");
-
-                            info.useOscore = true;
-                            info.masterSecret = getMasterSecret(oscoreInstance);
-                            info.senderId = getSenderId(oscoreInstance);
-                            info.recipientId = getRecipientId(oscoreInstance);
-                            info.aeadAlgorithm = getAeadAlgorithm(oscoreInstance);
-                            info.hkdfAlgorithm = getHkdfAlgorithm(oscoreInstance);
-                            info.masterSalt = getMasterSalt(oscoreInstance);
-                            info.idContext = getIdContext(oscoreInstance);
-                        } else if (info.secureMode == SecurityMode.PSK) {
+                        if (serverIdResource != null && serverIdResource.getValue() != null)
+                            info.serverId = (long) serverIdResource.getValue();
+                        else
+                            info.serverId = 0;
+                        info.serverUri = new URI((String) security.getResource(SEC_SERVER_URI).getValue());
+                        info.secureMode = getSecurityMode(security);
+                        if (info.secureMode == SecurityMode.PSK) {
                             info.pskId = getPskIdentity(security);
                             info.pskKey = getPskKey(security);
                         } else if (info.secureMode == SecurityMode.RPK) {
@@ -120,7 +101,6 @@ public class ServersInfoExtractor {
                             info.clientCertificate = getClientCertificate(security);
                             info.serverCertificate = getServerCertificate(security);
                             info.privateKey = getPrivateKey(security);
-						} else if (info.useOscore == true) {
                         }
                         infos.bootstrap = info;
                     }
@@ -131,7 +111,7 @@ public class ServersInfoExtractor {
                     info.serverId = (long) security.getResource(SEC_SERVER_ID).getValue();
                     info.secureMode = getSecurityMode(security);
 
-					// find instance id of the associated oscore object (if any)
+                    // find instance id of the associated oscore object (if any)
                     ObjectLink oscoreObjLink = (ObjectLink) security.getResource(SEC_OSCORE_SECURITY_MODE).getValue();
                     int oscoreObjectInstanceId = oscoreObjLink.getObjectInstanceId();
                     boolean useOscore = oscoreObjLink.getObjectId() == OSCORE;
@@ -139,7 +119,6 @@ public class ServersInfoExtractor {
                     if (useOscore) {
                         // get corresponding oscore object
                         LwM2mObjectInstance oscoreInstance = oscores.getInstance(oscoreObjectInstanceId);
-						LOG.trace("Bootstrap connection is using OSCORE.");
 
                         info.useOscore = true;
                         info.masterSecret = getMasterSecret(oscoreInstance);

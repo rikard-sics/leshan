@@ -37,11 +37,9 @@ import org.eclipse.leshan.core.request.Identity;
 public class EndpointContextUtil {
 
     public static Identity extractIdentity(EndpointContext context) {
-		System.out.println("CHECKING IDENT!");
         InetSocketAddress peerAddress = context.getPeerAddress();
         Principal senderIdentity = context.getPeerIdentity();
         if (senderIdentity != null) {
-			System.out.println("OPT1");
             if (senderIdentity instanceof PreSharedKeyIdentity) {
                 return Identity.psk(peerAddress, ((PreSharedKeyIdentity) senderIdentity).getIdentity());
             } else if (senderIdentity instanceof RawPublicKeyIdentity) {
@@ -54,16 +52,13 @@ public class EndpointContextUtil {
             }
             throw new IllegalStateException("Unable to extract sender identity : unexpected type of Principal");
         } else {
-			System.out.println("OPT2");
             // Build identity for OSCORE if it is used
             if (context.get(OSCoreEndpointContextInfo.OSCORE_SENDER_ID) != null) {
                 String oscoreIdentity = "sid=" + context.get(OSCoreEndpointContextInfo.OSCORE_SENDER_ID) + ",rid="
                         + context.get(OSCoreEndpointContextInfo.OSCORE_RECIPIENT_ID);
-				System.out.println("OSCORE SENDER IDENT!");
                 return Identity.oscoreOnly(peerAddress, oscoreIdentity.toLowerCase());
             }
         }
-		System.out.println("OPT3");
         return Identity.unsecure(peerAddress);
     }
 
