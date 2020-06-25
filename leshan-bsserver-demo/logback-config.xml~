@@ -21,12 +21,12 @@ Contributors:
 		</encoder>
 	</appender>
 
-	<root level="TRACE">
+	<root level="WARN">
 		<appender-ref ref="STDOUT" />
 	</root>
 
-	<logger name="org.eclipse.leshan" level="TRACE" />
-	<logger name="org.eclipse.leshan.server.security.SecurityCheck" level="TRACE" />
-	<logger name="org.eclipse.leshan.server.bootstrap.BootstrapHandler" level="TRACE" />
-	<logger name="org.eclipse.leshan.core.model.LwM2mModel" level="TRACE" />
+	<logger name="org.eclipse.leshan" level="INFO" />
+	<logger name="org.eclipse.leshan.server.security.SecurityCheck" level="DEBUG" />
+	<logger name="org.eclipse.leshan.server.bootstrap.BootstrapHandler" level="DEBUG" />
+	<logger name="org.eclipse.leshan.core.model.LwM2mModel" level="DEBUG" />
 </configuration>
