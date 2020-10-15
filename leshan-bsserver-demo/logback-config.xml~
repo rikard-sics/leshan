@@ -25,9 +25,9 @@ Contributors:
 		<appender-ref ref="STDOUT" />
 	</root>
 
-	<logger name="org.eclipse.leshan" level="TRACE" />
-	<logger name="org.eclipse.leshan.core.californium.LwM2mCoapResource" level="TRACE"/>
-	<logger name="org.eclipse.leshan.server.security.SecurityCheck" level="TRACE" />
-	<logger name="org.eclipse.leshan.server.bootstrap.DefaultBootstrapHandler" level="TRACE" />
-	<logger name="org.eclipse.leshan.core.model.LwM2mModel" level="TRACE" />
+	<logger name="org.eclipse.leshan" level="INFO" />
+	<logger name="org.eclipse.leshan.core.californium.LwM2mCoapResource" level="DEBUG"/>
+	<logger name="org.eclipse.leshan.server.security.SecurityCheck" level="DEBUG" />
+	<logger name="org.eclipse.leshan.server.bootstrap.DefaultBootstrapHandler" level="DEBUG" />
+	<logger name="org.eclipse.leshan.core.model.LwM2mModel" level="DEBUG" />
 </configuration>
