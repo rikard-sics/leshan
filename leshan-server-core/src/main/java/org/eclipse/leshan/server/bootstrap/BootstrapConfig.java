@@ -225,7 +225,7 @@ public class BootstrapConfig implements Serializable {
          * Bootstrap-Server Account lifetime is infinite.
          */
         public Integer bootstrapServerAccountTimeout = 0;
-        public Integer oscoreSecurityMode;
+        public Integer oscoreSecurityMode; // TODO RH: Should be Objlnk?
 
         @Override
         public String toString() {

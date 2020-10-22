@@ -35,7 +35,7 @@ public class ObjectLoader {
 
     private static final Logger LOG = LoggerFactory.getLogger(ObjectLoader.class);
 
-    static final String[] ddfpaths = new String[] { "LWM2M_Security-v1_0.xml", "LWM2M_Security-v1_1_1.xml",
+    static final String[] ddfpaths = new String[] { /* "LWM2M_Security-v1_0.xml", */ "LWM2M_Security-v1_1_1.xml",
                             "LWM2M_Server-v1_0.xml", "LWM2M_Server-v1_1_1.xml", "LWM2M_Access_Control-v1_0_3.xml",
                             "LWM2M_Device-v1_0_3.xml", "LWM2M_Device-v1_1.xml",
                             "LWM2M_Connectivity_Monitoring-v1_0_2.xml", "LWM2M_Connectivity_Monitoring-v1_1.xml",

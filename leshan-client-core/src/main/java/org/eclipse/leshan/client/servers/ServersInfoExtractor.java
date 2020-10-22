@@ -92,7 +92,7 @@ public class ServersInfoExtractor {
                         info.serverUri = new URI((String) security.getResource(SEC_SERVER_URI).getValue());
                         info.secureMode = getSecurityMode(security);
 
-                        // find instance id of the associated oscore object (if any)
+                        // find instance id of the associated oscore object (if any) //RH: TODO move?
                         ObjectLink oscoreObjLink = (ObjectLink) security.getResource(SEC_OSCORE_SECURITY_MODE).getValue();
                         int oscoreObjectInstanceId = oscoreObjLink.getObjectInstanceId();
 
@@ -101,10 +101,17 @@ public class ServersInfoExtractor {
                         }
 
                         boolean useOscore = oscoreObjLink.getObjectId() == OSCORE;
+                        System.out.println("USE OSCORE1: " + useOscore);
+                        System.out.println("oscoreObjLink.getObjectId() " + oscoreObjLink.getObjectId());
+                        System.out.println("OSCORE" + OSCORE);
                         if (useOscore) {
+                            LOG.trace("Bootstrap connection is using OSCORE.");
+
                             // get corresponding oscore object
                             LwM2mObjectInstance oscoreInstance = oscores.getInstance(oscoreObjectInstanceId);
-                            LOG.trace("Bootstrap connection is using OSCORE.");
+                            if (oscoreInstance == null) {
+                                LOG.error("Failed to retrieve OSCORE object for 1XXXX"); // RH FIXME
+                            }
 
                             info.useOscore = true;
                             info.masterSecret = getMasterSecret(oscoreInstance);
@@ -135,7 +142,7 @@ public class ServersInfoExtractor {
                     info.serverId = (long) security.getResource(SEC_SERVER_ID).getValue();
                     info.secureMode = getSecurityMode(security);
 
-                    // find instance id of the associated oscore object (if any)
+                    // find instance id of the associated oscore object (if any) //RH: TODO move?
                     ObjectLink oscoreObjLink = (ObjectLink) security.getResource(SEC_OSCORE_SECURITY_MODE).getValue();
                     int oscoreObjectInstanceId = oscoreObjLink.getObjectInstanceId();
 
@@ -144,10 +151,19 @@ public class ServersInfoExtractor {
                     }
 
                     boolean useOscore = oscoreObjLink.getObjectId() == OSCORE;
+                    System.out.println("USE OSCORE2: " + useOscore);
+                    System.out.println("oscoreObjLink.getObjectId() " + oscoreObjLink.getObjectId());
+                    System.out.println("INSTAANCE ID " + oscoreObjectInstanceId);
+                    System.out.println("oscores len " + oscores.getInstances().size());
+                    System.out.println("OSCORE" + OSCORE);
                     if (useOscore) {
+                        LOG.trace("Registration connection is using OSCORE.");
+
                         // get corresponding oscore object
                         LwM2mObjectInstance oscoreInstance = oscores.getInstance(oscoreObjectInstanceId);
-                        LOG.trace("Registration connection is using OSCORE.");
+                        if (oscoreInstance == null) {
+                            LOG.error("Failed to retrieve OSCORE object for 2XXXX"); // RH FIXME
+                        }
 
                         info.useOscore = true;
                         info.masterSecret = getMasterSecret(oscoreInstance);

@@ -102,6 +102,8 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
             currentEndpoint.destroy();
         }
 
+        System.out.println("CRATE ENDPOINT");
+
         // Create new endpoint
         Identity serverIdentity;
         if (serverInfo.isSecure()) {
@@ -213,6 +215,7 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
 
                 // Also add the context by the IP of the server since requests may use that
                 String serverIP = InetAddress.getByName(serverInfo.getFullUri().getHost()).getHostAddress();
+                System.out.println("SERVER IP: " + serverIP);
                 db.addContext("coap://" + serverIP, ctx);
 
             } catch (OSException | UnknownHostException e) {

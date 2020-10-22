@@ -58,8 +58,9 @@ var configFromUIToRest = function(config){
         var dm = config.dm[j];
         newConfig.security[i+j] = dm.security;
         delete dm.security;
-        newConfig.servers[j] = dm;
         newConfig.oscore[i+j] = dm.oscore;
+        delete dm.oscore;
+        newConfig.servers[j] = dm;
     }
     newConfig.toDelete = ["/0", "/1"]
     return newConfig;

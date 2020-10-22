@@ -23,10 +23,12 @@ import org.eclipse.leshan.core.node.LwM2mMultipleResource;
 import org.eclipse.leshan.core.node.LwM2mObjectInstance;
 import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.node.LwM2mSingleResource;
+import org.eclipse.leshan.core.node.ObjectLink;
 import org.eclipse.leshan.server.bootstrap.BootstrapConfig.ACLConfig;
 import org.eclipse.leshan.server.bootstrap.BootstrapConfig.OscoreObject;
 import org.eclipse.leshan.server.bootstrap.BootstrapConfig.ServerConfig;
 import org.eclipse.leshan.server.bootstrap.BootstrapConfig.ServerSecurity;
+import static org.eclipse.leshan.core.LwM2mId.*;
 
 public class BootstrapUtil {
     public static LwM2mObjectInstance convertToSecurityInstance(int instanceId, ServerSecurity securityConfig) {
@@ -57,6 +59,12 @@ public class BootstrapUtil {
             resources.add(LwM2mSingleResource.newIntegerResource(11, securityConfig.clientOldOffTime));
         if (securityConfig.bootstrapServerAccountTimeout != null)
             resources.add(LwM2mSingleResource.newIntegerResource(12, securityConfig.bootstrapServerAccountTimeout));
+        if (securityConfig.oscoreSecurityMode != null)
+        {
+            // TODO RH: Create in BootstrapConfig?
+            ObjectLink oscoreSecurityModeLink = new ObjectLink(OSCORE, securityConfig.oscoreSecurityMode);
+            resources.add(LwM2mSingleResource.newObjectLinkResource(17, oscoreSecurityModeLink));
+        }
 
         return new LwM2mObjectInstance(instanceId, resources);
     }
