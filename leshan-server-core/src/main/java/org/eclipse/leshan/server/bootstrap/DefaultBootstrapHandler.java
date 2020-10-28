@@ -214,8 +214,6 @@ public class DefaultBootstrapHandler implements BootstrapHandler {
             Integer key = securityInstancesToWrite.get(0);
             ServerSecurity securityConfig = cfg.security.get(key);
 
-            System.out.println("WWWWWWWWWWW X " + securityConfig.oscoreSecurityMode);
-
             // create write request from it
             LwM2mPath path = new LwM2mPath(0, key);
             final LwM2mNode securityInstance = BootstrapUtil.convertToSecurityInstance(key, securityConfig);
