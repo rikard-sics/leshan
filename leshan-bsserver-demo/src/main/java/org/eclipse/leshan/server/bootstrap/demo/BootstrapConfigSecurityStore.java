@@ -108,11 +108,10 @@ public class BootstrapConfigSecurityStore implements BootstrapSecurityStore {
                 }
 
                 OscoreObject value = bsConfig.oscore.get(bsOscoreSecurityMode);
-                System.out.println("HELLO123");
                 HashMapCtxDB db = OscoreHandler.getContextDB();
                 byte[] rid = Hex.decodeHex(value.oscoreRecipientId.toCharArray());
                 OSCoreCtx ctx = db.getContext(rid);
-                System.out.println("HELLO123" + ctx);
+
                 // Create the security info (will re-add the context to the db)
                 SecurityInfo securityInfo = SecurityInfo.newOSCoreInfo(endpoint, ctx);
 
