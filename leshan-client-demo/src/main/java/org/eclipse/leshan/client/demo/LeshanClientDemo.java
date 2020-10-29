@@ -536,7 +536,7 @@ public class LeshanClientDemo {
             }
         }
 
-        // RH FIXME: Needed if bootstrapping
+        // TODO OSCORE : OSCoreCoapStack should be create in Default endpoint factory
         HashMapCtxDB db = OscoreHandler.getContextDB();
         OSCoreCoapStackFactory.useAsDefault(db);
 
@@ -546,10 +546,6 @@ public class LeshanClientDemo {
         // Set parameters controlling OSCORE usage
         OSCoreSettings oscoreSettings = null;
         if (cl.hasOption("msec")) {
-
-            // db = OscoreHandler.getContextDB();
-            // TODO OSCORE : OSCoreCoapStack should be create in Default endpoint factory
-            // OSCoreCoapStackFactory.useAsDefault(db);
 
             // Parse OSCORE related command line parameters
 

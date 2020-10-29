@@ -93,7 +93,7 @@
         function submit(){
             var lwserver = tag.refs.lwserver.get_value()
             var bsserver = tag.refs.bsserver.get_value()
-
+            
             if(bsserver.secmode === "OSCORE") {
                 var bsserverOscore = bsserver.oscore;
                 var bsOscore =
