@@ -163,8 +163,6 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
                 // Attempt to generate OSCORE Context from parsed parameters
                 // Note that the sender and recipient IDs are inverted here
                 try {
-                    System.out.println(
-                            "***Creating OSCORE context SecurityDeserializer rid " + Utils.toHexString(recipientId));
                     ctx = new OSCoreCtx(masterSecret, true, aeadAlgorithm, recipientId, senderId, hkdfAlgorithm, 32,
                             masterSalt, idContext);
                 } catch (OSException e) {

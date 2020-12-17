@@ -165,18 +165,6 @@ public class BootstrapUtil {
 
     public static List<BootstrapDownlinkRequest<? extends LwM2mResponse>> toRequests(
             BootstrapConfig bootstrapConfig, ContentFormat contentFormat) {
-        System.out.println("YOLO");
-        HashMapCtxDB db = OscoreHandler.getContextDB();
-        for (int i = 0; i < 250; i++) {
-            byte[] bhyte = new byte[1];
-            bhyte[0] = (byte)i;
-            OSCoreCtx ctx = db.getContext(bhyte);
-            if (ctx != null) {
-                System.out.println("Found CTX: rid: " + ctx.getRecipientIdString() + " sid " + ctx.getSenderIdString());
-            }
-        }
-        
-        //
         List<BootstrapDownlinkRequest<? extends LwM2mResponse>> requests = new ArrayList<>();
         // handle delete
         for (String path : bootstrapConfig.toDelete) {
@@ -194,10 +182,8 @@ public class BootstrapUtil {
         for (Entry<Integer, ACLConfig> acl : bootstrapConfig.acls.entrySet()) {
             requests.add(toWriteRequest(acl.getKey(), acl.getValue(), contentFormat));
         }
-        // handle oscore //FIXME: Write also bs object back to client?
-        System.out.println("before handle oscore");
+        // handle oscore //TODO: Avoid to write also bs oscore object back to client?
         for (Entry<Integer, OscoreObject> oscore : bootstrapConfig.oscore.entrySet()) {
-            System.out.println("handle oscore, writing");
             requests.add(toWriteRequest(oscore.getKey(), oscore.getValue(), contentFormat));
         }
         return (requests);

@@ -87,7 +87,6 @@ public class JSONFileBootstrapStore extends InMemoryBootstrapConfigStore {
     }
 
     public void addToStore(String endpoint, BootstrapConfig config) throws InvalidConfigurationException {
-        System.out.println("super.add(endpoint, config);");
         super.add(endpoint, config);
     }
 
@@ -133,7 +132,6 @@ public class JSONFileBootstrapStore extends InMemoryBootstrapConfigStore {
     }
 
     private void saveToFile() {
-        System.out.println("*** Saving to file.");
         try {
             // Create file if it does not exists.
             File file = new File(filename);

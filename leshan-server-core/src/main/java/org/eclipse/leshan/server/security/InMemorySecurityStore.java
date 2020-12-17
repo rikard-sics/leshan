@@ -73,7 +73,6 @@ public class InMemorySecurityStore implements EditableSecurityStore {
 
     @Override
     public Collection<SecurityInfo> getAll() {
-        System.out.println("*** InMemorySecurityStore getAll()");
         readLock.lock();
         try {
             return Collections.unmodifiableCollection(new ArrayList<>(securityByEp.values()));
