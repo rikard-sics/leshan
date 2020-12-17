@@ -194,7 +194,7 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
 
             currentEndpoint = endpointFactory.createUnsecuredEndpoint(localAddress, coapConfig, null, db);
 
-            // Build identity for OSCORE
+            // Build server identity for OSCORE
             String sidString = Utils.toHexString(serverInfo.senderId).replace("[", "").replace("]", "").toLowerCase();
             String ridString = Utils.toHexString(serverInfo.recipientId).replace("[", "").replace("]", "")
                     .toLowerCase();

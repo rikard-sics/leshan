@@ -21,8 +21,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
 
-import org.eclipse.californium.oscore.HashMapCtxDB;
-import org.eclipse.californium.oscore.OSCoreCtx;
 import org.eclipse.leshan.core.LwM2mId;
 import org.eclipse.leshan.core.node.LwM2mMultipleResource;
 import org.eclipse.leshan.core.node.LwM2mNode;
@@ -36,7 +34,6 @@ import org.eclipse.leshan.core.request.BootstrapDownlinkRequest;
 import org.eclipse.leshan.core.request.BootstrapWriteRequest;
 import org.eclipse.leshan.core.request.ContentFormat;
 import org.eclipse.leshan.core.response.LwM2mResponse;
-import org.eclipse.leshan.server.OscoreHandler;
 import org.eclipse.leshan.server.bootstrap.BootstrapConfig.ACLConfig;
 import org.eclipse.leshan.server.bootstrap.BootstrapConfig.OscoreObject;
 import org.eclipse.leshan.server.bootstrap.BootstrapConfig.ServerConfig;
