@@ -102,7 +102,6 @@ public class ServersInfoExtractor {
 
                         boolean useOscore = oscoreObjLink.getObjectId() == OSCORE;
                         if (useOscore) {
-                            LOG.trace("Bootstrap connection is using OSCORE.");
 
                             // get corresponding oscore object
                             LwM2mObjectInstance oscoreInstance = oscores.getInstance(oscoreObjectInstanceId);
@@ -149,7 +148,6 @@ public class ServersInfoExtractor {
 
                     boolean useOscore = oscoreObjLink.getObjectId() == OSCORE;
                     if (useOscore) {
-                        LOG.trace("Registration connection is using OSCORE.");
 
                         // get corresponding oscore object
                         LwM2mObjectInstance oscoreInstance = oscores.getInstance(oscoreObjectInstanceId);
