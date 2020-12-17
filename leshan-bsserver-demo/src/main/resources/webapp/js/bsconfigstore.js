@@ -26,6 +26,13 @@ var configFromRestToUI = function(config){
             if (!newConfig.dm){
                 newConfig.dm.push({security:security});
             }
+            
+            // add oscore object (if any) to dm
+            var oscoreObjectInstanceId = security.oscoreSecurityMode;
+            var oscore = config.oscore[oscoreObjectInstanceId];
+            if(oscore){
+                newConfig.dm.push({oscore:oscore});
+            }
         }
     }
     return newConfig;
@@ -50,6 +57,8 @@ var configFromUIToRest = function(config){
         var dm = config.dm[j];
         newConfig.security[i+j] = dm.security;
         delete dm.security;
+        newConfig.oscore[i+j] = dm.oscore;
+        delete dm.oscore;
         newConfig.servers[j] = dm;
     }
     newConfig.toDelete = ["/0", "/1"]
@@ -79,7 +88,7 @@ function BsConfigStore() {
         var data = configFromUIToRest(config);
         $.ajax({
             type: "POST",
-            url: 'api/bootstrap/'+encodeURIComponent(endpoint),
+            url: 'api/bootstrap/'+endpoint,
             data: JSON.stringify(data),
             contentType:"application/json; charset=utf-8",
         }).done(function () {
@@ -95,7 +104,7 @@ function BsConfigStore() {
     self.remove = function(endpoint) {
         $.ajax({
             type: "DELETE",
-            url: 'api/bootstrap/'+encodeURIComponent(endpoint),
+            url: 'api/bootstrap/'+endpoint,
         }).done(function () {
             delete self.bsconfigs[endpoint];
             self.trigger('changed', self.bsconfigs);

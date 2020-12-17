@@ -29,6 +29,7 @@ import java.security.spec.ECPoint;
 import java.security.spec.ECPublicKeySpec;
 import java.security.spec.KeySpec;
 
+import org.eclipse.californium.core.Utils;
 import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.oscore.OSCoreCtx;
 import org.eclipse.californium.oscore.OSException;
@@ -162,6 +163,8 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
                 // Attempt to generate OSCORE Context from parsed parameters
                 // Note that the sender and recipient IDs are inverted here
                 try {
+                    System.out.println(
+                            "***Creating OSCORE context SecurityDeserializer rid " + Utils.toHexString(recipientId));
                     ctx = new OSCoreCtx(masterSecret, true, aeadAlgorithm, recipientId, senderId, hkdfAlgorithm, 32,
                             masterSalt, idContext);
                 } catch (OSException e) {

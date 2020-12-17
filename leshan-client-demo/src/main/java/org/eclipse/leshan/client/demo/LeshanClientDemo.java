@@ -744,6 +744,7 @@ public class LeshanClientDemo {
                 initializer.setInstancesForObject(SECURITY, noSecBootstap(serverURI));
                 initializer.setClassForObject(SERVER, Server.class);
             }
+            initializer.setClassForObject(OSCORE, Oscore.class);
         } else {
             if (pskIdentity != null) {
                 initializer.setInstancesForObject(SECURITY, psk(serverURI, 123, pskIdentity, pskKey));

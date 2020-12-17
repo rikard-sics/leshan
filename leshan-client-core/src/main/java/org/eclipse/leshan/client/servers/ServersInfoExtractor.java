@@ -138,15 +138,27 @@ public class ServersInfoExtractor {
                     info.serverId = (long) security.getResource(SEC_SERVER_ID).getValue();
                     info.secureMode = getSecurityMode(security);
 
+                    System.out.println("CORRECT SPOT");
+
                     // find instance id of the associated oscore object (if any)
                     ObjectLink oscoreObjLink = (ObjectLink) security.getResource(SEC_OSCORE_SECURITY_MODE).getValue();
+
+                    if (oscoreObjLink != null) {
+                    System.out.println("oscore sec link: " + oscoreObjLink.getObjectId() + " "
+                            + oscoreObjLink.getObjectInstanceId());
+                    } else {
+                        System.out.println("oscore sec link is NULL!!!");
+                    }
                     int oscoreObjectInstanceId = oscoreObjLink.getObjectInstanceId();
 
                     if (!oscoreObjLink.isNullLink() && oscoreObjLink.getObjectId() != OSCORE) {
                         LOG.warn("The security object's 'OSCORE Security Mode' links to an incorrect object type.");
+                        System.out.println(
+                                "The security object's 'OSCORE Security Mode' links to an incorrect object type.");
                     }
 
                     boolean useOscore = oscoreObjLink.getObjectId() == OSCORE;
+                    System.out.println("USE OSCORE " + useOscore);
                     if (useOscore) {
                         LOG.trace("Registration connection is using OSCORE.");
 

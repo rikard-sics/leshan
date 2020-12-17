@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
+import java.util.stream.Collectors;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -111,6 +112,13 @@ public class BootstrapServlet extends HttpServlet {
             if (cfg == null) {
                 sendError(resp, HttpServletResponse.SC_BAD_REQUEST, "no content");
             } else {
+                System.out.println("bsStore.add(endpoint, cfg);");
+                System.out.println("REQ: " + req.getPathInfo());
+                System.out.println("REQ: " + req.getRequestURI());
+                System.out.println("REQ: " + req.getQueryString());
+                // String test = req.getReader().lines().collect(Collectors.joining(System.lineSeparator()));
+                // System.out.println("REQ " + test);
+                System.out.println("");
                 bsStore.add(endpoint, cfg);
                 resp.setStatus(HttpServletResponse.SC_OK);
             }

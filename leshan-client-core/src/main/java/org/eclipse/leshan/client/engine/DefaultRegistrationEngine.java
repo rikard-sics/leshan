@@ -801,15 +801,18 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
         if (identity == null)
             return null;
         ServerIdentity bootstrapServer = currentBoostrapServer.get();
+        System.out.println("*** bootstrapServer.getIdentity() " + bootstrapServer.getIdentity());
         if (bootstrapServer != null && identity.equals(bootstrapServer.getIdentity())) {
             return bootstrapServer;
         } else {
             for (ServerIdentity server : registeringServers) {
+                System.out.println("*** 1server.getIdentity() " + server.getIdentity());
                 if (identity.equals(server.getIdentity())) {
                     return server;
                 }
             }
             for (ServerIdentity server : registeredServers.values()) {
+                System.out.println("*** 2server.getIdentity() " + server.getIdentity());
                 if (identity.equals(server.getIdentity())) {
                     return server;
                 }

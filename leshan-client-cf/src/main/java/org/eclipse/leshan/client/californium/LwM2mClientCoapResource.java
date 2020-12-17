@@ -50,6 +50,8 @@ public class LwM2mClientCoapResource extends LwM2mCoapResource {
      */
     protected ServerIdentity getServerOrRejectRequest(CoapExchange exchange) {
         Identity extractedIdentity = extractIdentity(exchange);
+        System.out.println("*** extractedIdentity " + extractedIdentity);
+        System.out.println("*** extractedIdentity.getOscoreIdentity() " + extractedIdentity.getOscoreIdentity());
 
         // search if we are in communication with this server.
         ServerIdentity server = getServer(extractedIdentity);

@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.eclipse.californium.core.Utils;
 import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.oscore.HashMapCtxDB;
@@ -82,6 +83,8 @@ public class InMemoryBootstrapConfigStore implements EditableBootstrapConfigStor
             bootstrapByPskId.put(pskToAdd, config);
         }
         addOscoreContext(config);
+        System.out.println("HELLO FROM ADDER");
+        System.out.println("OSCORE SIZE: " + config.oscore.values().size());
     }
 
     protected void checkConfig(String endpoint, BootstrapConfig config) throws InvalidConfigurationException {
@@ -113,21 +116,24 @@ public class InMemoryBootstrapConfigStore implements EditableBootstrapConfigStor
 
     @Override
     public Map<String, BootstrapConfig> getAll() {
+        System.out.println("*** InMemoryBootstrapConfigStore getAll()");
         return Collections.unmodifiableMap(bootstrapByEndpoint);
     }
 
     // If an OSCORE configuration came, add it to the context db
     // TODO this should be done via a kind of OSCORE Store
     public void addOscoreContext(BootstrapConfig config) {
+        System.out.println("ADD OSCORE CALLED");
         HashMapCtxDB db = OscoreHandler.getContextDB();
         for (ServerSecurity security : config.security.values()) {
-
+            System.out.println("INSIDE ADD OSCORE CALLED");
             // Make sure to only add OSCORE context for the BS-Client connection
             BootstrapConfig.OscoreObject osc = config.oscore.get(security.oscoreSecurityMode);
             if (!security.bootstrapServer || osc == null) {
+                System.out.println("FAILED FINDING TO ADD");
                 continue;
             }
-
+            System.out.println("TRYING TO ADD");
             LOG.trace("Adding OSCORE context information to the context database");
             try {
 
@@ -153,6 +159,9 @@ public class InMemoryBootstrapConfigStore implements EditableBootstrapConfigStor
 
                 // Replay window default value
                 int replayWindow = 32;
+
+                System.out.println("***Creating OSCORE context InMemoryBootstrapConfigStore rid "
+                        + Utils.toHexString(recipientId));
 
                 OSCoreCtx ctx = new OSCoreCtx(masterSecret, false, aeadAlg, senderId, recipientId, hkdfAlg,
                         replayWindow, masterSalt, idContext);

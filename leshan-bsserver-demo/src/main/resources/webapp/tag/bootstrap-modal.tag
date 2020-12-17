@@ -35,7 +35,7 @@
                                                     unsecuri= { "coap://" + location.hostname + ":" + serverdata.unsecuredEndpointPort }
                                                     serverpubkey= {serversecurity.rpk.hexDer}
                                                     servercertificate= {serversecurity.certificate.hexDer}
-                                                    disable = { {uri:true, serverpubkey:true, servercertificate:true}}
+                                                    disable = { {uri:true, serverpubkey:true, servercertificate:true}}
                                                     secmode = { {no_sec:true, psk:true,rpk:true, x509:true, oscore:true}}
                                                     ></securityconfig-input>
                         </div>
@@ -77,7 +77,7 @@
 
         // Tag functions
         function has_error(){
-            var endpoint_has_error = (tag.endpoint.error === undefined || tag.endpoint.error);
+            var endpoint_has_error = (tag.endpoint.error === undefined || tag.endpoint.error);
             return endpoint_has_error || tag.refs.lwserver.has_error() || tag.refs.bsserver.has_error();
         }
 

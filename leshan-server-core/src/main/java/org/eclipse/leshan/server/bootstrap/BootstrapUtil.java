@@ -21,6 +21,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
 
+import org.eclipse.californium.oscore.HashMapCtxDB;
+import org.eclipse.californium.oscore.OSCoreCtx;
 import org.eclipse.leshan.core.LwM2mId;
 import org.eclipse.leshan.core.node.LwM2mMultipleResource;
 import org.eclipse.leshan.core.node.LwM2mNode;
@@ -28,11 +30,13 @@ import org.eclipse.leshan.core.node.LwM2mObjectInstance;
 import org.eclipse.leshan.core.node.LwM2mPath;
 import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.node.LwM2mSingleResource;
+import org.eclipse.leshan.core.node.ObjectLink;
 import org.eclipse.leshan.core.request.BootstrapDeleteRequest;
 import org.eclipse.leshan.core.request.BootstrapDownlinkRequest;
 import org.eclipse.leshan.core.request.BootstrapWriteRequest;
 import org.eclipse.leshan.core.request.ContentFormat;
 import org.eclipse.leshan.core.response.LwM2mResponse;
+import org.eclipse.leshan.server.OscoreHandler;
 import org.eclipse.leshan.server.bootstrap.BootstrapConfig.ACLConfig;
 import org.eclipse.leshan.server.bootstrap.BootstrapConfig.OscoreObject;
 import org.eclipse.leshan.server.bootstrap.BootstrapConfig.ServerConfig;
@@ -67,7 +71,11 @@ public class BootstrapUtil {
             resources.add(LwM2mSingleResource.newIntegerResource(11, securityConfig.clientOldOffTime));
         if (securityConfig.bootstrapServerAccountTimeout != null)
             resources.add(LwM2mSingleResource.newIntegerResource(12, securityConfig.bootstrapServerAccountTimeout));
-
+        if (securityConfig.oscoreSecurityMode != null) {
+            // integer value needs to be made into an object link
+            ObjectLink oscoreSecurityModeLink = new ObjectLink(LwM2mId.OSCORE, securityConfig.oscoreSecurityMode);
+            resources.add(LwM2mSingleResource.newObjectLinkResource(17, oscoreSecurityModeLink));
+        }
         return new LwM2mObjectInstance(instanceId, resources);
     }
 
@@ -157,6 +165,18 @@ public class BootstrapUtil {
 
     public static List<BootstrapDownlinkRequest<? extends LwM2mResponse>> toRequests(
             BootstrapConfig bootstrapConfig, ContentFormat contentFormat) {
+        System.out.println("YOLO");
+        HashMapCtxDB db = OscoreHandler.getContextDB();
+        for (int i = 0; i < 250; i++) {
+            byte[] bhyte = new byte[1];
+            bhyte[0] = (byte)i;
+            OSCoreCtx ctx = db.getContext(bhyte);
+            if (ctx != null) {
+                System.out.println("Found CTX: rid: " + ctx.getRecipientIdString() + " sid " + ctx.getSenderIdString());
+            }
+        }
+        
+        //
         List<BootstrapDownlinkRequest<? extends LwM2mResponse>> requests = new ArrayList<>();
         // handle delete
         for (String path : bootstrapConfig.toDelete) {
@@ -174,8 +194,10 @@ public class BootstrapUtil {
         for (Entry<Integer, ACLConfig> acl : bootstrapConfig.acls.entrySet()) {
             requests.add(toWriteRequest(acl.getKey(), acl.getValue(), contentFormat));
         }
-        // handle oscore
+        // handle oscore //FIXME: Write also bs object back to client?
+        System.out.println("before handle oscore");
         for (Entry<Integer, OscoreObject> oscore : bootstrapConfig.oscore.entrySet()) {
+            System.out.println("handle oscore, writing");
             requests.add(toWriteRequest(oscore.getKey(), oscore.getValue(), contentFormat));
         }
         return (requests);
