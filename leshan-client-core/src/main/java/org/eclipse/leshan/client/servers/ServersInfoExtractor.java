@@ -92,25 +92,22 @@ public class ServersInfoExtractor {
                         info.serverUri = new URI((String) security.getResource(SEC_SERVER_URI).getValue());
                         info.secureMode = getSecurityMode(security);
 
-                        // find associated oscore instance (if any)
-                        LwM2mObjectInstance oscoreInstance = null;
-                        ObjectLink oscoreObjLink = (ObjectLink) security.getResource(SEC_OSCORE_SECURITY_MODE)
-                                .getValue();
-                        if (oscoreObjLink != null) {
-                            int oscoreObjectInstanceId = oscoreObjLink.getObjectInstanceId();
-                            if (!oscoreObjLink.isNullLink() && oscoreObjLink.getObjectId() != OSCORE) {
-                                LOG.warn(
-                                        "The security object's 'OSCORE Security Mode' links to an incorrect object type.");
-                            } else {
-                                oscoreInstance = oscores.getInstance(oscoreObjectInstanceId);
-                                if (oscoreInstance == null) {
-                                    // maybe we should use same log level for this one and the other just above
-                                    LOG.error("Failed to retrieve OSCORE object linked from BS security object");
-                                }
-                            }
+                        // find instance id of the associated oscore object (if any)
+                        ObjectLink oscoreObjLink = (ObjectLink) security.getResource(SEC_OSCORE_SECURITY_MODE).getValue();
+                        int oscoreObjectInstanceId = oscoreObjLink.getObjectInstanceId();
+
+                        if (!oscoreObjLink.isNullLink() && oscoreObjLink.getObjectId() != OSCORE) {
+                            LOG.warn("The security object's 'OSCORE Security Mode' links to an incorrect object type.");
                         }
 
-                        if (oscoreInstance != null) {
+                        boolean useOscore = oscoreObjLink.getObjectId() == OSCORE;
+                        if (useOscore) {
+                            // get corresponding oscore object
+                            LwM2mObjectInstance oscoreInstance = oscores.getInstance(oscoreObjectInstanceId);
+                            if (oscoreInstance == null) {
+                                LOG.error("Failed to retrieve OSCORE object linked from BS security object");
+                            }
+
                             info.useOscore = true;
                             info.masterSecret = getMasterSecret(oscoreInstance);
                             info.senderId = getSenderId(oscoreInstance);
@@ -140,23 +137,21 @@ public class ServersInfoExtractor {
                     info.serverId = (long) security.getResource(SEC_SERVER_ID).getValue();
                     info.secureMode = getSecurityMode(security);
 
-                    // find associated oscore instance (if any)
-                    LwM2mObjectInstance oscoreInstance = null;
+                    // find instance id of the associated oscore object (if any)
                     ObjectLink oscoreObjLink = (ObjectLink) security.getResource(SEC_OSCORE_SECURITY_MODE).getValue();
-                    if (oscoreObjLink != null) {
-                        int oscoreObjectInstanceId = oscoreObjLink.getObjectInstanceId();
-                        if (!oscoreObjLink.isNullLink() && oscoreObjLink.getObjectId() != OSCORE) {
-                            LOG.warn("The security object's 'OSCORE Security Mode' links to an incorrect object type.");
-                        } else {
-                            oscoreInstance = oscores.getInstance(oscoreObjectInstanceId);
-                            if (oscoreInstance == null) {
-                                // maybe we should use same log level for this one and the other just above
-                                LOG.error("Failed to retrieve OSCORE object linked from DM security object");
-                            }
-                        }
+                    int oscoreObjectInstanceId = oscoreObjLink.getObjectInstanceId();
+
+                    if (!oscoreObjLink.isNullLink() && oscoreObjLink.getObjectId() != OSCORE) {
+                        LOG.warn("The security object's 'OSCORE Security Mode' links to an incorrect object type.");
                     }
 
-                    if (oscoreInstance != null) {
+                    boolean useOscore = oscoreObjLink.getObjectId() == OSCORE;
+                    if (useOscore) {
+                        // get corresponding oscore object
+                        LwM2mObjectInstance oscoreInstance = oscores.getInstance(oscoreObjectInstanceId);
+                        if (oscoreInstance == null) {
+                            LOG.error("Failed to retrieve OSCORE object linked from DM security object");
+                        }
                         info.useOscore = true;
                         info.masterSecret = getMasterSecret(oscoreInstance);
                         info.senderId = getSenderId(oscoreInstance);
