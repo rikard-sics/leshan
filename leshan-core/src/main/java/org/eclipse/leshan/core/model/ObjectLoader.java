@@ -12,6 +12,7 @@
  * 
  * Contributors:
  *     Sierra Wireless - initial API and implementation
+ *     Rikard Höglund (RISE) - Additions to support EDHOC
  *******************************************************************************/
 package org.eclipse.leshan.core.model;
 
@@ -41,7 +42,7 @@ public class ObjectLoader {
                             "LWM2M_Connectivity_Monitoring-v1_0_2.xml", "LWM2M_Connectivity_Monitoring-v1_1.xml",
                             "LWM2M_Connectivity_Monitoring-v1_2.xml", "LWM2M_Firmware_Update-v1_0_3.xml",
                             "LWM2M_Location-v1_0_2.xml", "LWM2M_Connectivity_Statistics-v1_0_4.xml",
-                            "LWM2M_OSCORE-v1_0_1.xml", };
+                            "LWM2M_OSCORE-v1_0_1.xml", "LWM2M_EDHOC-v1_0_1.xml", };
 
     /**
      * Load last embedded version of default LWM2M objects. So the list contain only one model by object.

@@ -13,6 +13,7 @@
  * Contributors:
  *     Sierra Wireless - initial API and implementation
  *     Rikard Höglund (RISE) - additions to support OSCORE
+ *     Rikard Höglund (RISE) - additions to support EDHOC
  *******************************************************************************/
 package org.eclipse.leshan.server.bootstrap;
 
@@ -36,6 +37,7 @@ import org.eclipse.leshan.core.request.BootstrapWriteRequest;
 import org.eclipse.leshan.core.request.ContentFormat;
 import org.eclipse.leshan.core.response.LwM2mResponse;
 import org.eclipse.leshan.server.bootstrap.BootstrapConfig.ACLConfig;
+import org.eclipse.leshan.server.bootstrap.BootstrapConfig.EdhocObject;
 import org.eclipse.leshan.server.bootstrap.BootstrapConfig.OscoreObject;
 import org.eclipse.leshan.server.bootstrap.BootstrapConfig.ServerConfig;
 import org.eclipse.leshan.server.bootstrap.BootstrapConfig.ServerSecurity;
@@ -155,6 +157,42 @@ public class BootstrapUtil {
         return new BootstrapWriteRequest(path, securityInstance, contentFormat);
     }
 
+    public static LwM2mObjectInstance toEdhocInstance(int instanceId, EdhocObject edhocConfig) {
+        Collection<LwM2mResource> resources = new ArrayList<>();
+
+        if (edhocConfig.initiator != null)
+            resources.add(LwM2mSingleResource.newBooleanResource(0, edhocConfig.initiator));
+        if (edhocConfig.authenticationMethod != null)
+            resources.add(LwM2mSingleResource.newUnsignedIntegerResource(1, edhocConfig.authenticationMethod));
+        if (edhocConfig.ciphersuite != null)
+            resources.add(LwM2mSingleResource.newUnsignedIntegerResource(2, edhocConfig.ciphersuite));
+        if (edhocConfig.credentialIdentifier != null)
+            resources.add(LwM2mSingleResource.newBinaryResource(3, edhocConfig.credentialIdentifier));
+        if (edhocConfig.publicCredential != null)
+            resources.add(LwM2mSingleResource.newBinaryResource(4, edhocConfig.publicCredential));
+        if (edhocConfig.privateKey != null)
+            resources.add(LwM2mSingleResource.newBinaryResource(5, edhocConfig.privateKey));
+        if (edhocConfig.serverCredentialIdentifier != null)
+            resources.add(LwM2mSingleResource.newBinaryResource(6, edhocConfig.serverCredentialIdentifier));
+        if (edhocConfig.serverPublicKey != null)
+            resources.add(LwM2mSingleResource.newBinaryResource(7, edhocConfig.serverPublicKey));
+        if (edhocConfig.oscoreMasterSecretLength != null)
+            resources.add(LwM2mSingleResource.newUnsignedIntegerResource(8, edhocConfig.oscoreMasterSecretLength));
+        if (edhocConfig.oscoreMasterSaltLength != null)
+            resources.add(LwM2mSingleResource.newUnsignedIntegerResource(9, edhocConfig.oscoreMasterSaltLength));
+        if (edhocConfig.edhocOscoreCombined != null)
+            resources.add(LwM2mSingleResource.newBooleanResource(10, edhocConfig.edhocOscoreCombined));
+
+        return new LwM2mObjectInstance(instanceId, resources);
+    }
+
+    public static BootstrapWriteRequest toWriteRequest(int instanceId, EdhocObject edhocConfig,
+            ContentFormat contentFormat) {
+        LwM2mPath path = new LwM2mPath(LwM2mId.EDHOC, instanceId);
+        final LwM2mNode securityInstance = BootstrapUtil.toEdhocInstance(instanceId, edhocConfig);
+        return new BootstrapWriteRequest(path, securityInstance, contentFormat);
+    }
+
     public static List<BootstrapDownlinkRequest<? extends LwM2mResponse>> toRequests(BootstrapConfig bootstrapConfig) {
         return toRequests(bootstrapConfig, ContentFormat.TLV);
     }
@@ -182,6 +220,26 @@ public class BootstrapUtil {
         for (Entry<Integer, OscoreObject> oscore : bootstrapConfig.oscore.entrySet()) {
             requests.add(toWriteRequest(oscore.getKey(), oscore.getValue(), contentFormat));
         }
+        // handle edhoc
+        for (Entry<Integer, EdhocObject> edhoc : bootstrapConfig.edhoc.entrySet()) {
+            requests.add(toWriteRequest(edhoc.getKey(), edhoc.getValue(), contentFormat));
+        }
+
+        // handle edhoc (for testing TODO: Remove)
+        EdhocObject edhocTest = new EdhocObject();
+        edhocTest.initiator = true;
+        edhocTest.authenticationMethod = 1L;
+        edhocTest.ciphersuite = 1L;
+        edhocTest.credentialIdentifier = new byte[] { (byte) 0xAA, (byte) 0xAA };
+        edhocTest.publicCredential = new byte[] { (byte) 0xBB, (byte) 0xBB };
+        edhocTest.privateKey = new byte[] { (byte) 0xCC, (byte) 0xCC };
+        edhocTest.serverCredentialIdentifier = new byte[] { (byte) 0xDD, (byte) 0xDD };
+        edhocTest.serverPublicKey = new byte[] { (byte) 0xEE, (byte) 0xEE };
+        edhocTest.oscoreMasterSecretLength = 8L;
+        edhocTest.oscoreMasterSaltLength = 8L;
+        edhocTest.edhocOscoreCombined = false;
+        requests.add(toWriteRequest(33, edhocTest, contentFormat));
+
         return (requests);
     }
 }

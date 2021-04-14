@@ -13,6 +13,7 @@
  * Contributors:
  *     Sierra Wireless - initial API and implementation
  *     Rikard Höglund (RISE) - additions to support OSCORE
+ *     Rikard Höglund (RISE) - Additions to support EDHOC
  *******************************************************************************/
 package org.eclipse.leshan.server.bootstrap;
 
@@ -26,6 +27,7 @@ import java.util.Map;
 
 import org.eclipse.leshan.core.SecurityMode;
 import org.eclipse.leshan.core.request.BindingMode;
+import org.eclipse.leshan.core.util.Hex;
 
 /**
  * A client configuration to apply to a device during a bootstrap session.
@@ -70,6 +72,11 @@ public class BootstrapConfig implements Serializable {
      * Map indexed by OSCORE Object Instance Id. Key is the OSCORE Object Instance to write.
      */
     public Map<Integer, OscoreObject> oscore = new HashMap<>();
+
+    /**
+     * Map indexed by EDHOC Object Instance Id. Key is the EDHOC Object Instance to write.
+     */
+    public Map<Integer, EdhocObject> edhoc = new HashMap<>();
 
     /** Server Configuration (object 1) as defined in LWM2M 1.0.x TS. */
     public static class ServerConfig implements Serializable {
@@ -312,6 +319,36 @@ public class BootstrapConfig implements Serializable {
             return String.format(
                     "OscoreObject [oscoreSenderId=%s, oscoreRecipientId=%s, oscoreAeadAlgorithm=%s, oscoreHmacAlgorithm=%s]",
                     oscoreSenderId, oscoreRecipientId, oscoreAeadAlgorithm, oscoreHmacAlgorithm);
+        }
+    }
+
+    /** edhoc configuration (object 99) */
+    // TODO EDHOC : add some javadoc
+    public static class EdhocObject implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        public Boolean initiator = null;
+        public Long authenticationMethod = null;
+        public Long ciphersuite = null;
+        public byte[] credentialIdentifier = null;
+        public byte[] publicCredential = null;
+        public byte[] privateKey = null;
+        public byte[] serverCredentialIdentifier = null;
+        public byte[] serverPublicKey = null;
+        public Long oscoreMasterSecretLength = null;
+        public Long oscoreMasterSaltLength = null;
+        public Boolean edhocOscoreCombined = null;
+
+        @Override
+        public String toString() {
+            return String.format(
+                    "EdhocObject [initiator=%s, authenticationMethod=%s, ciphersuite=%s, credentialIdentifier=%s, publicCredential=%s, privateKey=%s, "
+                            + "serverCredentialIdentifier=%s, serverPublicKey=%s, oscoreMasterSecretLength=%s, oscoreMasterSaltLength=%s, edhocOscoreCombined]",
+                    initiator.toString(), authenticationMethod.toString(), ciphersuite.toString(),
+                    Hex.encodeHexString(credentialIdentifier), Hex.encodeHexString(publicCredential),
+                    Hex.encodeHexString(privateKey), Hex.encodeHexString(serverCredentialIdentifier),
+                    Hex.encodeHexString(serverPublicKey), oscoreMasterSecretLength.toString(),
+                    oscoreMasterSaltLength.toString(), edhocOscoreCombined.toString());
         }
     }
 
