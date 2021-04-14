@@ -13,6 +13,7 @@
  * Contributors:
  *     Sierra Wireless - initial API and implementation
  *     Rikard Höglund (RISE SICS) - Additions to support OSCORE
+ *     Rikard Höglund (RISE) - Additions to support EDHOC
  *******************************************************************************/
 package org.eclipse.leshan.core;
 
@@ -33,6 +34,7 @@ public interface LwM2mId {
     public static final int CONNECTIVITY_STATISTICS = 7;
     public static final int SOFTWARE_MANAGEMENT = 9;
     public static final int OSCORE = 21;
+    public static final int EDHOC = 99;
 
     /* SECURITY RESOURCES */
 
