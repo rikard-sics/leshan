@@ -17,10 +17,15 @@ package org.eclipse.leshan.server.bootstrap;
 
 import static org.eclipse.leshan.server.bootstrap.BootstrapFailureCause.*;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.eclipse.californium.oscore.HashMapCtxDB;
+import org.eclipse.californium.oscore.OSCoreCtx;
+import org.eclipse.californium.oscore.OSException;
 import org.eclipse.leshan.core.request.BootstrapDownlinkRequest;
 import org.eclipse.leshan.core.request.BootstrapFinishRequest;
 import org.eclipse.leshan.core.request.BootstrapRequest;
@@ -31,6 +36,7 @@ import org.eclipse.leshan.core.response.ErrorCallback;
 import org.eclipse.leshan.core.response.LwM2mResponse;
 import org.eclipse.leshan.core.response.ResponseCallback;
 import org.eclipse.leshan.core.response.SendableResponse;
+import org.eclipse.leshan.server.OscoreHandler;
 import org.eclipse.leshan.server.bootstrap.BootstrapSessionManager.BootstrapPolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -128,6 +134,24 @@ public class DefaultBootstrapHandler implements BootstrapHandler {
     }
 
     protected void startBootstrap(BootstrapSession session, BootstrapConfiguration cfg) {
+
+        // Temporary workaround for OSCORE Appendix B.2 issue in Californium
+        // TODO: Can be removed when going to Californium 2.6.3 or 3.0.0
+        // ===
+        OSCoreCtx ctx = null;
+        try {
+            URI clientUri = new URI("coap", session.getIdentity().getPeerAddress().getHostString(), "", "");
+            HashMapCtxDB db = OscoreHandler.getContextDB();
+            ctx = db.getContext(clientUri.toString());
+        } catch (URISyntaxException | OSException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        if (ctx != null && ctx.getSenderSeq() == 0) {
+            ctx.setSenderSeq(1);
+        }
+        // ===
+
         sendRequest(session, cfg, new ArrayList<>(cfg.getRequests()));
     }
 

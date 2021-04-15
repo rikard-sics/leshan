@@ -24,11 +24,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.servlet.http.HttpServletRequest;
 
 import org.eclipse.californium.core.network.Endpoint;
+import org.eclipse.californium.oscore.HashMapCtxDB;
+import org.eclipse.californium.oscore.OSCoreCtx;
+import org.eclipse.californium.oscore.OSException;
 import org.eclipse.jetty.servlets.EventSource;
 import org.eclipse.jetty.servlets.EventSourceServlet;
 import org.eclipse.leshan.core.node.LwM2mNode;
 import org.eclipse.leshan.core.observation.Observation;
 import org.eclipse.leshan.core.response.ObserveResponse;
+import org.eclipse.leshan.server.OscoreHandler;
 import org.eclipse.leshan.server.californium.LeshanServer;
 import org.eclipse.leshan.server.demo.servlet.json.LwM2mNodeSerializer;
 import org.eclipse.leshan.server.demo.servlet.json.RegistrationSerializer;
@@ -178,6 +182,30 @@ public class EventServlet extends EventSourceServlet {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Dispatching {} event from endpoint {}", event, endpoint);
         }
+
+        // Temporary workaround for OSCORE Appendix B.2 issue in Californium
+        // TODO: Can be removed when going to Californium 2.6.3 or 3.0.0
+        // ===
+        if (event.equals("REGISTRATION")) {
+            String[] datas = data.split(",");
+            String address = "";
+            for (int i = 0; i < datas.length; i++) {
+                if (datas[i].startsWith("\"address")) {
+                    address = datas[i].replace("\"address\":\"", "").replace("\"", "");
+                }
+            }
+            HashMapCtxDB db = OscoreHandler.getContextDB();
+            OSCoreCtx ctx = null;
+            try {
+                ctx = db.getContext("coap://" + address);
+            } catch (OSException e) {
+                // May or may not be using OSCORE
+            }
+            if (ctx != null && ctx.getSenderSeq() == 0) {
+                ctx.setSenderSeq(1);
+            }
+        }
+        // ===
 
         for (LeshanEventSource eventSource : eventSources) {
             if (eventSource.getEndpoint() == null || eventSource.getEndpoint().equals(endpoint)) {
