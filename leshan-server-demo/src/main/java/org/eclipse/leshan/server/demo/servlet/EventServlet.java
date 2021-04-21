@@ -184,6 +184,8 @@ public class EventServlet extends EventSourceServlet {
         }
 
         // Temporary workaround for OSCORE Appendix B.2 issue in Californium
+        // TODO: Can be removed when going to Californium 2.6.3 or 3.0.0
+        // ===
         if (event.equals("REGISTRATION")) {
             String[] datas = data.split(",");
             String address = "";
@@ -199,10 +201,11 @@ public class EventServlet extends EventSourceServlet {
             } catch (OSException e) {
                 // May or may not be using OSCORE
             }
-            if (ctx != null) {
+            if (ctx != null && ctx.getSenderSeq() == 0) {
                 ctx.setSenderSeq(1);
             }
         }
+        // ===
 
         for (LeshanEventSource eventSource : eventSources) {
             if (eventSource.getEndpoint() == null || eventSource.getEndpoint().equals(endpoint)) {

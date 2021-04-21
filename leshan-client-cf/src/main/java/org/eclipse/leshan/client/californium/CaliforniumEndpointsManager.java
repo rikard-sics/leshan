@@ -235,6 +235,7 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
                 // Support Appendix B.2 functionality
                 ctx.setContextRederivationEnabled(true);
                 // Set to initiate Appendix B.2 procedure on first sent request
+                // To either server or bs server
                 ctx.setContextRederivationPhase(PHASE.CLIENT_INITIATE);
 
                 db.addContext("coap://" + serverIP, ctx);
