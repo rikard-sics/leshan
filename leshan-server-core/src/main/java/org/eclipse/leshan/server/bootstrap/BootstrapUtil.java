@@ -228,19 +228,39 @@ public class BootstrapUtil {
             requests.add(toWriteRequest(edhoc.getKey(), edhoc.getValue(), contentFormat));
         }
 
-        // handle edhoc (for testing TODO: Remove)
+        // handle edhoc (for testing TODO RH: Remove)
         EdhocObject edhocTest = new EdhocObject();
         edhocTest.initiator = true;
-        edhocTest.authenticationMethod = 1L;
-        edhocTest.ciphersuite = 1L;
-        edhocTest.credentialIdentifier = new byte[] { (byte) 0xAA, (byte) 0xAA };
-        edhocTest.publicCredential = new byte[] { (byte) 0xBB, (byte) 0xBB };
-        edhocTest.privateKey = new byte[] { (byte) 0xCC, (byte) 0xCC };
-        edhocTest.serverCredentialIdentifier = new byte[] { (byte) 0xDD, (byte) 0xDD };
-        edhocTest.serverPublicKey = new byte[] { (byte) 0xEE, (byte) 0xEE };
+        edhocTest.authenticationMethod = 0L;
+        edhocTest.ciphersuite = 0L;
+        edhocTest.credentialIdentifier = new byte[] { (byte) 0x2E };
+        edhocTest.publicCredential = new byte[] { (byte) 0x89, (byte) 0x8f, (byte) 0xf7, (byte) 0x9a, (byte) 0x02,
+                                (byte) 0x06, (byte) 0x7a, (byte) 0x16, (byte) 0xea, (byte) 0x1e, (byte) 0xcc,
+                                (byte) 0xb9, (byte) 0x0f, (byte) 0xa5, (byte) 0x22, (byte) 0x46, (byte) 0xf5,
+                                (byte) 0xaa, (byte) 0x4d, (byte) 0xd6, (byte) 0xec, (byte) 0x07, (byte) 0x6b,
+                                (byte) 0xba, (byte) 0x02, (byte) 0x59, (byte) 0xd9, (byte) 0x04, (byte) 0xb7,
+                                (byte) 0xec, (byte) 0x8b, (byte) 0x0c };
+        edhocTest.privateKey = new byte[] { (byte) 0xE9, (byte) 0x4f, (byte) 0xa2, (byte) 0x3d, (byte) 0x06,
+                                (byte) 0x06, (byte) 0x7d, (byte) 0x16, (byte) 0xed, (byte) 0x1e, (byte) 0xcc,
+                                (byte) 0xb9, (byte) 0x0f, (byte) 0xd5, (byte) 0x66, (byte) 0x46, (byte) 0xf5,
+                                (byte) 0xdd, (byte) 0x4d, (byte) 0xd6, (byte) 0xec, (byte) 0x07, (byte) 0x6b,
+                                (byte) 0xbd, (byte) 0x06, (byte) 0x59, (byte) 0xd9, (byte) 0x04, (byte) 0xb7,
+                                (byte) 0xfc, (byte) 0x2b, (byte) 0x5c };
+        edhocTest.serverCredentialIdentifier = new byte[] { (byte) 0x34, (byte) 0xfe, (byte) 0xcd, (byte) 0x22,
+                                (byte) 0x28, (byte) 0xb9, (byte) 0x0f, (byte) 0xd5, (byte) 0x66, (byte) 0x46,
+                                (byte) 0xf5, (byte) 0x06, (byte) 0x7d, (byte) 0x16, (byte) 0xed, (byte) 0x1e,
+                                (byte) 0xcc, (byte) 0xbd, (byte) 0x06, (byte) 0x59, (byte) 0xd9, (byte) 0x04,
+                                (byte) 0xb7, (byte) 0xdd, (byte) 0x4d, (byte) 0xd6, (byte) 0xec, (byte) 0x07,
+                                (byte) 0x6b, (byte) 0x5f, (byte) 0xe1, (byte) 0xd2 };
+        edhocTest.serverPublicKey = new byte[] { (byte) 0xec, (byte) 0x8b, (byte) 0x0c, (byte) 0x9a, (byte) 0x02,
+                                (byte) 0x06, (byte) 0x7a, (byte) 0x16, (byte) 0xea, (byte) 0x1e, (byte) 0xcc,
+                                (byte) 0xb9, (byte) 0x0f, (byte) 0xa5, (byte) 0x22, (byte) 0x46, (byte) 0xf5,
+                                (byte) 0xf5, (byte) 0x06, (byte) 0x7d, (byte) 0x16, (byte) 0xed, (byte) 0x1e,
+                                (byte) 0xba, (byte) 0x02, (byte) 0x59, (byte) 0xd9, (byte) 0x04, (byte) 0xb7,
+                                (byte) 0xb4, (byte) 0x3a, (byte) 0x44 };
         edhocTest.oscoreMasterSecretLength = 8L;
         edhocTest.oscoreMasterSaltLength = 8L;
-        edhocTest.edhocOscoreCombined = false;
+        edhocTest.edhocOscoreCombined = true;
         requests.add(toWriteRequest(33, edhocTest, contentFormat));
 
         return (requests);
