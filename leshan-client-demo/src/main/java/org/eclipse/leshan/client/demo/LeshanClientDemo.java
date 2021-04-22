@@ -15,6 +15,7 @@
  *     Sierra Wireless, - initial API and implementation
  *     Bosch Software Innovations GmbH, - initial API and implementation
  *     Rikard Höglund (RISE SICS) - Additions to support OSCORE
+ *     Rikard Höglund (RISE) - Additions to support EDHOC
  *******************************************************************************/
 
 package org.eclipse.leshan.client.demo;
@@ -70,6 +71,7 @@ import org.eclipse.leshan.client.californium.LeshanClient;
 import org.eclipse.leshan.client.californium.LeshanClientBuilder;
 import org.eclipse.leshan.client.californium.OscoreHandler;
 import org.eclipse.leshan.client.engine.DefaultRegistrationEngineFactory;
+import org.eclipse.leshan.client.object.Edhoc;
 import org.eclipse.leshan.client.object.Oscore;
 import org.eclipse.leshan.client.object.Server;
 import org.eclipse.leshan.client.resource.LwM2mObjectEnabler;
@@ -744,6 +746,7 @@ public class LeshanClientDemo {
                 initializer.setClassForObject(SERVER, Server.class);
             }
             initializer.setClassForObject(OSCORE, Oscore.class);
+            initializer.setClassForObject(EDHOC, Edhoc.class);
         } else {
             if (pskIdentity != null) {
                 initializer.setInstancesForObject(SECURITY, psk(serverURI, 123, pskIdentity, pskKey));

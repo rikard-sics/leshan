@@ -57,6 +57,20 @@ public interface LwM2mId {
     public static final int OSCORE_HMAC_Algorithm = 4;
     public static final int OSCORE_Master_Salt = 5;
 
+    /* EDHOC RESOURCES */
+
+    public static final int Initiator = 0;
+    public static final int Authentication_Method = 1;
+    public static final int Ciphersuite = 2;
+    public static final int Credential_Identifier = 3;
+    public static final int Public_Credential = 4;
+    public static final int Private_Key = 5;
+    public static final int Server_Credential_Identifier = 6;
+    public static final int Server_Public_Key = 7;
+    public static final int Oscore_Master_Secret_Length = 8;
+    public static final int Oscore_Master_Salt_Length = 9;
+    public static final int Edhoc_Oscore_Combined = 10;
+
     /* SERVER RESOURCES */
 
     public static final int SRV_SERVER_ID = 0;
