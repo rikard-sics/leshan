@@ -27,7 +27,7 @@
 			<groupId>org.eclipse.californium</groupId>
 			<artifactId>californium-core</artifactId>
 		</dependency>
-		<dependency> <!-- Rikard: Added this dependency -->
+		<dependency> <!-- RH: Added this dependency -->
 			<groupId>org.eclipse.californium</groupId>
 			<artifactId>cf-oscore</artifactId>
 		</dependency>
