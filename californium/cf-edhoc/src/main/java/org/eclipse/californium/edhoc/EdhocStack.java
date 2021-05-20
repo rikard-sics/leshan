@@ -55,7 +55,6 @@ public class EdhocStack extends BaseCoapStack {
 	/**
 	 * Creates a new stack for UDP as the transport.
 	 * 
-	 * @param tag logging tag
 	 * @param config The configuration values to use.
 	 * @param outbox The adapter for submitting outbound messages to the
 	 *            transport.
@@ -67,7 +66,7 @@ public class EdhocStack extends BaseCoapStack {
 	 * @param OSCORE_REPLAY_WINDOW size of the Replay Window to use in an OSCORE Recipient Context
 	 * 
 	 */
-	public EdhocStack(String tag, final NetworkConfig config, final Outbox outbox, final OSCoreCtxDB ctxDb,
+	public EdhocStack(final NetworkConfig config, final Outbox outbox, final OSCoreCtxDB ctxDb,
 			Map<CBORObject, EdhocSession> edhocSessions, Map<CBORObject, OneKey> peerPublicKeys,
 			Map<CBORObject, CBORObject> peerCredentials, List<Set<Integer>> usedConnectionIds,
 			int OSCORE_REPLAY_WINDOW) {
@@ -81,7 +80,7 @@ public class EdhocStack extends BaseCoapStack {
 		}
 
 		Layer layers[] = new Layer[] { new ObjectSecurityContextLayer(ctxDb), new ExchangeCleanupLayer(config),
-				new ObserveLayer(config), new BlockwiseLayer(tag, false, config),
+				new ObserveLayer(config), new BlockwiseLayer(config),
 				reliabilityLayer, new ObjectSecurityLayer(ctxDb),
 				new EdhocLayer(ctxDb, edhocSessions, peerPublicKeys, peerCredentials, usedConnectionIds, OSCORE_REPLAY_WINDOW) };
 		setLayers(layers);
