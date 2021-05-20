@@ -59,6 +59,9 @@ public final class OptionNumberRegistry {
 	//TODO temporary assignment
 	public static final int OSCORE			= 9;
 
+	// EDHOC (temporary assignment)
+	public static final int EDHOC			= 21;
+
 	/**
 	 * Option names.
 	 */
@@ -88,6 +91,8 @@ public final class OptionNumberRegistry {
 		public static final String Size2			= "Size2";
 
 		public static final String Object_Security  = "Object-Security";
+
+		public static final String Edhoc            = "EDHOC";
 	}
 
 	/**
@@ -139,6 +144,9 @@ public final class OptionNumberRegistry {
 		case IF_MATCH:
 		case OSCORE:
 			return optionFormats.OPAQUE;
+		// EDHOC
+		case EDHOC:
+			return optionFormats.EMPTY;
 		default:
 			return optionFormats.UNKNOWN;
 		}
@@ -235,6 +243,7 @@ public final class OptionNumberRegistry {
 		case OBSERVE:
 		case ACCEPT:
 		case OSCORE:
+		case EDHOC: // EDHOC
 		default:
 			return true;
 		case ETAG:
@@ -314,6 +323,11 @@ public final class OptionNumberRegistry {
 			return Names.Size1;
 		case OSCORE:
 			return Names.Object_Security;
+	
+		// EDHOC
+		case EDHOC:
+			return Names.Edhoc;
+
 		default:
 			return String.format("Unknown (%d)", optionNumber);
 		}
@@ -340,6 +354,7 @@ public final class OptionNumberRegistry {
 		else if (Names.Size2.equals(name))			return SIZE2;
 		else if (Names.Size1.equals(name))			return SIZE1;
 		else if (Names.Object_Security.equals(name)) return OSCORE;
+		else if (Names.Edhoc.equals(name))          return EDHOC; // EDHOC
 		else return UNKNOWN;
 	}
 

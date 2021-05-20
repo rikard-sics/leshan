@@ -31,6 +31,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.eclipse.californium.core.Utils;
+import org.eclipse.californium.elements.util.Bytes;
 
 /**
  * {@code OptionSet} is a collection of all options of a request or a response.
@@ -79,6 +80,7 @@ public final class OptionSet {
 	private Integer      size2;
 	private Integer      observe;
 	private byte[]       oscore;
+	private boolean      edhoc; // EDHOC
 
 	// Arbitrary options
 	private List<Option> others;
@@ -118,6 +120,7 @@ public final class OptionSet {
 		size2               = null;
 		observe             = null;
 		oscore              = null;
+		edhoc               = false; // EDHOC
 
 		others              = null; // new LinkedList<>();
 	}
@@ -157,6 +160,9 @@ public final class OptionSet {
 		if(origin.oscore != null) {
 			oscore	= origin.oscore.clone();
 		}
+		// EDHOC
+		edhoc               = origin.edhoc;
+
 		others              = copyList(origin.others);
 	}
 
@@ -190,6 +196,7 @@ public final class OptionSet {
 		size2 = null;
 		observe = null;
 		oscore = null;
+		edhoc = false; // EDHOC
 		if (others != null)
 			others.clear();
 	}
@@ -1398,6 +1405,28 @@ public final class OptionSet {
 		return this;
 	}
 
+	// EDHOC
+	/**
+	 * Checks if the EDHOC option is present.
+	 * 
+	 * @return {@code true}, if present
+	 */
+	public boolean hasEdhoc() {
+		return edhoc;
+	}
+
+	// EDHOC
+	/**
+	 * Sets or unsets the EDHOC option.
+	 * 
+	 * @param present the presence of the option
+	 * @return this OptionSet for a fluent API.
+	 */
+	public OptionSet setEdhoc(boolean present) {
+		edhoc = present;
+		return this;
+	}
+
 	/**
 	 * Checks if an arbitrary option is present.
 	 * 
@@ -1486,6 +1515,10 @@ public final class OptionSet {
 		if(hasOscore())
 			options.add(new Option(OptionNumberRegistry.OSCORE, getOscore()));
 
+		// EDHOC
+		if (hasEdhoc())
+			options.add(new Option(OptionNumberRegistry.EDHOC, Bytes.EMPTY));
+
 		if (others != null)
 			options.addAll(others);
 
@@ -1531,6 +1564,12 @@ public final class OptionSet {
 			case OptionNumberRegistry.SIZE2:          setSize2(option.getIntegerValue()); break;
 			case OptionNumberRegistry.OBSERVE:        setObserve(option.getIntegerValue()); break;
 			case OptionNumberRegistry.OSCORE:         setOscore(option.getValue()); break;
+
+		// EDHOC
+		case OptionNumberRegistry.EDHOC:
+			setEdhoc(true);
+			break;
+
 			default: getOthersInternal().add(option);
 		}
 		return this;
