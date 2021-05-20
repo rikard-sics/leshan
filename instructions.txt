@@ -1,0 +1,18 @@
+*General steps
+
+1. Run "mvn eclipse:eclipse" in the leshan and californium subfolders
+
+2. Start Eclipse, then import the following projects:
+californium
+leshan
+
+3. To all the individual projects in leshan, add the following folders to the build path:
+californium-core
+cf-oscore
+cf-edhoc
+element-connector
+scandium
+
+To add dependencies:
+Right click project->Properties->Java Build Path->Add...
+
