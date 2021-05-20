@@ -86,7 +86,7 @@ public class Edhoc extends BaseInstanceEnabler {
     }
 
     @Override
-    public WriteResponse write(ServerIdentity identity, int resourceId, LwM2mResource value) {
+    public WriteResponse write(ServerIdentity identity, boolean replace, int resourceId, LwM2mResource value) {
         LOG.debug("Write on resource {}: {}", resourceId, value);
 
         // restricted to BS server?
@@ -187,7 +187,7 @@ public class Edhoc extends BaseInstanceEnabler {
             return WriteResponse.success();
 
         default:
-            return super.write(identity, resourceId, value);
+            return super.write(identity, replace, resourceId, value);
         }
 
     }

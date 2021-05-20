@@ -38,7 +38,7 @@ public class ObjectLoader {
 
     static final String[] ddfpaths = new String[] { "0-1_0.xml", "0-1_1.xml", "1-1_0.xml", "1-1_1.xml", "2-1_0.xml",
                             "3-1_0.xml", "3-1_1.xml", "4-1_0.xml", "4-1_1.xml", "4-1_2.xml", "5-1_0.xml", "6.xml",
-                            "7.xml", "21-1_0.xml", };
+                            "7.xml", "21-1_0.xml", "LWM2M_EDHOC-v1_0_1.xml", }; // TODO: RH: Rename to fit other names?
 
     /**
      * Load last embedded version of default LWM2M objects. So the list contain only one model by object.
