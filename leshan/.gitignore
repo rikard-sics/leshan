@@ -37,3 +37,7 @@ bin/
 **/*.pem
 **/*.srl
 !**/src/**/*.der
+
+# Temp files #
+*~
+
