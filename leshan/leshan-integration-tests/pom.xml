@@ -51,6 +51,7 @@ Contributors:
             <artifactId>logback-classic</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- RH: Commented out these dependencies.
         <dependency>
             <groupId>org.eclipse.californium</groupId>
             <artifactId>californium-core</artifactId>
@@ -65,6 +66,7 @@ Contributors:
             <scope>test</scope>
             <version>${californium.version}</version>
         </dependency>
+        -->
     </dependencies>
 
     <build>
