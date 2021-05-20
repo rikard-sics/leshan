@@ -54,9 +54,9 @@ import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.ConnectionId;
 import org.eclipse.californium.scandium.dtls.MultiNodeConnectionIdGenerator;
-import org.eclipse.californium.scandium.dtls.HandshakeResultHandler;
 import org.eclipse.californium.scandium.dtls.PskPublicInformation;
 import org.eclipse.californium.scandium.dtls.PskSecretResult;
+import org.eclipse.californium.scandium.dtls.PskSecretResultHandler;
 import org.eclipse.californium.scandium.dtls.SingleNodeConnectionIdGenerator;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
 import org.eclipse.californium.scandium.dtls.pskstore.AdvancedPskStore;
@@ -68,6 +68,7 @@ import org.eclipse.californium.scandium.util.ServerNames;
 /**
  * Base for test servers.
  */
+@SuppressWarnings("deprecation")
 public abstract class AbstractTestServer extends CoapServer {
 
 	public enum Protocol {
@@ -289,7 +290,7 @@ public abstract class AbstractTestServer extends CoapServer {
 					Matcher matcher = IPV6_SCOPE.matcher(name);
 					if (matcher.matches()) {
 						// apply filter also on interface name
-						name = matcher.group(1) + "%" + ((Inet6Address) addr).getScopedInterface().getName();
+						name = matcher.group(1) + "%" + ((Inet6Address)addr).getScopedInterface().getName();
 						for (String filter : selectAddress) {
 							if (name.matches(filter)) {
 								found = true;
@@ -435,9 +436,9 @@ public abstract class AbstractTestServer extends CoapServer {
 	}
 
 	protected void print(CoapEndpoint endpoint, InterfaceType interfaceType) {
-		LOGGER.info("{}listen on {} ({}) max msg size: {}, block size: {}", getTag(), endpoint.getUri(), interfaceType,
-				endpoint.getConfig().getInt(Keys.MAX_MESSAGE_SIZE),
-				endpoint.getConfig().getInt(Keys.PREFERRED_BLOCK_SIZE));
+		System.out.println("listen on " + endpoint.getUri() + " (" + interfaceType + ") max msg size: "
+				+ endpoint.getConfig().getInt(Keys.MAX_MESSAGE_SIZE) + ", block: "
+				+ endpoint.getConfig().getInt(Keys.PREFERRED_BLOCK_SIZE));
 	}
 
 	public static class PlugPskStore implements AdvancedPskStore {
@@ -467,7 +468,7 @@ public abstract class AbstractTestServer extends CoapServer {
 
 		@Override
 		public PskSecretResult requestPskSecretResult(ConnectionId cid, ServerNames serverName,
-				PskPublicInformation identity, String hmacAlgorithm, SecretKey otherSecret, byte[] seed, boolean useExtendedMasterSecret) {
+				PskPublicInformation identity, String hmacAlgorithm, SecretKey otherSecret, byte[] seed) {
 			SecretKey key = getKey(identity.getPublicInfoAsString());
 			return new PskSecretResult(cid, identity, key);
 		}
@@ -478,8 +479,8 @@ public abstract class AbstractTestServer extends CoapServer {
 		}
 
 		@Override
-		public void setResultHandler(HandshakeResultHandler resultHandler) {
-			//
+		public void setResultHandler(PskSecretResultHandler resultHandler) {
+			// 
 		}
 	}
 }

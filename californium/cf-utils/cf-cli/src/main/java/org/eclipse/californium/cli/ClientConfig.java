@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.util.Random;
 
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.CoAP.Type;
@@ -94,7 +93,7 @@ public class ClientConfig extends ClientBaseConfig {
 		 */
 		public int contentType;
 
-		public void defaults() {
+		void defaults() {
 			if (type != null) {
 				contentType = MediaTypeRegistry.parse(type);
 			} else if (text) {
@@ -138,92 +137,18 @@ public class ClientConfig extends ClientBaseConfig {
 		public String base64;
 
 		/**
-		 * Random payload size.
-		 * 
-		 * @since 3.0
-		 */
-		@Option(names = "--payload-random", description = "random payload size")
-		public Integer size;
-
-		/**
 		 * Payload from file.
 		 * 
 		 * @since 2.4
 		 */
 		@Option(names = "--payload-file", description = "payload from file")
-		public String filename;
-
-		/**
-		 * Payload in bytes.
-		 * 
-		 * (Moved from {@link ClientConfig}.)
-		 * 
-		 * @since 3.0
-		 */
-		public byte[] payloadBytes;
-
-		/**
-		 * Setup payload defaults.
-		 * 
-		 * (Moved from {@link ClientConfig}.)
-		 * 
-		 * @param max maximum supported payload size
-		 * @since 3.0
-		 */
-		public void defaults(int max) {
-			if (payloadBytes == null) {
-				if (text != null) {
-					payloadBytes = text.getBytes();
-				} else if (hex != null) {
-					payloadBytes = StringUtil.hex2ByteArray(hex);
-				} else if (base64 != null) {
-					payloadBytes = StringUtil.base64ToByteArray(base64);
-				} else if (size != null) {
-					if (size <= max) {
-						Random rand = new Random();
-						payloadBytes = new byte[(int) size];
-						for (int index=0; index < size; ++index) {
-							payloadBytes[index] = (byte)(' ' + rand.nextInt(127 - ' '));
-						}
-					} else {
-						LOGGER.error("Random payload with {} bytes is too large! (Maximum {} bytes.)", size, max);
-					}
-				} else if (filename != null) {
-					File file = new File(filename);
-					if (file.canRead()) {
-						long length = file.length();
-						if (length <= max) {
-							payloadBytes = new byte[(int)length];
-							InputStream in = null;
-							try {
-								in = new FileInputStream(file);
-								int len = in.read(payloadBytes);
-								if (len != length) {
-									LOGGER.error("file {} with {} bytes, read {} bytes!", file, length, len);
-								}
-							} catch (FileNotFoundException e) {
-								LOGGER.error("Missing file {}", file, e);
-							} catch (IOException e) {
-								LOGGER.error("Error reading file {}", file, e);
-							} finally {
-								if (in != null) {
-									try {
-										in.close();
-									} catch (IOException e) {
-										LOGGER.error("Error closing file {}", file, e);
-									}
-								}
-							}
-						} else {
-							LOGGER.error("file {} with {} bytes is too large! (Maximum {} bytes.)", file, length, max);
-						}
-					} else {
-						LOGGER.error("Can not read file {} ({})", file, file.getAbsolutePath());
-					}
-				}
-			}
-		}
+		public String file;
 	}
+
+	/**
+	 * Payload in bytes.
+	 */
+	public byte[] payloadBytes;
 
 	/**
 	 * Apply {@link String#format(String, Object...)} to payload. The used
@@ -274,9 +199,47 @@ public class ClientConfig extends ClientBaseConfig {
 		if (contentType != null) {
 			contentType.defaults();
 		}
-		if (payload != null) {
-			int max = networkConfig.getInt(Keys.MAX_RESOURCE_BODY_SIZE);
-			payload.defaults(max);
+		if (payload != null && payloadBytes == null) {
+			if (payload.text != null) {
+				payloadBytes = payload.text.getBytes();
+			} else if (payload.hex != null) {
+				payloadBytes = StringUtil.hex2ByteArray(payload.hex);
+			} else if (payload.base64 != null) {
+				payloadBytes = StringUtil.base64ToByteArray(payload.base64);
+			} else if (payload.file != null) {
+				int max = networkConfig.getInt(Keys.MAX_RESOURCE_BODY_SIZE);
+				File file = new File(payload.file);
+				if (file.canRead()) {
+					long length = file.length();
+					if (length <= max) {
+						payloadBytes = new byte[(int)length];
+						InputStream in = null;
+						try {
+							in = new FileInputStream(file);
+							int len = in.read(payloadBytes);
+							if (len != length) {
+								LOGGER.error("file {} with {} bytes, read {} bytes!", payload.file, length, len);
+							}
+						} catch (FileNotFoundException e) {
+							LOGGER.error("Missing file {}", payload.file, e);
+						} catch (IOException e) {
+							LOGGER.error("Error reading file {}", payload.file, e);
+						} finally {
+							if (in != null) {
+								try {
+									in.close();
+								} catch (IOException e) {
+									LOGGER.error("Error closing file {}", payload.file, e);
+								}
+							}
+						}
+					} else {
+						LOGGER.error("file {} with {} bytes is too large! (Maximum {} bytes.)", payload.file, length, max);
+					}
+				} else {
+					LOGGER.error("Can not read file {} ({})", payload.file, file.getAbsolutePath());
+				}
+			}
 		}
 	}
 
@@ -293,7 +256,7 @@ public class ClientConfig extends ClientBaseConfig {
 	/**
 	 * Negatable transformer. Transforms "--con" to "-non".
 	 */
-	public static INegatableOptionTransformer messageTypeTransformer = new INegatableOptionTransformer() {
+	protected static INegatableOptionTransformer messageTypeTransformer = new INegatableOptionTransformer() {
 
 		private INegatableOptionTransformer delegate = CommandLine.RegexTransformer.createDefault();
 

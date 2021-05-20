@@ -17,10 +17,13 @@
 package org.eclipse.californium.scandium.dtls;
 
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertThat;
+
+import java.net.InetSocketAddress;
 
 import org.eclipse.californium.elements.category.Small;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -28,6 +31,12 @@ import org.junit.experimental.categories.Category;
 public class ServerHelloTest {
 
 	ServerHello serverHello;
+	InetSocketAddress peerAddress;
+	
+	@Before
+	public void setUp() throws Exception {
+		peerAddress = new InetSocketAddress("localhost", 5684);
+	}
 
 	@Test
 	public void testGetClientCertificateType() {
@@ -62,11 +71,11 @@ public class ServerHelloTest {
 			ext.addExtension(new ClientCertificateTypeExtension(clientType));
 		}
 		serverHello = new ServerHello(ProtocolVersion.VERSION_DTLS_1_2, new Random(), new SessionId(),
-				CipherSuite.TLS_PSK_WITH_AES_128_CCM_8, CompressionMethod.NULL, ext);
+				CipherSuite.TLS_PSK_WITH_AES_128_CCM_8, CompressionMethod.NULL, ext, peerAddress);
 	}
 	
 	private void givenAServerHelloWithEmptyExtensions() {
 		serverHello = new ServerHello(ProtocolVersion.VERSION_DTLS_1_2, new Random(), new SessionId(),
-				CipherSuite.TLS_PSK_WITH_AES_128_CCM_8, CompressionMethod.NULL, new HelloExtensions());
+				CipherSuite.TLS_PSK_WITH_AES_128_CCM_8, CompressionMethod.NULL, new HelloExtensions(), peerAddress);
 	}
 }

@@ -113,10 +113,10 @@ public class TcpEndpointContextTest {
 		client.send(msg);
 		serverCatcher.blockUntilSize(1, MESSAGE_TIMEOUT_MILLIS);
 		EndpointContext receivingServerContext = serverCatcher.getMessage(0).getEndpointContext();
-		assertThat(receivingServerContext.getString(TcpEndpointContext.KEY_CONNECTION_ID), is(not(isEmptyOrNullString())));
+		assertThat(receivingServerContext.get(TcpEndpointContext.KEY_CONNECTION_ID), is(not(isEmptyOrNullString())));
 
 		EndpointContext clientContext = clientCallback.getEndpointContext(CONTEXT_TIMEOUT_IN_MS);
-		assertThat(clientContext.getString(TcpEndpointContext.KEY_CONNECTION_ID), is(not(isEmptyOrNullString())));
+		assertThat(clientContext.get(TcpEndpointContext.KEY_CONNECTION_ID), is(not(isEmptyOrNullString())));
 
 		// Response message must go over the same connection client already
 		// opened
@@ -318,7 +318,7 @@ public class TcpEndpointContextTest {
 		client.start();
 
 		SimpleMessageCallback clientCallback = new SimpleMessageCallback();
-		TcpEndpointContext context = new TcpEndpointContext(getDestination(server.getAddress()), "n.a.", System.currentTimeMillis());
+		TcpEndpointContext context = new TcpEndpointContext(getDestination(server.getAddress()), "n.a.");
 		RawData msg = createMessage(100, context, clientCallback);
 
 		client.send(msg);
@@ -331,7 +331,7 @@ public class TcpEndpointContextTest {
 		serverCatcher.blockUntilSize(1, MESSAGE_TIMEOUT_MILLIS);
 
 		EndpointContext clientContext = clientCallback.getEndpointContext(CONTEXT_TIMEOUT_IN_MS);
-		assertThat(clientContext.getString(TcpEndpointContext.KEY_CONNECTION_ID), is(not(isEmptyOrNullString())));
+		assertThat(clientContext.get(TcpEndpointContext.KEY_CONNECTION_ID), is(not(isEmptyOrNullString())));
 
 		msg = createMessage(100, clientContext, clientCallback);
 		client.send(msg);
@@ -387,7 +387,7 @@ public class TcpEndpointContextTest {
 
 		RawData receivedMsg = serverCatcher.getMessage(0);
 		EndpointContext serverContext = receivedMsg.getEndpointContext();
-		assertThat(serverContext.getString(TcpEndpointContext.KEY_CONNECTION_ID), is(not(isEmptyOrNullString())));
+		assertThat(serverContext.get(TcpEndpointContext.KEY_CONNECTION_ID), is(not(isEmptyOrNullString())));
 
 		SimpleMessageCallback serverCallback = new SimpleMessageCallback();
 		msg = createMessage(100, serverContext, serverCallback);
@@ -402,7 +402,7 @@ public class TcpEndpointContextTest {
 		clientCatcher.blockUntilSize(2, MESSAGE_TIMEOUT_MILLIS);
 
 		serverCallback = new SimpleMessageCallback();
-		TcpEndpointContext context = new TcpEndpointContext(receivedMsg.getInetSocketAddress(), "n.a.", System.currentTimeMillis());
+		TcpEndpointContext context = new TcpEndpointContext(receivedMsg.getInetSocketAddress(), "n.a.");
 		msg = createMessage(100, context, serverCallback);
 		server.send(msg);
 

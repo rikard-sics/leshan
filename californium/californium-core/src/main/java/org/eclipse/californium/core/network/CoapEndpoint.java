@@ -86,15 +86,18 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
 
 import org.eclipse.californium.core.coap.CoAP;
+import org.eclipse.californium.core.coap.CoAP.ResponseCode;
 import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.core.coap.Message.OffloadMode;
 import org.eclipse.californium.core.coap.CoAPMessageFormatException;
 import org.eclipse.californium.core.coap.EmptyMessage;
+import org.eclipse.californium.core.coap.InternalMessageObserverAdapter;
 import org.eclipse.californium.core.coap.Message;
 import org.eclipse.californium.core.coap.MessageFormatException;
+import org.eclipse.californium.core.coap.MessageObserver;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.coap.Token;
@@ -102,6 +105,7 @@ import org.eclipse.californium.core.network.EndpointManager.ClientMessageDeliver
 import org.eclipse.californium.core.network.Exchange.Origin;
 import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.network.config.NetworkConfig.Keys;
+import org.eclipse.californium.core.network.config.NetworkConfigDefaults;
 import org.eclipse.californium.core.network.interceptors.MessageInterceptor;
 import org.eclipse.californium.core.network.serialization.DataParser;
 import org.eclipse.californium.core.network.serialization.DataSerializer;
@@ -120,6 +124,7 @@ import org.eclipse.californium.core.observe.InMemoryObservationStore;
 import org.eclipse.californium.core.observe.NotificationListener;
 import org.eclipse.californium.core.observe.ObservationStore;
 import org.eclipse.californium.core.server.MessageDeliverer;
+import org.eclipse.californium.elements.AddressEndpointContext;
 import org.eclipse.californium.elements.Connector;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.EndpointContextMatcher;
@@ -127,10 +132,10 @@ import org.eclipse.californium.elements.MessageCallback;
 import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.RawDataChannel;
 import org.eclipse.californium.elements.UDPConnector;
-import org.eclipse.californium.elements.UdpMulticastConnector;
 import org.eclipse.californium.elements.util.ClockUtil;
 import org.eclipse.californium.elements.util.DaemonThreadFactory;
 import org.eclipse.californium.elements.util.ExecutorsUtil;
+import org.eclipse.californium.elements.util.NetworkInterfacesUtil;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -205,13 +210,10 @@ import org.slf4j.LoggerFactory;
  * incoming traffic.
  * 
  */
-public class CoapEndpoint implements Endpoint {
+public class CoapEndpoint implements Endpoint, MessagePostProcessInterceptors, MulticastReceivers {
 
 	/** the logger. */
 	private static final Logger LOGGER = LoggerFactory.getLogger(CoapEndpoint.class);
-
-	private final static Logger LOGGER_BAN = LoggerFactory.getLogger("org.eclipse.californium.ban");
-	private final static AtomicBoolean LOGGER_BAN_STARTED = new AtomicBoolean();
 
 	/** The stack of layers that make up the CoAP protocol */
 	protected final CoapStack coapstack;
@@ -258,6 +260,14 @@ public class CoapEndpoint implements Endpoint {
 	/** tag for logging */
 	private final String tag;
 
+	/**
+	 * @deprecated use {@link MessageInterceptor} registered with
+	 *             {@link #addPostProcessInterceptor(MessageInterceptor)}
+	 *             instead.
+	 */
+	@Deprecated
+	private final CoapEndpointHealth health;
+
 	/** The executor to run tasks for this endpoint and its layers */
 	private ExecutorService executor;
 
@@ -279,6 +289,13 @@ public class CoapEndpoint implements Endpoint {
 	/** The list of Notification listener (use for CoAP observer relations) */
 	private List<NotificationListener> notificationListeners = new CopyOnWriteArrayList<>();
 
+	/**
+	 * The list of multicast receivers.
+	 * 
+	 * @since 2.3
+	 */
+	private List<Connector> multicastReceivers = new CopyOnWriteArrayList<>();
+
 	private ScheduledFuture<?> statusLogger;
 
 	private final EndpointReceiver endpointStackReceiver = new EndpointReceiver() {
@@ -286,6 +303,9 @@ public class CoapEndpoint implements Endpoint {
 		@Override
 		public void receiveRequest(Exchange exchange, Request request) {
 			exchange.setEndpoint(CoapEndpoint.this);
+			if (health != null) {
+				health.receivedRequest(request.isDuplicate());
+			}
 			coapstack.receiveRequest(exchange, request);
 			notifyReceive(postProcessInterceptors, request);
 		}
@@ -295,6 +315,9 @@ public class CoapEndpoint implements Endpoint {
 			if (exchange != null && !response.isCanceled()) {
 				exchange.setEndpoint(CoapEndpoint.this);
 				response.setRTT(exchange.calculateRTT());
+				if (health != null) {
+					health.receivedResponse(response.isDuplicate());
+				}
 				coapstack.receiveResponse(exchange, response);
 			}
 			notifyReceive(postProcessInterceptors, response);
@@ -304,6 +327,9 @@ public class CoapEndpoint implements Endpoint {
 		public void receiveEmptyMessage(Exchange exchange, EmptyMessage message) {
 			if (exchange != null && !message.isCanceled()) {
 				exchange.setEndpoint(CoapEndpoint.this);
+				if (health != null && message.getType() == Type.RST) {
+					health.receivedReject();
+				}
 				coapstack.receiveEmptyMessage(exchange, message);
 			}
 			notifyReceive(postProcessInterceptors, message);
@@ -312,9 +338,36 @@ public class CoapEndpoint implements Endpoint {
 		@Override
 		public void reject(final Message message) {
 			EmptyMessage rst = EmptyMessage.newRST(message);
+			if (rejectTransmission != null) {
+				rst.addMessageObserver(rejectTransmission);
+			}
 			coapstack.sendEmptyMessage(null, rst);
 		}
 	};
+
+	/**
+	 * @deprecated use {@link MessageInterceptor} registered with
+	 *             {@link #addPostProcessInterceptor(MessageInterceptor)}
+	 *             instead.
+	 */
+	@Deprecated
+	private final MessageObserver requestTransmission;
+
+	/**
+	 * @deprecated use {@link MessageInterceptor} registered with
+	 *             {@link #addPostProcessInterceptor(MessageInterceptor)}
+	 *             instead.
+	 */
+	@Deprecated
+	private final MessageObserver responseTransmission;
+
+	/**
+	 * @deprecated use {@link MessageInterceptor} registered with
+	 *             {@link #addPostProcessInterceptor(MessageInterceptor)}
+	 *             instead.
+	 */
+	@Deprecated
+	private final MessageObserver rejectTransmission;
 
 	/**
 	 * Creates a new endpoint for a connector, configuration, message exchange
@@ -342,6 +395,7 @@ public class CoapEndpoint implements Endpoint {
 	 * @param loggingTag logging tag.
 	 *            {@link StringUtil#normalizeLoggingTag(String)} is applied to
 	 *            the provided tag.
+	 * @param health custom coap health handler. Deprecated see below.
 	 * @param coapStackFactory coap-stack-factory factory to create coap-stack
 	 * @param customStackArgument argument for custom stack, if required.
 	 *            {@code null} for standard stacks, or if the custom stack
@@ -349,15 +403,16 @@ public class CoapEndpoint implements Endpoint {
 	 *            multiple arguments are required.
 	 * @throws IllegalArgumentException if applyConfiguration is {@code true},
 	 *             but the connector is not a {@link UDPConnector}
+	 * @deprecated use
+	 *             {@link #CoapEndpoint(Connector, boolean, NetworkConfig, TokenGenerator, ObservationStore, MessageExchangeStore, EndpointContextMatcher, DataSerializer, DataParser, String, CoapStackFactory, Object)}
+	 *             and {@link #addPostProcessInterceptor(MessageInterceptor)} instead.
 	 */
+	@Deprecated
 	protected CoapEndpoint(Connector connector, boolean applyConfiguration, NetworkConfig config,
 			TokenGenerator tokenGenerator, ObservationStore store, MessageExchangeStore exchangeStore,
 			EndpointContextMatcher endpointContextMatcher, DataSerializer serializer, DataParser parser,
-			String loggingTag, CoapStackFactory coapStackFactory,
+			String loggingTag, CoapEndpointHealth health, CoapStackFactory coapStackFactory,
 			Object customStackArgument) {
-		if (LOGGER_BAN.isInfoEnabled() && LOGGER_BAN_STARTED.compareAndSet(false, true)) {
-			LOGGER_BAN.info("Started.");
-		}
 		this.config = config;
 		this.connector = connector;
 		this.connector.setRawDataReceiver(new InboxImpl());
@@ -412,7 +467,7 @@ public class CoapEndpoint implements Endpoint {
 		this.connector.setEndpointContextMatcher(endpointContextMatcher);
 		LOGGER.info("{}{} uses {}", tag, getClass().getSimpleName(), endpointContextMatcher.getName());
 
-		this.coapstack = coapStackFactory.createCoapStack(connector.getProtocol(), this.tag, config, new OutboxImpl(), customStackArgument);
+		this.coapstack = coapStackFactory.createCoapStack(connector.getProtocol(), config, new OutboxImpl(), customStackArgument);
 
 		if (CoAP.isTcpProtocol(connector.getProtocol())) {
 			this.useRequestOffloading = false; // no deduplication
@@ -427,6 +482,146 @@ public class CoapEndpoint implements Endpoint {
 			this.serializer = serializer != null ? serializer : new UdpDataSerializer();
 			this.parser = parser != null ? parser : new UdpDataParser();
 		}
+		final int healthStatusInterval = config.getInt(Keys.HEALTH_STATUS_INTERVAL, NetworkConfigDefaults.DEFAULT_HEALTH_STATUS_INTERVAL); // seconds
+		// this is a useful health metric
+		// that could later be exported to some kind of monitoring interface
+		boolean enableHealth = false;
+		if (healthStatusInterval > 0) {
+			if (health == null) {
+				health = new CoapEndpointHealthLogger();
+			}
+			enableHealth = health.isEnabled();
+		}
+		if (enableHealth) {
+			this.health = health;
+			this.requestTransmission = new InternalMessageObserverAdapter() {
+
+				@Override
+				public void  onSendError(Throwable error) {
+					CoapEndpoint.this.health.sendError();
+				}
+
+				@Override
+				public void onSent(boolean retransmission) {
+					CoapEndpoint.this.health.sentRequest(retransmission);
+				}
+			};
+
+			this.responseTransmission = new InternalMessageObserverAdapter() {
+				@Override
+				public void  onSendError(Throwable error) {
+					CoapEndpoint.this.health.sendError();
+				}
+
+				@Override
+				public void onSent(boolean retransmission) {
+					CoapEndpoint.this.health.sentResponse(retransmission);
+				}
+			};
+			this.rejectTransmission = new InternalMessageObserverAdapter() {
+				@Override
+				public void  onSendError(Throwable error) {
+					CoapEndpoint.this.health.sendError();
+				}
+
+				@Override
+				public void onSent(boolean retransmission) {
+					CoapEndpoint.this.health.sentReject();
+				}
+			};
+		} else {
+			this.health = null;
+			this.requestTransmission = null;
+			this.responseTransmission = null;
+			this.rejectTransmission = null;
+		}
+	}
+
+	/**
+	 * Creates a new endpoint for a connector, configuration, message exchange
+	 * and observation store.
+	 * <p>
+	 * Intended to be called either by the {@link Builder} or a subclass
+	 * constructor. The endpoint will support the connector's implemented scheme
+	 * and will bind to the IP address and port the connector is configured for.
+	 *
+	 * @param connector The connector to use.
+	 * @param applyConfiguration if {@code true}, apply network configuration to
+	 *            connector. Requires a {@link UDPConnector}.
+	 * @param config The configuration values to use.
+	 * @param tokenGenerator token generator.
+	 * @param store The store to use for keeping track of observations initiated
+	 *            by this endpoint.
+	 * @param exchangeStore The store to use for keeping track of message
+	 *            exchanges.
+	 * @param endpointContextMatcher endpoint context matcher for relating
+	 *            responses to requests. If <code>null</code>, the result of
+	 *            {@link EndpointContextMatcherFactory#create(Connector, NetworkConfig)}
+	 *            is used as matcher.
+	 * @param loggingTag logging tag.
+	 *            {@link StringUtil#normalizeLoggingTag(String)} is applied to
+	 *            the provided tag.
+	 * @param coapStackFactory coap-stack-factory factory to create coap-stack
+	 * @param customStackArgument argument for custom stack, if required.
+	 *            {@code null} for standard stacks, or if the custom stack
+	 *            doesn't require specific arguments. My be a {@link Map}, if
+	 *            multiple arguments are required.
+	 * @throws IllegalArgumentException if applyConfiguration is {@code true},
+	 *             but the connector is not a {@link UDPConnector}
+	 * @deprecated use
+	 *             {@link #CoapEndpoint(Connector, boolean, NetworkConfig, TokenGenerator, ObservationStore, MessageExchangeStore, EndpointContextMatcher, DataSerializer, DataParser, String, CoapStackFactory, Object)}
+	 *             instead.
+	 */
+	@Deprecated
+	protected CoapEndpoint(Connector connector, boolean applyConfiguration, NetworkConfig config,
+			TokenGenerator tokenGenerator, ObservationStore store, MessageExchangeStore exchangeStore,
+			EndpointContextMatcher endpointContextMatcher, 
+			String loggingTag, CoapStackFactory coapStackFactory, Object customStackArgument) {
+		this(connector, applyConfiguration, config, tokenGenerator, store, exchangeStore, endpointContextMatcher,
+				null, null, loggingTag, null, coapStackFactory, customStackArgument);
+	}
+
+	/**
+	 * Creates a new endpoint for a connector, configuration, message exchange
+	 * and observation store.
+	 * <p>
+	 * Intended to be called either by the {@link Builder} or a subclass
+	 * constructor. The endpoint will support the connector's implemented scheme
+	 * and will bind to the IP address and port the connector is configured for.
+	 *
+	 * @param connector The connector to use.
+	 * @param applyConfiguration if {@code true}, apply network configuration to
+	 *            connector. Requires a {@link UDPConnector}.
+	 * @param config The configuration values to use.
+	 * @param tokenGenerator token generator.
+	 * @param store The store to use for keeping track of observations initiated
+	 *            by this endpoint.
+	 * @param exchangeStore The store to use for keeping track of message
+	 *            exchanges.
+	 * @param endpointContextMatcher endpoint context matcher for relating
+	 *            responses to requests. If <code>null</code>, the result of
+	 *            {@link EndpointContextMatcherFactory#create(Connector, NetworkConfig)}
+	 *            is used as matcher.
+	 * @param serializer message serializer. May be {@code null}.
+	 * @param parser message parser. May be {@code null}.
+	 * @param loggingTag logging tag.
+	 *            {@link StringUtil#normalizeLoggingTag(String)} is applied to
+	 *            the provided tag.
+	 * @param coapStackFactory coap-stack-factory factory to create coap-stack
+	 * @param customStackArgument argument for custom stack, if required.
+	 *            {@code null} for standard stacks, or if the custom stack
+	 *            doesn't require specific arguments. My be a {@link Map}, if
+	 *            multiple arguments are required.
+	 * @throws IllegalArgumentException if applyConfiguration is {@code true},
+	 *             but the connector is not a {@link UDPConnector}
+	 * @since 2.6
+	 */
+	protected CoapEndpoint(Connector connector, boolean applyConfiguration, NetworkConfig config,
+			TokenGenerator tokenGenerator, ObservationStore store, MessageExchangeStore exchangeStore,
+			EndpointContextMatcher endpointContextMatcher, DataSerializer serializer, DataParser parser,
+			String loggingTag, CoapStackFactory coapStackFactory, Object customStackArgument) {
+		this(connector, applyConfiguration, config, tokenGenerator, store, exchangeStore, endpointContextMatcher,
+				serializer, parser, loggingTag, null, coapStackFactory, customStackArgument);
 	}
 
 	@Override
@@ -471,6 +666,7 @@ public class CoapEndpoint implements Endpoint {
 			LOGGER.debug("{}Starting endpoint at {}", tag, getUri());
 
 			matcher.start();
+			startMulticastReceivers();
 			connector.start();
 			coapstack.start();
 			started = true;
@@ -478,6 +674,20 @@ public class CoapEndpoint implements Endpoint {
 				obs.started(this);
 			}
 			LOGGER.info("{}Started endpoint at {}", tag, getUri());
+			if (health != null && secondaryExecutor != null) {
+				final int healthStatusInterval = config.getInt(Keys.HEALTH_STATUS_INTERVAL,
+						NetworkConfigDefaults.DEFAULT_HEALTH_STATUS_INTERVAL); // seconds
+				// this is a useful health metric
+				// that could later be exported to some kind of monitoring interface
+				statusLogger = secondaryExecutor.scheduleAtFixedRate(new Runnable() {
+
+					@Override
+					public void run() {
+						health.dump(tag);
+					}
+
+				}, healthStatusInterval, healthStatusInterval, TimeUnit.SECONDS);
+			}
 		} catch (IOException e) {
 			// free partially acquired resources
 			stop();
@@ -487,22 +697,23 @@ public class CoapEndpoint implements Endpoint {
 
 	@Override
 	public synchronized void stop() {
-		URI uri = getUri();
 		if (!started) {
-			LOGGER.debug("{}Endpoint at {} is already stopped", tag, uri);
+			LOGGER.info("{}Endpoint at {} is already stopped", tag, getUri());
 		} else {
-			LOGGER.debug("{}Stopping endpoint at {}", tag, uri);
+			LOGGER.info("{}Stopping endpoint at {}", tag, getUri());
 			started = false;
 			if (statusLogger != null) {
 				statusLogger.cancel(false);
 				statusLogger = null;
+			}
+			for (Connector receiver : multicastReceivers) {
+				receiver.stop();
 			}
 			connector.stop();
 			matcher.stop();
 			for (EndpointObserver obs : observers) {
 				obs.stopped(this);
 			}
-			LOGGER.debug("{}Stopped endpoint at {}", tag, uri);
 		}
 	}
 
@@ -511,6 +722,9 @@ public class CoapEndpoint implements Endpoint {
 		LOGGER.info("{}Destroying endpoint at {}", tag, getUri());
 		if (started) {
 			stop();
+		}
+		for (Connector receiver : multicastReceivers) {
+			receiver.destroy();
 		}
 		connector.destroy();
 		coapstack.destroy();
@@ -598,46 +812,71 @@ public class CoapEndpoint implements Endpoint {
 	}
 
 	@Override
+	public void addMulticastReceiver(final Connector receiver) {
+		if (receiver == null) {
+			throw new NullPointerException("Connector must not be null!");
+		}
+		if (!NetworkInterfacesUtil.isMultiAddress(receiver.getAddress().getAddress())) {
+			throw new IllegalArgumentException("Connector is not a valid multicast receiver!");
+		}
+		multicastReceivers.add(receiver);
+		receiver.setRawDataReceiver(new MulticastReceiverInbox(receiver));
+	}
+
+	@Override
+	public void removeMulticastReceiver(Connector receiver) {
+		multicastReceivers.remove(receiver);
+		receiver.setRawDataReceiver(null);
+	}
+
+	@Override
+	public void startMulticastReceivers() throws IOException {
+		for (Connector receiver : multicastReceivers) {
+			receiver.start();
+		}
+	}
+
+	@Override
 	public void sendRequest(final Request request) {
 		if (!started) {
 			request.cancel();
 			return;
 		}
+		// create context, if not already set
+		request.prepareDestinationContext();
 
 		InetSocketAddress destinationAddress = request.getDestinationContext().getPeerAddress();
 		if (request.isMulticast()) {
 			if (0 >= multicastBaseMid) {
-				LOGGER.warn(
-						"{}multicast messaging to destination {} is not enabled! Please enable it configuring \""
-								+ Keys.MULTICAST_BASE_MID + "\" greater than 0",
-						tag, StringUtil.toLog(destinationAddress));
+				LOGGER.warn("{}multicast messaging to destination {} is not enabled! Please enable it configuring \""
+						+ Keys.MULTICAST_BASE_MID + "\" greater than 0", tag, destinationAddress);
 				request.setSendError(new IllegalArgumentException("multicast is not enabled!"));
 				return;
 			} else if (request.getType() == Type.CON) {
 				LOGGER.warn(
-						"{}CON request to multicast destination {} is not allowed, as per RFC 7252, 8.1, a client MUST use NON message type for multicast requests",
-						tag, StringUtil.toLog(destinationAddress));
+						"{}CON request to multicast destination {} is not allowed, as per RFC 7252, 8.1, a client MUST use NON message type for multicast requests ",
+						tag, destinationAddress);
 				request.setSendError(new IllegalArgumentException("multicast is not supported for CON!"));
 				return;
 			} else if (request.hasMID() && request.getMID() < multicastBaseMid) {
 				LOGGER.warn(
 						"{}multicast request to group {} has mid {} which is not in the MULTICAST_MID range [{}-65535]",
-						tag, StringUtil.toLog(destinationAddress), request.getMID(), multicastBaseMid);
+						tag, destinationAddress, request.getMID(), multicastBaseMid);
 				request.setSendError(
 						new IllegalArgumentException("multicast mid is not in range [" + multicastBaseMid + "-65535]"));
 				return;
 			}
 		} else if (0 < multicastBaseMid && request.getMID() >= multicastBaseMid) {
-			LOGGER.warn("{}request has mid {}, which is in the MULTICAST_MID range [{}-65535]", tag,
-					StringUtil.toLog(destinationAddress), request.getMID(), multicastBaseMid);
+			LOGGER.warn("{}request to {} has mid {}, which is in the MULTICAST_MID range [{}-65535]", tag, destinationAddress,
+					request.getMID(), multicastBaseMid);
 			request.setSendError(
 					new IllegalArgumentException("unicast mid is in multicast range [" + multicastBaseMid + "-65535]"));
 			return;
 		}
 		if (destinationAddress.isUnresolved()) {
-			String addr = StringUtil.toDisplayString(destinationAddress);
-			LOGGER.warn("{}request has unresolved destination address {}", tag, addr);
-			request.setSendError(new IllegalArgumentException(addr + " is a unresolved address!"));
+			LOGGER.warn("{}request has unresolved destination address", tag, destinationAddress);
+			request.setSendError(
+					new IllegalArgumentException(destinationAddress + " is a unresolved address!"));
 			return;
 		}
 
@@ -646,6 +885,9 @@ public class CoapEndpoint implements Endpoint {
 
 			@Override
 			public void run() {
+				if (requestTransmission != null) {
+					request.addMessageObserver(requestTransmission);
+				}
 				coapstack.sendRequest(exchange, request);
 			}
 		});
@@ -656,6 +898,9 @@ public class CoapEndpoint implements Endpoint {
 		if (!started) {
 			response.cancel();
 			return;
+		}
+		if (responseTransmission != null) {
+			response.addMessageObserver(responseTransmission);
 		}
 		if (exchange.checkOwner()) {
 			// send response while processing exchange.
@@ -675,6 +920,9 @@ public class CoapEndpoint implements Endpoint {
 		if (!started) {
 			message.cancel();
 			return;
+		}
+		if (rejectTransmission != null && message.getType() == Type.RST) {
+			message.addMessageObserver(rejectTransmission);
 		}
 		if (exchange.checkOwner()) {
 			// send response while processing exchange.
@@ -853,9 +1101,7 @@ public class CoapEndpoint implements Endpoint {
 
 			// MessageInterceptor might have canceled
 			if (response.isCanceled() || response.getSendError() != null) {
-				if (null != exchange) {
-					exchange.executeComplete();
-				}
+				exchange.executeComplete();
 			} else {
 				RawData data = serializer.serializeResponse(response,
 						new ExchangeCallback<Response>(exchange, response) {
@@ -961,99 +1207,65 @@ public class CoapEndpoint implements Endpoint {
 		 * e.g. because the message is malformed, an RST is sent back to the sender.
 		 */
 		private void receiveMessage(final RawData raw) {
-			EndpointContext context = raw.getEndpointContext();
+
 			Message msg = null;
-			Exception ex = null;
+
 			try {
 				msg = parser.parseMessage(raw);
 
 				if (CoAP.isRequest(msg.getRawCode())) {
+
 					receiveRequest((Request) msg);
-					return;
+
 				} else if (CoAP.isResponse(msg.getRawCode())) {
-					if (raw.isMulticast()) {
-						LOGGER.debug("{}multicast-receiver silently ignoring responses from {}", tag,
-								raw.getEndpointContext());
 
-					} else {
-						receiveResponse((Response) msg);
-					}
-					return;
+					receiveResponse((Response) msg);
+
 				} else if (CoAP.isEmptyMessage(msg.getRawCode())) {
-					if (raw.isMulticast()) {
-						LOGGER.debug("{}multicast-receiver silently ignoring empty messages from {}", tag,
-								raw.getEndpointContext());
 
-					} else {
-						receiveEmptyMessage((EmptyMessage) msg);
-					}
-					return;
+					receiveEmptyMessage((EmptyMessage) msg);
+
 				} else {
-					if (raw.isMulticast()) {
-						LOGGER.debug("{}multicast-receiver silently ignoring non-CoAP message from {}", tag,
-								raw.getEndpointContext());
-					} else {
-						LOGGER.debug("{}silently ignoring non-CoAP message from {}", tag, context);
-					}
+					LOGGER.debug("{}silently ignoring non-CoAP message from {}", tag, raw.getEndpointContext());
 				}
+
 			} catch (CoAPMessageFormatException e) {
-				ex = e;
-				if (e.isConfirmable() && e.hasMid() && !raw.isMulticast()) {
+
+				if (e.isConfirmable() && e.hasMid()) {
 					if (CoAP.isRequest(e.getCode()) && e.getToken() != null) {
-						// respond with BAD OPTION erroneous reliably
-						// transmitted request as mandated by CoAP spec
+						// respond with BAD OPTION erroneous reliably transmitted request as mandated by CoAP spec
 						// https://tools.ietf.org/html/rfc7252#section-4.2
 						responseBadOption(raw, e);
-						LOGGER.debug("{}respond malformed request from [{}], reason: {}", tag, context, e.getMessage());
+						LOGGER.debug("{}respond malformed request from [{}], reason: {}",
+								tag, raw.getEndpointContext(), e.getMessage());
 					} else {
-						// reject erroneous reliably transmitted message as
-						// mandated by CoAP spec
+						// reject erroneous reliably transmitted message as mandated by CoAP spec
 						// https://tools.ietf.org/html/rfc7252#section-4.2
 						reject(raw, e);
-						LOGGER.debug("{}rejected malformed message from [{}], reason: {}", tag, context,
-								e.getMessage());
+						LOGGER.debug("{}rejected malformed message from [{}], reason: {}",
+								tag, raw.getEndpointContext(), e.getMessage());
 					}
 				} else {
-					// ignore erroneous messages that are not transmitted
-					// reliably
-					LOGGER.debug("{}discarding malformed message from [{}]: {}", tag, context, e.getMessage());
+					// ignore erroneous messages that are not transmitted reliably
+					LOGGER.debug("{}discarding malformed message from [{}]: {}", tag, raw.getEndpointContext(), e.getMessage());
 				}
 			} catch (MessageFormatException e) {
-				ex = e;
 
 				// ignore erroneous messages that are not transmitted reliably
-				LOGGER.debug("{}discarding malformed message from [{}]: {}", tag, context, e.getMessage());
-			}
-			if (LOGGER_BAN.isInfoEnabled()) {
-				String address = context.getPeerAddress().getAddress().getHostAddress();
-				String protocol = connector.getProtocol();
-				StringBuilder message = new StringBuilder();
-				if (ex != null) {
-					message.append(ex.getMessage().trim());
-					int len = message.length();
-					if (len > 0) {
-						char last = message.charAt(len - 1);
-						if (last != '.' && last != '!' && last != ';' && last != '#') {
-							if (last == ':') {
-								message.setLength(len - 1);
-							}
-							message.append(";");
-						}
-					}
-					message.append(" ");
-				}
-				message.append(StringUtil.byteArray2HexString(raw.getBytes(), StringUtil.NO_SEPARATOR, 8));
-				LOGGER_BAN.info("{}{} {} Ban: {}", tag, message, protocol, address);
+				LOGGER.debug("{}discarding malformed message from [{}]: {}", tag, raw.getEndpointContext(), e.getMessage());
 			}
 		}
 
 		private void responseBadOption(final RawData raw, final CoAPMessageFormatException cause) {
-			Response response = new Response(cause.getErrorCode());
+			Response response = new Response(ResponseCode.BAD_OPTION);
 			response.setDestinationContext(raw.getEndpointContext());
 			response.setToken(cause.getToken());
 			response.setMID(cause.getMid());
 			response.setType(Type.ACK);
 			response.setPayload(cause.getMessage());
+			if (responseTransmission != null) {
+				response.addMessageObserver(responseTransmission);
+			}
 			/*
 			 * Logging here causes significant performance loss.
 			 * If necessary, add an interceptor that logs the messages,
@@ -1084,6 +1296,9 @@ public class CoapEndpoint implements Endpoint {
 			EmptyMessage rst = new EmptyMessage(Type.RST);
 			rst.setMID(cause.getMid());
 			rst.setDestinationContext(raw.getEndpointContext());
+			if (rejectTransmission != null) {
+				rst.addMessageObserver(rejectTransmission);
+			}
 
 			coapstack.sendEmptyMessage(null, rst);
 		}
@@ -1144,6 +1359,117 @@ public class CoapEndpoint implements Endpoint {
 				} else {
 					 matcher.receiveEmptyMessage(message, endpointStackReceiver);
 				}
+			}
+		}
+	}
+
+	/**
+	 * A multicast receiver uses this channel to forward requests (in form of
+	 * {@link RawData}) to the endpoint. The endpoint creates a new task to
+	 * process the message. The multicast group is set as destionation of the
+	 * received request, {@link Request#isMulticast()} returns therfore
+	 * {@code true}. The task consists of invoking the matcher to look for an
+	 * associated exchange and then forwards the message with the exchange to
+	 * the stack of layers. Responses and empty messages are silently ignored.
+	 * 
+	 * @since 2.3
+	 */
+	private class MulticastReceiverInbox implements RawDataChannel {
+
+		private final Connector connector;
+		private final String scheme;
+
+		private MulticastReceiverInbox(Connector connector) {
+			this.connector = connector;
+			this.scheme = CoAP.getSchemeForProtocol(connector.getProtocol());
+		}
+
+		@Override
+		public void receiveData(final RawData raw) {
+			if (raw.getEndpointContext() == null) {
+				throw new IllegalArgumentException("multicast-receiver received message that does not have a endpoint context");
+			} else if (raw.getEndpointContext().getPeerAddress() == null) {
+				throw new IllegalArgumentException("multicast-receiver received message that does not have a source address");
+			} else if (raw.getEndpointContext().getPeerAddress().getPort() == 0) {
+				throw new IllegalArgumentException("multicast-receiver received message that does not have a source port");
+			} else if (!raw.isMulticast()) {
+				throw new IllegalArgumentException("multicast-receiver received message is not from multicast group");
+			} else {
+
+				// Create a new task to process this message
+				runInProtocolStage(new Runnable() {
+
+					@Override
+					public void run() {
+						receiveMessage(raw);
+					}
+				});
+			}
+		}
+
+		/*
+		 * The endpoint's executor executes this method to convert the raw bytes
+		 * into a message, look for an associated exchange and forward it to the
+		 * stack of layers. If the message is a CON and cannot be parsed, e.g.
+		 * because the message is malformed, an RST is sent back to the sender.
+		 */
+		private void receiveMessage(final RawData raw) {
+
+			Message msg = null;
+
+			try {
+				msg = parser.parseMessage(raw);
+
+				if (CoAP.isRequest(msg.getRawCode())) {
+
+					receiveRequest((Request) msg);
+
+				} else if (CoAP.isResponse(msg.getRawCode())) {
+
+					LOGGER.debug("{}multicast-receiver silently ignoring responses from {}", tag, raw.getEndpointContext());
+
+				} else if (CoAP.isEmptyMessage(msg.getRawCode())) {
+
+					LOGGER.debug("{}multicast-receiver silently ignoring empty messages from {}", tag, raw.getEndpointContext());
+
+				} else {
+					LOGGER.debug("{}multicast-receiver silently ignoring non-CoAP message from {}", tag, raw.getEndpointContext());
+				}
+
+			} catch (MessageFormatException e) {
+
+				// ignore erroneous messages that are not transmitted reliably
+				LOGGER.debug("{}multicast-receiver discarding malformed message from [{}]", tag, raw.getEndpointContext());
+			}
+		}
+
+		private void receiveRequest(final Request request) {
+
+			// set request attributes from raw data
+			request.setScheme(scheme);
+			InetSocketAddress in = connector.getAddress();
+			if (NetworkInterfacesUtil.isMultiAddress(in.getAddress())) {
+				request.setDestinationContext(new AddressEndpointContext(in));
+			} else {
+				LOGGER.warn("{}multicast-receiver is not in multicast group, drop request {}", tag, request);
+				return;
+			}
+
+			if (!started) {
+				LOGGER.debug("{}not running, drop request {}", tag, request);
+				return;
+			}
+
+			/*
+			 * Logging here causes significant performance loss. If necessary,
+			 * add an interceptor that logs the messages, e.g., the
+			 * MessageTracer.
+			 */
+			notifyReceive(interceptors, request);
+
+			// MessageInterceptor might have canceled
+			if (!request.isCanceled()) {
+				matcher.receiveRequest(request, endpointStackReceiver);
 			}
 		}
 	}
@@ -1238,7 +1564,7 @@ public class CoapEndpoint implements Endpoint {
 
 		@Override
 		protected void onContextEstablished(EndpointContext context, long nanoTimestamp) {
-			exchange.setSendNanoTimestamp(nanoTimestamp);
+			exchange.setSendNanoTimestamp(nanoTimestamp == 0 ? -1 : nanoTimestamp);
 			exchange.setEndpointContext(context);
 		}
 	}
@@ -1297,7 +1623,7 @@ public class CoapEndpoint implements Endpoint {
 		 * @see #setConnector(Connector)
 		 * @see #setConnectorWithAutoConfiguration(UDPConnector)
 		 */
-		private boolean applyConfiguration = false;
+		private boolean applyConfiguration = true;
 		/**
 		 * Connector for communication.
 		 * 
@@ -1396,7 +1722,7 @@ public class CoapEndpoint implements Endpoint {
 		 */
 		public Builder setPort(int port) {
 			if (this.bindAddress != null || this.connector != null) {
-				throw new IllegalStateException("bind address already defined!");
+				throw new IllegalArgumentException("bind address already defined!");
 			}
 			this.bindAddress = new InetSocketAddress(port);
 			return this;
@@ -1432,10 +1758,9 @@ public class CoapEndpoint implements Endpoint {
 		 */
 		public Builder setInetSocketAddress(InetSocketAddress address) {
 			if (this.bindAddress != null || this.connector != null) {
-				throw new IllegalStateException("bind address already defined!");
+				throw new IllegalArgumentException("bind address already defined!");
 			}
 			this.bindAddress = address;
-			this.applyConfiguration = true;
 			return this;
 		}
 
@@ -1455,20 +1780,16 @@ public class CoapEndpoint implements Endpoint {
 		 * @param connector connector to be used
 		 * @return this
 		 * @throws IllegalStateException if {@link #bindAddress} is already
-		 *             defined, or a multicast-receiver connector is provided.
+		 *             defined
 		 * @see #bindAddress
 		 * @see #connector
 		 */
 		public Builder setConnector(Connector connector) {
 			if (this.bindAddress != null || this.connector != null) {
-				throw new IllegalStateException("bind address already defined!");
-			}
-			if (connector instanceof UdpMulticastConnector) {
-				if (((UdpMulticastConnector) connector).isMutlicastReceiver()) {
-					throw new IllegalStateException("cunnector must not be multicast receiver!");
-				}
+				throw new IllegalArgumentException("bind address already defined!");
 			}
 			this.connector = connector;
+			this.applyConfiguration = false;
 
 			return this;
 		}
@@ -1488,13 +1809,19 @@ public class CoapEndpoint implements Endpoint {
 		 * @param connector connector to be used
 		 * @return this
 		 * @throws IllegalStateException if {@link #bindAddress} is already
-		 *             defined, or a multicast-receiver connector is provided.
+		 *             defined
+		 * @throws IllegalArgumentException if applyConfiguration is
+		 *             {@code true}, but the connector is not a
+		 *             {@link UDPConnector}
 		 * @see #bindAddress
 		 * @see #connector
 		 */
 		public Builder setConnectorWithAutoConfiguration(UDPConnector connector) {
-			setConnector(connector);
-			this.applyConfiguration = true;
+			if (this.bindAddress != null || this.connector != null) {
+				throw new IllegalArgumentException("bind address already defined!");
+			}
+			this.connector = connector;
+
 			return this;
 		}
 
@@ -1658,12 +1985,11 @@ public class CoapEndpoint implements Endpoint {
 	 */
 	public static final CoapStackFactory STANDARD_COAP_STACK_FACTORY = new CoapStackFactory() {
 
-		@Override
-		public CoapStack createCoapStack(String protocol, String tag, NetworkConfig config, Outbox outbox, Object customStackArgument) {
+		public CoapStack createCoapStack(String protocol, NetworkConfig config, Outbox outbox, Object customStackArgument) {
 			if (CoAP.isTcpProtocol(protocol)) {
-				return new CoapTcpStack(tag, config, outbox);
+				return new CoapTcpStack(config, outbox);
 			} else {
-				return new CoapUdpStack(tag, config, outbox);
+				return new CoapUdpStack(config, outbox);
 			}
 		}
 	};

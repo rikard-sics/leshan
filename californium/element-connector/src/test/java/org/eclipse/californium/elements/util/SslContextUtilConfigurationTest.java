@@ -17,9 +17,9 @@ package org.eclipse.californium.elements.util;
 
 import static org.eclipse.californium.elements.util.TestCertificatesTools.*;
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsNull.notNullValue;
 import static org.hamcrest.core.StringContains.containsString;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;

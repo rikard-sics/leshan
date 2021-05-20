@@ -24,15 +24,14 @@ import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import org.eclipse.californium.elements.util.DatagramReader;
-import org.eclipse.californium.elements.util.FilteredLogger;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.scandium.config.DtlsClusterConnectorConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.ConnectionId;
 import org.eclipse.californium.scandium.dtls.ContentType;
+import org.eclipse.californium.scandium.dtls.DTLSSession;
 import org.eclipse.californium.scandium.dtls.NodeConnectionIdGenerator;
 import org.eclipse.californium.scandium.dtls.Record;
 import org.eclipse.californium.scandium.dtls.ResumptionSupportingConnectionStore;
@@ -69,9 +68,6 @@ import org.slf4j.LoggerFactory;
 public class DtlsClusterConnector extends DTLSConnector {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(DtlsClusterConnector.class);
-
-	private final FilteredLogger FILTER = new FilteredLogger(LOGGER, 3, TimeUnit.SECONDS.toNanos(10));
-
 	/**
 	 * Offset of cluster record type.
 	 */
@@ -218,7 +214,7 @@ public class DtlsClusterConnector extends DTLSConnector {
 		this.clusterHealth = (health instanceof DtlsClusterHealth) ? (DtlsClusterHealth) health : null;
 		this.startReceiver = startReceiver;
 		LOGGER.info("cluster-node {}: on internal {}, backwards {}", getNodeID(),
-				StringUtil.toLog(clusterInternalSocketAddress), backwardMessages);
+				StringUtil.toDisplayString(clusterInternalSocketAddress), backwardMessages);
 	}
 
 	/**
@@ -262,7 +258,7 @@ public class DtlsClusterConnector extends DTLSConnector {
 			clusterInternalSocket = new DatagramSocket(clusterInternalSocketAddress);
 		} catch (IOException ex) {
 			LOGGER.error("cluster-node {}: management-interface {} failed!", getNodeID(),
-					StringUtil.toLog(clusterInternalSocketAddress));
+					StringUtil.toDisplayString(clusterInternalSocketAddress));
 			throw ex;
 		}
 		super.init(bindAddress, socket, mtu);
@@ -388,7 +384,7 @@ public class DtlsClusterConnector extends DTLSConnector {
 	 */
 	protected boolean ensureLength(Byte type, DatagramPacket clusterPacket) {
 		int length = clusterPacket.getLength();
-		if (length < (CLUSTER_ADDRESS_OFFSET + MIN_ADDRESS_LENGTH + Record.DTLS_HANDSHAKE_HEADER_LENGTH)) {
+		if (length < (CLUSTER_ADDRESS_OFFSET + MIN_ADDRESS_LENGTH + DTLSSession.DTLS_HEADER_LENGTH)) {
 			return false;
 		}
 		byte[] data = clusterPacket.getData();
@@ -396,7 +392,7 @@ public class DtlsClusterConnector extends DTLSConnector {
 		int addressLength = data[offset + CLUSTER_ADDRESS_LENGTH_OFFSET] & 0xff;
 		int macLength = getClusterMacLength();
 
-		return length > CLUSTER_ADDRESS_OFFSET + addressLength + macLength + Record.DTLS_HANDSHAKE_HEADER_LENGTH;
+		return length > CLUSTER_ADDRESS_OFFSET + addressLength + macLength + DTLSSession.DTLS_HEADER_LENGTH;
 	}
 
 	/**
@@ -417,13 +413,13 @@ public class DtlsClusterConnector extends DTLSConnector {
 			}
 			return;
 		}
-		if (type == RECORD_TYPE_INCOMING) {
+		if (RECORD_TYPE_INCOMING.equals(type)) {
 			LOGGER.trace("cluster-node {}: received forwarded message", getNodeID());
 			super.processDatagram(packet, router);
 			if (clusterHealth != null) {
 				clusterHealth.processForwardedMessage();
 			}
-		} else if (type == RECORD_TYPE_OUTGOING) {
+		} else if (RECORD_TYPE_OUTGOING.equals(type)) {
 			LOGGER.trace("cluster-node {}: received backwarded outgoing message", getNodeID());
 			super.sendNextDatagramOverNetwork(packet);
 			if (clusterHealth != null) {
@@ -498,7 +494,7 @@ public class DtlsClusterConnector extends DTLSConnector {
 								}
 							}
 						} else {
-							FILTER.debug(
+							LOGGER.debug(
 									"cluster-node {}: received foreign message from {} for unknown node {}, {} bytes, dropping.",
 									getNodeID(), source, incomingNodeId, length);
 							if (clusterHealth != null) {
@@ -512,10 +508,10 @@ public class DtlsClusterConnector extends DTLSConnector {
 								length);
 					}
 				} else {
-					FILTER.debug("cluster-node {}: received broken CID message from {}", getNodeID(), source);
+					LOGGER.debug("cluster-node {}: received broken CID message from {}", getNodeID(), source);
 				}
 			} else {
-				FILTER.debug("cluster-node {}: received too short CID message from {}", getNodeID(), source);
+				LOGGER.debug("cluster-node {}: received too short CID message from {}", getNodeID(), source);
 			}
 		} else {
 			LOGGER.trace("cluster-node {}: received no CID message from {}, {} bytes.", getNodeID(), source, length);

@@ -17,6 +17,8 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
+import java.net.InetSocketAddress;
+
 import org.eclipse.californium.elements.util.DatagramReader;
 import org.eclipse.californium.elements.util.DatagramWriter;
 import org.eclipse.californium.elements.util.StringUtil;
@@ -42,11 +44,13 @@ public final class PSKServerKeyExchange extends ServerKeyExchange {
 
 	// Constructors ///////////////////////////////////////////////////
 	
-	public PSKServerKeyExchange(PskPublicInformation hint) {
+	public PSKServerKeyExchange(PskPublicInformation hint, InetSocketAddress peerAddress) {
+		super(peerAddress);
 		this.hint = hint;
 	}
-
-	private PSKServerKeyExchange(byte[] hintEncoded) {
+	
+	private PSKServerKeyExchange(byte[] hintEncoded, InetSocketAddress peerAddress) {
+		super(peerAddress);
 		this.hint = PskPublicInformation.fromByteArray(hintEncoded);
 	}
 
@@ -71,18 +75,20 @@ public final class PSKServerKeyExchange extends ServerKeyExchange {
 
 	@Override
 	public byte[] fragmentToByteArray() {
-		DatagramWriter writer = new DatagramWriter(hint.length() + 2);
-
-		writer.writeVarBytes(hint, IDENTITY_HINT_LENGTH_BITS);
-
+		DatagramWriter writer = new DatagramWriter();
+		
+		writer.write(hint.length(), IDENTITY_HINT_LENGTH_BITS);
+		writer.writeBytes(hint.getBytes());
+		
 		return writer.toByteArray();
 	}
 	
-	public static HandshakeMessage fromReader(DatagramReader reader) {
-
-		byte[] hintEncoded = reader.readVarBytes(IDENTITY_HINT_LENGTH_BITS);
-
-		return new PSKServerKeyExchange(hintEncoded);
+	public static HandshakeMessage fromReader(DatagramReader reader, InetSocketAddress peerAddress) {
+		
+		int length = reader.read(IDENTITY_HINT_LENGTH_BITS);
+		byte[] hintEncoded = reader.readBytes(length);
+		
+		return new PSKServerKeyExchange(hintEncoded, peerAddress);
 	}
 	
 	// Getters and Setters ////////////////////////////////////////////

@@ -54,6 +54,7 @@ SERVER_LARGE_KEY_STORE_P12=serverLarge.p12
 SERVER_RSA_KEY_STORE_P12=serverRsa.p12
 ROOT_TRUST_STORE_P12=rootTrustStore.p12
 
+
 # PEM 
 TRUST_STORE_PEM=trustStore.pem
 ROOT_TRUST_STORE_PEM=rootTrustStore.pem
@@ -70,9 +71,6 @@ ED25519_PUBLIC_KEY_PEM=ed25519_public.pem
 ED25519_PRIVATE_KEY_PEM=ed25519_private.pem
 ED448_PUBLIC_KEY_PEM=ed448_public.pem
 ED448_PRIVATE_KEY_PEM=ed448_private.pem
-
-CLIENT_KEY_STORE_DER=client.der
-TRUST_STORE_DER=trustStore.der
 
 VALIDITY=365
 
@@ -222,12 +220,10 @@ export_pem() {
       openssl pkey -in $ED25519_PRIVATE_KEY_PEM -pubout -out $ED25519_PUBLIC_KEY_PEM
       openssl genpkey -algorithm Ed448 -out $ED448_PRIVATE_KEY_PEM
       openssl pkey -in $ED448_PRIVATE_KEY_PEM -pubout -out $ED448_PUBLIC_KEY_PEM
-      openssl x509 -inform PEM -in $CLIENT_KEY_STORE_PEM -outform DER -out $CLIENT_KEY_STORE_DER
    fi
 } 
 
 copy_pem() {
-  echo "copy to californium-interoperability-tests"
   DESTINATION_DIR=../../../../californium-tests/californium-interoperability-tests
   cp $TRUST_STORE_PEM $DESTINATION_DIR
   cp $ROOT_TRUST_STORE_PEM $DESTINATION_DIR
@@ -238,12 +234,6 @@ copy_pem() {
   cp $SERVER_KEY_STORE_PEM $DESTINATION_DIR
   cp $SERVER_LARGE_KEY_STORE_PEM $DESTINATION_DIR
   cp $SERVER_RSA_KEY_STORE_PEM $DESTINATION_DIR
-  cp $EC_PRIVATE_KEY_PEM $DESTINATION_DIR
-  echo "copy to cf-extplugtest-server"
-  DESTINATION_DIR=../../../../demo-apps/cf-extplugtest-server/service
-  cp $CA_TRUST_STORE_PEM $DESTINATION_DIR
-  cp $CLIENT_KEY_STORE_PEM $DESTINATION_DIR
-  cp $SERVER_KEY_STORE_PEM $DESTINATION_DIR
 }
 
 jobs () {

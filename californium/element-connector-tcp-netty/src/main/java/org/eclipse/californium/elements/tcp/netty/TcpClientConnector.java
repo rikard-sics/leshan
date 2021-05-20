@@ -62,10 +62,8 @@ import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.RawDataChannel;
 
 import java.io.IOException;
-import java.net.DatagramPacket;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -102,9 +100,6 @@ public class TcpClientConnector implements Connector {
 	 * @see #getEndpointContextMatcher()
 	 */
 	private volatile EndpointContextMatcher endpointContextMatcher;
-
-	protected volatile boolean running;
-
 	private EventLoopGroup workerGroup;
 	private RawDataChannel rawDataChannel;
 	private AbstractChannelPoolMap<SocketAddress, ChannelPool> poolMap;
@@ -123,19 +118,15 @@ public class TcpClientConnector implements Connector {
 	}
 
 	@Override
-	public boolean isRunning() {
-		return running;
-	}
-
-	@Override
 	public synchronized void start() throws IOException {
 		if (rawDataChannel == null) {
 			throw new IllegalStateException("Cannot start without message handler.");
 		}
-		if (running || workerGroup != null) {
+
+		if (workerGroup != null) {
 			throw new IllegalStateException("Connector already started");
 		}
-		running = true;
+
 		workerGroup = new NioEventLoopGroup(numberOfThreads,
 				new DaemonThreadFactory("TCP-Client-" + THREAD_COUNTER.incrementAndGet() + "#", TCP_THREAD_GROUP));
 		poolMap = new AbstractChannelPoolMap<SocketAddress, ChannelPool>() {
@@ -160,18 +151,13 @@ public class TcpClientConnector implements Connector {
 
 	@Override
 	public synchronized void stop() {
-		if (running) {
-			LOGGER.debug("Stopping {} client connector ...", getProtocol());
-			running = false;
-			if (poolMap != null) {
-				poolMap.close();
-			}
-			if (workerGroup != null) {
-				// FixedChannelPool requires a quietPeriod be larger than 0
-				workerGroup.shutdownGracefully(50, 500, TimeUnit.MILLISECONDS).syncUninterruptibly();
-				workerGroup = null;
-			}
-			LOGGER.debug("Stopped {} client connector", getProtocol());
+		if (poolMap != null) {
+			poolMap.close();
+		}
+		if (workerGroup != null) {
+			// FixedChannelPool requires a quietPeriod be larger than 0
+			workerGroup.shutdownGracefully(50, 500, TimeUnit.MILLISECONDS).syncUninterruptibly();
+			workerGroup = null;
 		}
 	}
 
@@ -181,17 +167,12 @@ public class TcpClientConnector implements Connector {
 	}
 
 	@Override
-	public void processDatagram(DatagramPacket datagram) {
-	}
-
-	@Override
 	public void send(final RawData msg) {
 		if (msg == null) {
 			throw new NullPointerException("Message must not be null");
 		}
 		if (msg.isMulticast()) {
-			LOGGER.warn("TcpConnector drops {} bytes to multicast {}", msg.getSize(),
-					StringUtil.toLog(msg.getInetSocketAddress()));
+			LOGGER.warn("TcpConnector drops {} bytes to multicast {}:{}", msg.getSize(), msg.getAddress(), msg.getPort());
 			msg.onError(new MulticastNotSupportedException("TCP doesn't support multicast!"));
 			return;
 		}
@@ -204,8 +185,7 @@ public class TcpClientConnector implements Connector {
 		final EndpointContextMatcher endpointMatcher = getEndpointContextMatcher();
 		/* check, if a new connection should be established */
 		if (endpointMatcher != null && !connected && !endpointMatcher.isToBeSent(msg.getEndpointContext(), null)) {
-			LOGGER.warn("TcpConnector drops {} bytes to new {}", msg.getSize(),
-					StringUtil.toLog(msg.getInetSocketAddress()));
+			LOGGER.warn("TcpConnector drops {} bytes to new {}:{}", msg.getSize(), msg.getAddress(), msg.getPort());
 			msg.onError(new EndpointMismatchException("no connection"));
 			return;
 		}
@@ -241,20 +221,9 @@ public class TcpClientConnector implements Connector {
 					if (cause instanceof ConnectTimeoutException) {
 						LOGGER.debug("{}", cause.getMessage());
 					} else if (cause instanceof CancellationException) {
-						if (isRunning()) {
-							LOGGER.debug("{}", cause.getMessage());
-						} else {
-							LOGGER.trace("{}", cause.getMessage());
-						}
-					} else if (cause instanceof IllegalStateException) {
-						if (isRunning()) {
-							LOGGER.debug("{}", cause.getMessage());
-						} else {
-							LOGGER.trace("{}", cause.getMessage());
-						}
+						LOGGER.debug("{}", cause.getMessage());
 					} else {
-						LOGGER.warn("Unable to open connection to {}",
-								StringUtil.toLog(msg.getInetSocketAddress()), future.cause());
+						LOGGER.warn("Unable to open connection to {}", msg.getAddress(), future.cause());
 					}
 					msg.onError(future.cause());
 				}
@@ -278,9 +247,8 @@ public class TcpClientConnector implements Connector {
 		 * check, if the message should be sent with the established connection
 		 */
 		if (endpointMatcher != null && !endpointMatcher.isToBeSent(msg.getEndpointContext(), context)) {
-			LOGGER.warn("TcpConnector drops {} bytes to {}", msg.getSize(),
-					StringUtil.toLog(msg.getInetSocketAddress()));
-			msg.onError(new EndpointMismatchException("TCP"));
+			LOGGER.warn("TcpConnector drops {} bytes to {}:{}", msg.getSize(), msg.getAddress(), msg.getPort());
+			msg.onError(new EndpointMismatchException());
 			return;
 		}
 		msg.onContextEstablished(context);
@@ -294,20 +262,8 @@ public class TcpClientConnector implements Connector {
 				} else if (future.isCancelled()) {
 					msg.onError(new CancellationException());
 				} else {
-					Throwable cause = future.cause();
-					if (cause instanceof ClosedChannelException) {
-						if (isRunning()) {
-							LOGGER.debug("TcpConnector drops {} bytes to {}, connection closed!", msg.getSize(),
-									StringUtil.toLog(msg.getInetSocketAddress()));
-						} else {
-							LOGGER.trace("TcpConnector drops {} bytes to {}, connection closed!", msg.getSize(),
-									StringUtil.toLog(msg.getInetSocketAddress()));
-						}
-					} else {
-						LOGGER.warn("TcpConnector drops {} bytes to {} caused by", msg.getSize(),
-								StringUtil.toLog(msg.getInetSocketAddress()), cause);
-					}
-					msg.onError(cause);
+					LOGGER.warn("TcpConnector drops {} bytes to {}:{} caused by", msg.getSize(), msg.getAddress(), msg.getPort(), future.cause());
+					msg.onError(future.cause());
 				}
 			}
 		});

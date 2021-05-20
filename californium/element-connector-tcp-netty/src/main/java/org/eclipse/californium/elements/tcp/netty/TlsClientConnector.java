@@ -35,7 +35,6 @@ import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.EndpointContextMatcher;
 import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.TlsEndpointContext;
-import org.eclipse.californium.elements.util.StringUtil;
 
 import io.netty.channel.Channel;
 import io.netty.handler.ssl.SslHandler;
@@ -152,11 +151,11 @@ public class TlsClientConnector extends TcpClientConnector {
 	 */
 	private SSLEngine createSllEngine(SocketAddress remoteAddress) {
 		if (remoteAddress instanceof InetSocketAddress) {
-			LOGGER.info("Connection to inet {}", StringUtil.toLog(remoteAddress));
 			InetSocketAddress remote = (InetSocketAddress) remoteAddress;
+			LOGGER.info("Connection to inet {}", remote);
 			return sslContext.createSSLEngine(remote.getAddress().getHostAddress(), remote.getPort());
 		} else {
-			LOGGER.info("Connection to {}", StringUtil.toLog(remoteAddress));
+			LOGGER.info("Connection to {}", remoteAddress);
 			return sslContext.createSSLEngine();
 		}
 	}

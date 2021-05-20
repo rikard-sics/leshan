@@ -17,7 +17,7 @@ package org.eclipse.californium.scandium.dtls;
 
 import javax.crypto.SecretKey;
 
-import org.eclipse.californium.scandium.auth.ApplicationLevelInfoSupplier;
+import org.eclipse.californium.scandium.auth.AdvancedApplicationLevelInfoSupplier;
 
 /**
  * Result of PSK secret.
@@ -58,16 +58,16 @@ public class PskSecretResult extends HandshakeResult {
 
 	/**
 	 * Create result with custom argument for
-	 * {@link ApplicationLevelInfoSupplier}.
+	 * {@link AdvancedApplicationLevelInfoSupplier}.
 	 * 
 	 * @param cid connection id
 	 * @param pskIdentity PSK identity
 	 * @param secret secret, {@code null}, if generation failed. Algorithm must
 	 *            be "MAC" or "PSK".
 	 * @param customArgument custom argument. May be {@code null}. Passed to
-	 *            {@link ApplicationLevelInfoSupplier} by the
+	 *            {@link AdvancedApplicationLevelInfoSupplier} by the
 	 *            {@link Handshaker}, if a
-	 *            {@link ApplicationLevelInfoSupplier} is available.
+	 *            {@link AdvancedApplicationLevelInfoSupplier} is available.
 	 * @throws IllegalArgumentException if algorithm is neither "MAC" nor "PSK"
 	 * @throws NullPointerException if cid or pskIdentity is {@code null}
 	 */

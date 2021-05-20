@@ -15,6 +15,8 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
+import java.net.InetSocketAddress;
+
 import org.eclipse.californium.elements.util.DatagramReader;
 import org.eclipse.californium.elements.util.DatagramWriter;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertDescription;
@@ -60,10 +62,12 @@ public class MaxFragmentLengthExtension extends HelloExtension {
 	 * in <a href="http://tools.ietf.org/html/rfc6066#section-4">RFC 6066, Section 4</a>.
 	 * 
 	 * @param extensionDataReader the extension data struct containing the length code
+	 * @param peerAddress the IP address and port of the peer that sent the extension
 	 * @return the extension object
 	 * @throws HandshakeException if the extension data contains an unknown code
 	 */
-	static final MaxFragmentLengthExtension fromExtensionDataReader(DatagramReader extensionDataReader) throws HandshakeException {
+	static final MaxFragmentLengthExtension fromExtensionDataReader(DatagramReader extensionDataReader,
+			InetSocketAddress peerAddress) throws HandshakeException {
 		int code = extensionDataReader.read(CODE_BITS);
 		Length length = Length.fromCode(code);
 		if (length != null) {
@@ -75,7 +79,8 @@ public class MaxFragmentLengthExtension extends HelloExtension {
 							code, ExtensionType.MAX_FRAGMENT_LENGTH.name()),
 					new AlertMessage(
 							AlertLevel.FATAL,
-							AlertDescription.ILLEGAL_PARAMETER));
+							AlertDescription.ILLEGAL_PARAMETER,
+							peerAddress));
 		}
 	}
 
@@ -98,13 +103,10 @@ public class MaxFragmentLengthExtension extends HelloExtension {
 	 * <em>Max Fragment Length</em> Hello extension.
 	 */
 	public enum Length {
-		BYTES_512(1, 512),
-		BYTES_1024(2, 1024),
-		BYTES_2048(3, 2048),
-		BYTES_4096(4, 4096);
+		BYTES_512(1, 512), BYTES_1024(2, 1024), BYTES_2048(3, 2048), BYTES_4096(4, 4096);
 
-		private final int code;
-		private final int length;
+		private int code;
+		private int length;
 		
 		private Length(int code, int length) {
 			this.code = code;

@@ -52,8 +52,9 @@ import static org.eclipse.californium.core.test.lockstep.IntegrationTestTools.cr
 import static org.eclipse.californium.core.test.lockstep.IntegrationTestTools.printServerLog;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 import java.util.concurrent.TimeUnit;
@@ -71,6 +72,8 @@ import org.eclipse.californium.core.test.MessageExchangeStoreTool.CoapTestEndpoi
 import org.eclipse.californium.elements.category.Medium;
 import org.eclipse.californium.elements.rule.TestNameLoggerRule;
 import org.eclipse.californium.elements.rule.TestTimeRule;
+import org.eclipse.californium.elements.util.TestCondition;
+import org.eclipse.californium.elements.util.TestConditionTools;
 import org.eclipse.californium.rule.CoapNetworkRule;
 import org.eclipse.californium.rule.CoapThreadsRule;
 import org.junit.After;
@@ -101,7 +104,6 @@ public class BlockwiseClientSideTest {
 
 	private static final int TEST_EXCHANGE_LIFETIME = 247; // milliseconds
 	private static final int TEST_SWEEP_DEDUPLICATOR_INTERVAL = 100; // milliseconds
-	private static final int TEST_BLOCKWISE_STATUS_INTERVAL = 50;
 	private static final int TEST_BLOCKWISE_STATUS_LIFETIME = 300;
 
 	private static final int MAX_RESOURCE_BODY_SIZE = 1024;
@@ -131,7 +133,6 @@ public class BlockwiseClientSideTest {
 				.setInt(NetworkConfig.Keys.ACK_RANDOM_FACTOR, 1)
 				.setInt(NetworkConfig.Keys.MAX_RETRANSMIT, 2)
 				.setInt(NetworkConfig.Keys.ACK_TIMEOUT_SCALE, 1)
-				.setInt(NetworkConfig.Keys.BLOCKWISE_STATUS_INTERVAL, TEST_BLOCKWISE_STATUS_INTERVAL)
 				.setInt(NetworkConfig.Keys.BLOCKWISE_STATUS_LIFETIME, TEST_BLOCKWISE_STATUS_LIFETIME);
 
 		client = new CoapTestEndpoint(TestTools.LOCALHOST_EPHEMERAL, config);
@@ -163,15 +164,22 @@ public class BlockwiseClientSideTest {
 
 		respPayload = generateRandomPayload(128);
 		String path = "test";
-		Request request = createRequest(GET, path, server);
+		final Request request = createRequest(GET, path, server);
 
 		client.sendRequest(request);
 		server.expectRequest(CON, GET, path).storeBoth("A").go();
 		server.sendResponse(ACK, CONTENT).loadBoth("A").size2(MAX_RESOURCE_BODY_SIZE + 10).block2(0, true, 128).payload(respPayload).go();
 
 		request.waitForResponse(ERROR_TIMEOUT_IN_MS);
+		assertNotNull("Request should have failed with error", request.getOnResponseError());
+		// race condition, though the response error notifies the request before the cancel
+		TestConditionTools.waitForCondition(ERROR_TIMEOUT_IN_MS, ERROR_TIMEOUT_IN_MS/10, TimeUnit.MILLISECONDS, new TestCondition() {
+			@Override
+			public boolean isFulFilled() throws IllegalStateException {
+				return request.isCanceled();
+			}
+		});
 		assertTrue("Request should have been cancelled", request.isCanceled());
-		assertThat("Request should have failed with error", request.getOnResponseError(), is(notNullValue()));
 	}
 
 	/**

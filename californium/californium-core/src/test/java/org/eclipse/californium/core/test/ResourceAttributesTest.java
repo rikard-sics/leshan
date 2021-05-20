@@ -217,19 +217,6 @@ public class ResourceAttributesTest {
 		@Override
 		public void cancelObservation(Token token) {
 		}
-
-		@Override
-		public void addPostProcessInterceptor(MessageInterceptor interceptor) {
-		}
-
-		@Override
-		public void removePostProcessInterceptor(MessageInterceptor interceptor) {
-		}
-
-		@Override
-		public List<MessageInterceptor> getPostProcessInterceptors() {
-			return null;
-		}
-
+		
 	}
 }

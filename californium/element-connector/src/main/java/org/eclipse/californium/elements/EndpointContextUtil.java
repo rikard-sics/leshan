@@ -18,9 +18,6 @@
 package org.eclipse.californium.elements;
 
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
-
-import org.eclipse.californium.elements.util.FilteredLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,8 +27,6 @@ import org.slf4j.LoggerFactory;
 public class EndpointContextUtil {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(EndpointContextUtil.class);
-
-	private static final FilteredLogger WARN_FILTER = new FilteredLogger(LOGGER, 3, TimeUnit.SECONDS.toNanos(10));
 
 	/**
 	 * Match endpoint contexts based on a set of keys.
@@ -48,8 +43,8 @@ public class EndpointContextUtil {
 		boolean trace = LOGGER.isTraceEnabled();
 		boolean matchAll = true;
 		for (String key : keys) {
-			Object value1 = context1.get(key);
-			Object value2 = context2.get(key);
+			String value1 = context1.get(key);
+			String value2 = context2.get(key);
 			boolean match = (value1 == value2) || (null != value1 && value1.equals(value2));
 			if (!match && !warn) {
 				/* no warnings => fast return */
@@ -57,7 +52,7 @@ public class EndpointContextUtil {
 			}
 			if (!match) {
 				/* logging differences with warning level */
-				WARN_FILTER.warn("{}, {}: \"{}\" != \"{}\"",  name, key, value1, value2);
+				LOGGER.warn("{}, {}: \"{}\" != \"{}\"",  name, key, value1, value2);
 			} else if (trace) {
 				/* logging matches with finest level */
 				LOGGER.trace("{}, {}: \"{}\" == \"{}\"", name, key, value1, value2);
@@ -85,7 +80,7 @@ public class EndpointContextUtil {
 	public static EndpointContext getFollowUpEndpointContext(EndpointContext messageContext,
 			EndpointContext connectionContext) {
 		EndpointContext followUpEndpointContext;
-		String mode = messageContext.getString(DtlsEndpointContext.KEY_HANDSHAKE_MODE);
+		String mode = messageContext.get(DtlsEndpointContext.KEY_HANDSHAKE_MODE);
 		if (mode != null && mode.equals(DtlsEndpointContext.HANDSHAKE_MODE_NONE)) {
 			// restore handshake-mode "none"
 			followUpEndpointContext = MapBasedEndpointContext.addEntries(connectionContext,

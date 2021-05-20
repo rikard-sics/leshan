@@ -45,23 +45,21 @@ public class TlsEndpointContext extends TcpEndpointContext {
 	 * @param peerIdentity peer identity of endpoint context
 	 * @param connectionId the connectionn's ID.
 	 * @param sessionId the session's ID.
-	 * @param timestamp the timestamp in milliseconds of the last connect. 
 	 * @param cipher the cipher suite of the session's current read/write state.
-	 * @throws NullPointerException if any of the params is {@code null}.
-	 * @since 3.0 (added timestamp)
+	 * @throws NullPointerException if any of the params is <code>null</code>.
 	 */
 	public TlsEndpointContext(InetSocketAddress peerAddress, Principal peerIdentity, String connectionId,
-			String sessionId, String cipher, long timestamp) {
-		super(peerAddress, peerIdentity, new Attributes().add(KEY_CONNECTION_ID, connectionId)
-				.add(KEY_CONNECTION_TIMESTAMP, timestamp).add(KEY_SESSION_ID, sessionId).add(KEY_CIPHER, cipher));
+			String sessionId, String cipher) {
+		super(peerAddress, peerIdentity, KEY_CONNECTION_ID, connectionId, KEY_SESSION_ID, sessionId, KEY_CIPHER,
+				cipher);
 	}
 
 	public String getSessionId() {
-		return getString(KEY_SESSION_ID);
+		return get(KEY_SESSION_ID);
 	}
 
 	public String getCipher() {
-		return getString(KEY_CIPHER);
+		return get(KEY_CIPHER);
 	}
 
 	@Override

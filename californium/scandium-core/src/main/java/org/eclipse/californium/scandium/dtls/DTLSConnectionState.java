@@ -27,10 +27,7 @@ import javax.crypto.SecretKey;
 import javax.security.auth.DestroyFailedException;
 import javax.security.auth.Destroyable;
 
-import org.eclipse.californium.elements.util.DatagramReader;
-import org.eclipse.californium.elements.util.DatagramWriter;
 import org.eclipse.californium.elements.util.StringUtil;
-import org.eclipse.californium.elements.util.WipAPI;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
 import org.eclipse.californium.scandium.util.SecretIvParameterSpec;
 
@@ -79,11 +76,6 @@ public abstract class DTLSConnectionState implements Destroyable {
 			return false;
 		}
 
-		@Override
-		public void write(DatagramWriter writer) {
-			throw new RuntimeException("Not suppported!");
-		}
-
 	};
 
 	/**
@@ -98,8 +90,7 @@ public abstract class DTLSConnectionState implements Destroyable {
 	 * @param macKey the key to use for creating/verifying message
 	 *            authentication codes (MAC)
 	 * @return created connection state.
-	 * @throws NullPointerException if any of the parameter used by the provided
-	 *             cipher suite is {@code null}
+	 * @throws NullPointerException if any of the parameter is {@code null}
 	 */
 	public static DTLSConnectionState create(CipherSuite cipherSuite, CompressionMethod compressionMethod,
 			SecretKey encryptionKey, SecretIvParameterSpec iv, SecretKey macKey) {
@@ -114,31 +105,6 @@ public abstract class DTLSConnectionState implements Destroyable {
 			throw new IllegalArgumentException("cipher type " + cipherSuite.getCipherType() + " not supported!");
 		}
 	}
-
-	/**
-	 * Read cipher suite specific connection state from reader.
-	 * 
-	 * Note: the stream will contain not encrypted critical credentials. The
-	 * encoding of the content may also change in the future.
-	 * 
-	 * @param cipherSuite cipher suite
-	 * @param compressionMethod compression method
-	 * @param reader reader with data
-	 * @return connection state
-	 * @since 3.0
-	 */
-	@WipAPI
-	public static DTLSConnectionState fromReader(CipherSuite cipherSuite, CompressionMethod compressionMethod, DatagramReader reader) {
-		switch (cipherSuite.getCipherType()) {
-		case BLOCK:
-			return new DtlsBlockConnectionState(cipherSuite, compressionMethod, reader);
-		case AEAD:
-			return new DtlsAeadConnectionState(cipherSuite, compressionMethod, reader);
-		default:
-			throw new IllegalArgumentException("cipher type " + cipherSuite.getCipherType() + " not supported!");
-		}
-	}
-
 	// Members ////////////////////////////////////////////////////////
 
 	protected final CipherSuite cipherSuite;
@@ -178,18 +144,6 @@ public abstract class DTLSConnectionState implements Destroyable {
 	}
 
 	/**
-	 * Gets the algorithm used for reducing the size of <em>plaintext</em> data
-	 * to be exchanged with a peer by means of TLS <em>APPLICATION_DATA</em>
-	 * messages.
-	 * 
-	 * @return the algorithm identifier
-	 */
-	CompressionMethod getCompressionMethod() {
-		return compressionMethod;
-	}
-
-
-	/**
 	 * Checks whether the cipher suite is not the <em>NULL_CIPHER</em>.
 	 * 
 	 * @return {@code true} if the suite is not {@link CipherSuite#TLS_NULL_WITH_NULL_NULL}.
@@ -219,16 +173,42 @@ public abstract class DTLSConnectionState implements Destroyable {
 	public abstract byte[] decrypt(Record record, byte[] ciphertextFragment) throws GeneralSecurityException;
 
 	/**
-	 * Write cipher suite specific connection state to writer.
+	 * Gets the algorithm used for reducing the size of <em>plaintext</em> data
+	 * to be exchanged with a peer by means of TLS <em>APPLICATION_DATA</em>
+	 * messages.
 	 * 
-	 * Note: the stream will contain not encrypted critical credentials. It is
-	 * required to protect this data before exporting it. The encoding of the
-	 * content may also change in the future.
-	 * 
-	 * @param writer writer to write state to.
-	 * @since 3.0
+	 * @return the algorithm identifier
 	 */
-	@WipAPI
-	public abstract void write(DatagramWriter writer);
+	CompressionMethod getCompressionMethod() {
+		return compressionMethod;
+	}
 
+	/**
+	 * Gets the output length of the MAC algorithm.
+	 * 
+	 * @return the length in bytes
+	 */
+	int getMacLength() {
+		return cipherSuite.getMacLength();
+	}
+
+	/**
+	 * Gets the key length of the MAC algorithm.
+	 * 
+	 * @return the length in bytes
+	 */
+	int getMacKeyLength() {
+		return cipherSuite.getMacKeyLength();
+	}
+
+	/**
+	 * Gets the length of the cipher algorithm's initialization vector.
+	 * 
+	 * For block ciphers (e.g. AES) this is the same as the cipher's block size.
+	 * 
+	 * @return the length in bytes
+	 */
+	int getRecordIvLength() {
+		return cipherSuite.getRecordIvLength();
+	}
 }

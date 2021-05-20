@@ -21,14 +21,11 @@ import java.security.Principal;
 import java.util.Collections;
 import java.util.Map;
 
-import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.StringUtil;
 
 /**
- * A endpoint context providing the inet socket address, a virtual host, and a
- * optional principal.
- * 
- * Attributes are not supported but may get added by extending this class.
+ * A endpoint context providing the inet socket address and a optional
+ * principal.
  */
 public class AddressEndpointContext implements EndpointContext {
 
@@ -97,41 +94,11 @@ public class AddressEndpointContext implements EndpointContext {
 	/**
 	 * {@inheritDoc}
 	 * 
-	 * If not override in an extending class, only {@code null} will be returned.
+	 * @return {@code null}
 	 */
 	@Override
-	public Object get(String key) {
+	public String get(String key) {
 		return null;
-	}
-
-	@Override
-	public String getString(String key) {
-		Object value = get(key);
-		if (value != null) {
-			return value.toString();
-		} else {
-			return null;
-		}
-	}
-
-	@Override
-	public Number getNumber(String key) {
-		Object value = get(key);
-		if (value != null) {
-			return (Number) value;
-		} else {
-			return null;
-		}
-	}
-
-	@Override
-	public Bytes getBytes(String key) {
-		Object value = get(key);
-		if (value != null) {
-			return (Bytes) value;
-		} else {
-			return null;
-		}
 	}
 
 	/**
@@ -140,7 +107,7 @@ public class AddressEndpointContext implements EndpointContext {
 	 * @return an empty map
 	 */
 	@Override
-	public Map<String, Object> entries() {
+	public Map<String, String> entries() {
 		return Collections.emptyMap();
 	}
 

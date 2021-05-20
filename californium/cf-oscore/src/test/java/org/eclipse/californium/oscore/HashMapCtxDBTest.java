@@ -23,7 +23,6 @@ import static org.junit.Assert.assertTrue;
 
 import org.eclipse.californium.core.coap.Token;
 import org.eclipse.californium.cose.AlgorithmID;
-import org.eclipse.californium.elements.util.ExpectedExceptionWrapper;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -49,7 +48,7 @@ public class HashMapCtxDBTest {
 	private final Integer seq = 42;
 
 	@Rule
-	public final ExpectedException exception = ExpectedExceptionWrapper.none();
+	public final ExpectedException exception = ExpectedException.none();
 
 	@Before
 	public void setUp() throws Exception {
@@ -146,6 +145,9 @@ public class HashMapCtxDBTest {
 		assertNull(db.getContextByToken(token));
 	}
 
+	@Rule
+	public ExpectedException exceptionRule = ExpectedException.none();
+
 	/**
 	 * Get a context using only RID. Multiple contexts are added to the context
 	 * DB. Since both of them have the same RID, the retrieval fails since it's
@@ -155,8 +157,8 @@ public class HashMapCtxDBTest {
 	 */
 	@Test
 	public void testAddGetContextRidMultipleFail() throws OSException {
-		exception.expect(CoapOSException.class);
-		exception.expectMessage(ErrorDescriptions.CONTEXT_NOT_FOUND_IDCONTEXT);
+		exceptionRule.expect(CoapOSException.class);
+		exceptionRule.expectMessage(ErrorDescriptions.CONTEXT_NOT_FOUND_IDCONTEXT);
 
 		HashMapCtxDB db = new HashMapCtxDB();
 		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, AlgorithmID.HKDF_HMAC_SHA_256, 32, null,
@@ -182,8 +184,8 @@ public class HashMapCtxDBTest {
 	 */
 	@Test
 	public void testRetrieveNonUniqueRID() throws OSException {
-		exception.expect(RuntimeException.class);
-		exception.expectMessage("Attempting to retrieve context with only non-unique RID.");
+		exceptionRule.expect(RuntimeException.class);
+		exceptionRule.expectMessage("Attempting to retrieve context with only non-unique RID.");
 
 		HashMapCtxDB db = new HashMapCtxDB();
 		OSCoreCtx ctx1 = new OSCoreCtx(master_secret, true, alg, sid, rid, AlgorithmID.HKDF_HMAC_SHA_256, 32, null,

@@ -27,9 +27,7 @@
 package org.eclipse.californium.core.network.serialization;
 
 import org.eclipse.californium.core.coap.*;
-import org.eclipse.californium.core.coap.CoAP.ResponseCode;
 import org.eclipse.californium.elements.RawData;
-import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.DatagramReader;
 
 import static org.eclipse.californium.core.coap.CoAP.MessageFormat.PAYLOAD_MARKER;
@@ -54,16 +52,8 @@ public abstract class DataParser {
 		if (raw == null) {
 			throw new NullPointerException("raw-data must not be null!");
 		}
-		if (raw.getConnectorAddress() == null) {
-			throw new NullPointerException("raw-data connectos's address must not be null!");
-		}
 		Message message = parseMessage(raw.getBytes());
 		message.setSourceContext(raw.getEndpointContext());
-		if (message instanceof Request) {
-			((Request) message).setLocalAddress(raw.getConnectorAddress(), raw.isMulticast());
-		} else {
-			message.setLocalAddress(raw.getConnectorAddress());
-		}
 		message.setNanoTimestamp(raw.getReceiveNanoTimestamp());
 		return message;
 	}
@@ -95,8 +85,6 @@ public abstract class DataParser {
 				message.setBytes(msg);
 				return message;
 			}
-		} catch (CoAPMessageFormatException e) {
-			throw e;
 		} catch (MessageFormatException e) {
 			/** use message to add CoAP message specific information */
 			errorMsg = e.getMessage();
@@ -136,15 +124,18 @@ public abstract class DataParser {
 	protected abstract MessageHeader parseHeader(DatagramReader reader);
 
 	/**
-	 * Assert, if options are supported for the specific protocol flavor.
+	 * Asserts that the length of the token as read from the encoded message complies
+	 * with the CoAP spec.
 	 * 
-	 * @param options option set to validate.
-	 * @throws IllegalArgumentException if at least one option is not valid for
-	 *             the specific flavor.
-	 * @since 3.0
+	 * @param tokenLength the length value read from the message header.
+	 * @throws MessageFormatException if the value is greater than eight.
 	 */
-	protected void assertValidOptions(OptionSet options) {
-		// empty default implementation
+	protected static final void assertValidTokenLength(int tokenLength) {
+		if (tokenLength > 8) {
+			// must be treated as a message format error according to CoAP spec
+			// https://tools.ietf.org/html/rfc7252#section-3
+			throw new MessageFormatException("Message has invalid token length (> 8)" + tokenLength);
+		}
 	}
 
 	/**
@@ -154,11 +145,8 @@ public abstract class DataParser {
 	 * @param message message to set parsed options and payload
 	 * @throws NullPointerException if one of the provided parameters is
 	 *             {@code null}
-	 * @since 3.0 not longer {@code static}. Please create either a
-	 *        {@link TcpDataParser} or a {@link UdpDataParser} in order to
-	 *        validate the options according the protocol flavor.
 	 */
-	public void parseOptionsAndPayload(DatagramReader reader, Message message) {
+	public static void parseOptionsAndPayload(DatagramReader reader, Message message) {
 		if (reader == null) {
 			throw new NullPointerException("reader must not be null!");
 		}
@@ -170,51 +158,46 @@ public abstract class DataParser {
 
 		while (reader.bytesAvailable()) {
 			nextByte = reader.readNextByte();
-			if (nextByte == PAYLOAD_MARKER) {
-				break;
-			}
-			// the first 4 bits of the byte represent the option delta
-			int optionDeltaNibble = (0xF0 & nextByte) >> 4;
-			currentOptionNumber = calculateNextOptionNumber(reader, currentOptionNumber, optionDeltaNibble, message);
+			if (nextByte != PAYLOAD_MARKER) {
+				// the first 4 bits of the byte represent the option delta
+				int optionDeltaNibble = (0xF0 & nextByte) >> 4;
+				currentOptionNumber = calculateNextOptionNumber(reader, currentOptionNumber, optionDeltaNibble, message);
 
-			// the second 4 bits represent the option length
-			int optionLengthNibble = 0x0F & nextByte;
-			int optionLength = determineValueFromNibble(reader, optionLengthNibble, message);
+				// the second 4 bits represent the option length
+				int optionLengthNibble = 0x0F & nextByte;
+				int optionLength = determineValueFromNibble(reader, optionLengthNibble, message);
 
-			// read option
-			if (reader.bytesAvailable(optionLength)) {
-				try {
-					Option option = new Option(currentOptionNumber);
-					option.setValue(reader.readBytes(optionLength));
+				// read option
+				if (reader.bytesAvailable(optionLength)) {
+					try {
+						Option option = new Option(currentOptionNumber);
+						option.setValue(reader.readBytes(optionLength));
 
-					if (currentOptionNumber == OptionNumberRegistry.CONTENT_FORMAT) {
-						// OptionSet.setContentFormat(int) API weird => cleanup on 3.0
-						int format = option.getIntegerValue();
-						message.getOptions().setContentFormat(format);
-						if (!message.getOptions().hasContentFormat()) {
-							throw new IllegalArgumentException(
-									"Content Format option must be between 0 and " + MediaTypeRegistry.MAX_TYPE + " (2 bytes) inclusive");
+						if (currentOptionNumber == OptionNumberRegistry.CONTENT_FORMAT) {
+							// OptionSet.setContentFormat(int) API weird => cleanup on 3.0
+							int format = option.getIntegerValue();
+							message.getOptions().setContentFormat(format);
+							if (!message.getOptions().hasContentFormat()) {
+								throw new IllegalArgumentException(
+										"Content Format option must be between 0 and " + MediaTypeRegistry.MAX_TYPE + " (2 bytes) inclusive");
+							}
+						} else {
+							// add option to message
+							message.getOptions().addOption(option);
 						}
-					} else {
-						// add option to message
-						message.getOptions().addOption(option);
+					} catch (IllegalArgumentException ex) {
+						throw new CoAPMessageFormatException(ex.getMessage(), message.getToken(), message.getMID(), message.getRawCode(), message.isConfirmable());
 					}
-				} catch (IllegalArgumentException ex) {
-					throw new CoAPMessageFormatException(ex.getMessage(), message.getToken(), message.getMID(), message.getRawCode(), message.isConfirmable());
+				} else {
+					String msg = String.format(
+							"Message contains option of length %d with only fewer bytes left in the message",
+							optionLength);
+					throw new CoAPMessageFormatException(msg, message.getToken(), message.getMID(), message.getRawCode(), message.isConfirmable());
 				}
-			} else {
-				String msg = String.format(
-						"Message contains option of length %d with only fewer bytes left in the message",
-						optionLength);
-				throw new CoAPMessageFormatException(msg, message.getToken(), message.getMID(), message.getRawCode(), message.isConfirmable());
-			}
+			} else
+				break;
 		}
-		try {
-			assertValidOptions(message.getOptions());
-		} catch (IllegalArgumentException ex) {
-			throw new CoAPMessageFormatException(ex.getMessage(), message.getToken(), message.getMID(),
-					message.getRawCode(), message.isConfirmable(), ResponseCode.BAD_REQUEST);
-		}
+
 		if (nextByte == PAYLOAD_MARKER) {
 			// the presence of a marker followed by a zero-length payload must be processed as a message format error
 			if (!reader.bytesAvailable()) {
@@ -227,10 +210,9 @@ public abstract class DataParser {
 					message.setUnintendedPayload();
 				}
 				message.setPayload(reader.readBytesLeft());
-				message.assertPayloadMatchsBlocksize();
 			}
 		} else {
-			message.setPayload(Bytes.EMPTY);
+			message.setPayload((String) null);
 		}
 	}
 

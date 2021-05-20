@@ -181,11 +181,11 @@ public class HonoClient {
 		if (config.payloadFormat) {
 			String text = config.payload.text;
 			if (text == null) {
-				text = new String(config.payload.payloadBytes, CoAP.UTF8_CHARSET);
+				text = new String(config.payloadBytes, CoAP.UTF8_CHARSET);
 			}
 			return String.format(text, value, System.currentTimeMillis() / 1000, id).getBytes();
 		} else {
-			return config.payload.payloadBytes;
+			return config.payloadBytes;
 		}
 	}
 
@@ -227,7 +227,7 @@ public class HonoClient {
 			clientConfig.contentType.contentType = MediaTypeRegistry.TEXT_PLAIN;
 		}
 
-		if (clientConfig.payload == null && request.isIntendedPayload()) {
+		if (clientConfig.payloadBytes == null && request.isIntendedPayload()) {
 			applyPayload(clientConfig.mode, request);
 			clientConfig.payload = new Payload();
 			clientConfig.payload.text = request.getPayloadString();

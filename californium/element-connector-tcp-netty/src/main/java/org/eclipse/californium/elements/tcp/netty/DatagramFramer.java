@@ -27,7 +27,6 @@ import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.util.ClockUtil;
 
 import java.math.BigInteger;
-import java.net.InetSocketAddress;
 import java.util.List;
 
 /**
@@ -64,11 +63,10 @@ public class DatagramFramer extends ByteToMessageDecoder {
 
 			byte[] data = new byte[coapHeaderSize + bodyLength];
 			in.readBytes(data);
-
+			
 			Channel channel = ctx.channel();
 			EndpointContext endpointContext = contextUtil.buildEndpointContext(channel);
-			RawData rawData = RawData.inbound(data, endpointContext, false, ClockUtil.nanoRealtime(),
-					(InetSocketAddress) channel.localAddress());
+			RawData rawData = RawData.inbound(data, endpointContext, false, ClockUtil.nanoRealtime());
 			out.add(rawData);
 		}
 	}

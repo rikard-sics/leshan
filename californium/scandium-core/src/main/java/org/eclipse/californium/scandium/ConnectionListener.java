@@ -19,33 +19,6 @@ import org.eclipse.californium.scandium.dtls.Connection;
 
 /**
  * Listener for Connections life cycle.
- * 
- * The callbacks are execution within the serial execution of the provided
- * connection. Therefore it's important to not block, otherwise the performance
- * will be downgraded. Though access to the connection must generally be done
- * within that execution, copy the data you need and forward that to an other
- * executer.
- * 
- * <pre>
- * &#64;Override
- * public void onConnectionEstablished(Connection connection) {
- *    // access the data 
- *    // get immutable data 
- *    final ConnectionId id = connection.getConnectionId();
- *    // copy mutable data 
- *    final DatagramWriter writer = new DatagramWriter(1024);
- *    connection.write(writer);
- *    // delegate processing
- *    myAppExecuter.execute(new Runnable() {
- *       &#64;Override
- *       public void run() {
- *          // process the data asynchronous
- *          ... id.getBytes() ...
- *          ... writer.toByteArray() ...
- *       }
- *    });
- * }
- * </pre>
  */
 public interface ConnectionListener {
 
@@ -63,52 +36,4 @@ public interface ConnectionListener {
 	 *            store
 	 */
 	void onConnectionRemoved(Connection connection);
-
-	/**
-	 * Callback, when the record sequence number have been updated.
-	 * 
-	 * @param connection connection
-	 * @param writeSequenceNumber {@code true}, on updating the write sequence
-	 *            number, {@code false}, on updating the receive sequence number
-	 *            window.
-	 * @return {@code true}, when maximum number of records is reached and the
-	 *         connection is to be closed, {@code false}, otherwise.
-	 * @since 3.0
-	 */
-	boolean onConnectionUpdatesSequenceNumbers(Connection connection, boolean writeSequenceNumber);
-
-	/**
-	 * Callback, when the record could not be decrypted caused by an error.
-	 * 
-	 * @param connection connection
-	 * @return {@code true}, when maximum number of records is reached and the
-	 *         connection is to be closed, {@code false}, otherwise.
-	 * @since 3.0
-	 */
-	boolean onConnectionMacError(Connection connection);
-
-	/**
-	 * Callback, when a executor begin processing a connection.
-	 * 
-	 * @param connection connection
-	 * @since 3.0
-	 */
-	void beforeExecution(Connection connection);
-
-	/**
-	 * Callback, when a connection changed its state.
-	 * 
-	 * @param connection connection
-	 * @since 3.0
-	 */
-	void updateExecution(Connection connection);
-
-	/**
-	 * Callback, after a executor processed a connection.
-	 * 
-	 * @param connection connection
-	 * @since 3.0
-	 */
-	void afterExecution(Connection connection);
-
 }

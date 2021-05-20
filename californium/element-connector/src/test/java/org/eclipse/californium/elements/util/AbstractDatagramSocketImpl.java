@@ -85,18 +85,12 @@ public abstract class AbstractDatagramSocketImpl extends DatagramSocketImpl {
 		throw new IOException("peek(InetAddress) not supported!");
 	}
 
-	/**
-	 * @deprecated already deprecated by {@link DatagramSocketImpl}.
-	 */
 	@Override
 	@Deprecated
 	protected void setTTL(byte ttl) throws IOException {
 		throw new IOException("setTTL(byte) not supported!");
 	}
 
-	/**
-	 * @deprecated already deprecated by {@link DatagramSocketImpl}.
-	 */
 	@Override
 	@Deprecated
 	protected byte getTTL() throws IOException {

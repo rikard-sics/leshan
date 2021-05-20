@@ -15,8 +15,6 @@
  ******************************************************************************/
 package org.eclipse.californium.core.coap;
 
-import org.eclipse.californium.core.coap.CoAP.ResponseCode;
-
 /**
  * Indicates a problem while parsing the binary representation of a CoAP
  * message.
@@ -32,13 +30,26 @@ public class CoAPMessageFormatException extends MessageFormatException {
 	private final int mid;
 	private final int code;
 	private final Token token;
-	private final ResponseCode errorCode;
 	private final boolean confirmable;
 
 	/**
 	 * Creates an exception for a description and message properties.
 	 * 
-	 * Use {@link ResponseCode#BAD_OPTION} as response error code.
+	 * @param description a description of the error cause.
+	 * @param mid the message ID.
+	 * @param code the message code.
+	 * @param confirmable whether the message has been transferred reliably.
+	 * @deprecated use
+	 *             {@link CoAPMessageFormatException#CoAPMessageFormatException(String, Token, int, int, boolean)}
+	 *             instead.
+	 */
+	@Deprecated
+	public CoAPMessageFormatException(String description, int mid, int code, boolean confirmable) {
+		this(description, null, mid, code, confirmable);
+	}
+
+	/**
+	 * Creates an exception for a description and message properties.
 	 * 
 	 * @param description a description of the error cause.
 	 * @param token the Token of the message. Maybe {@code null}, if the message
@@ -49,30 +60,11 @@ public class CoAPMessageFormatException extends MessageFormatException {
 	 * @since 2.3
 	 */
 	public CoAPMessageFormatException(String description, Token token, int mid, int code, boolean confirmable) {
-		this(description, token, mid, code, confirmable, ResponseCode.BAD_OPTION);
-	}
-
-	/**
-	 * Creates an exception for a description, message properties, and error
-	 * response code.
-	 * 
-	 * @param description a description of the error cause.
-	 * @param token the Token of the message. Maybe {@code null}, if the message
-	 *            has no token (ACK or RST).
-	 * @param mid the message ID.
-	 * @param code the message code.
-	 * @param confirmable whether the message has been transferred reliably.
-	 * @param errorCode error response code.
-	 * @since 3.0
-	 */
-	public CoAPMessageFormatException(String description, Token token, int mid, int code, boolean confirmable,
-			ResponseCode errorCode) {
 		super(description);
 		this.token = token;
 		this.mid = mid;
 		this.code = code;
 		this.confirmable = confirmable;
-		this.errorCode = errorCode;
 	}
 
 	/**
@@ -111,16 +103,6 @@ public class CoAPMessageFormatException extends MessageFormatException {
 	 */
 	public final int getCode() {
 		return code;
-	}
-
-	/**
-	 * Get the error code for a response.
-	 * 
-	 * @return the error code
-	 * @since 3.0
-	 */
-	public final ResponseCode getErrorCode() {
-		return errorCode;
 	}
 
 	/**

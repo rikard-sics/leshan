@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
  * {@link ScheduledThreadPoolExecutor#setRemoveOnCancelPolicy(boolean)} can be
  * used. The {@link ScheduledThreadPoolExecutor} will be configured using the
  * value of environment-variable or java-property
- * {@code "EXECUTER_REMOVE_ON_CANCEL"} or {@link #DEFAULT_REMOVE_ON_CANCEL}.
+ * {@code "EXECUTER_REMOVE_ON_CANCEL"}.
  * 
  * Test with java 11 didn't show such leaks, even if the task are removed
  * delayed, they are removed much earlier than their scheduled time.
@@ -75,33 +75,26 @@ public class ExecutorsUtil {
 	private static final int SPLIT_THRESHOLD = 1;
 
 	/**
-	 * Default value for {@link #REMOVE_ON_CANCEL}, if
-	 * {@code "EXECUTER_REMOVE_ON_CANCEL"} is not available.
-	 * 
-	 * @since 3.0
-	 */
-	private static final Boolean DEFAULT_REMOVE_ON_CANCEL = true;
-	/**
 	 * General "remove on cancel" policy. Only applies for java 7 or newer.
 	 * 
 	 * Set by the value of environment-variable or java-property
-	 * {@code "EXECUTER_REMOVE_ON_CANCEL"} or {@link #DEFAULT_REMOVE_ON_CANCEL}.
+	 * {@code "EXECUTER_REMOVE_ON_CANCEL"}. Default is not to enable the "remove
+	 * on cancel" policy.
+	 * 
+	 * Note: the default behavior differs from 3.0!
 	 * 
 	 * @see StringUtil#getConfigurationBoolean(String)
-	 * @since 3.0
+	 * @since 2.6 (backported from 3.0)
 	 */
 	private static final Boolean REMOVE_ON_CANCEL;
 
 	static {
-		Boolean remove = StringUtil.getConfigurationBoolean("EXECUTER_REMOVE_ON_CANCEL");
-		if (remove == null) {
-			remove = DEFAULT_REMOVE_ON_CANCEL;
-		}
-		if (remove != null) {
+		boolean remove = StringUtil.getConfigurationBoolean("EXECUTER_REMOVE_ON_CANCEL");
+		if (remove) {
 			try {
 				ScheduledThreadPoolExecutor.class.getMethod("setRemoveOnCancelPolicy", Boolean.TYPE);
 			} catch (NoSuchMethodException e) {
-				remove = null;
+				remove = false;
 			}
 		}
 		REMOVE_ON_CANCEL = remove;
@@ -240,7 +233,7 @@ public class ExecutorsUtil {
 	 * Ignored, if not supported by java vm or executors implementation.
 	 * 
 	 * @param executor executor to set remove on cancel policy
-	 * @since 3.0
+	 * @since 2.6 (backported from 3.0)
 	 */
 	@NotForAndroid
 	private static void setRemoveOnCancelPolicy(ScheduledExecutorService executor) {
@@ -365,10 +358,8 @@ public class ExecutorsUtil {
 				if (!directExecutor.awaitTermination(timeout / 2, unit)) {
 					return false;
 				}
-				return super.awaitTermination(timeout / 2, unit);
-			} else {
-				return super.awaitTermination(timeout, unit);
 			}
+			return super.awaitTermination(timeout / 2, unit);
 		}
 	}
 }

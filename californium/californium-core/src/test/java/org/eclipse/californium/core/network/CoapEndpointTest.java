@@ -23,11 +23,10 @@
 package org.eclipse.californium.core.network;
 
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
-import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -53,8 +52,6 @@ import org.eclipse.californium.elements.EndpointContextMatcher;
 import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.RawDataChannel;
 import org.eclipse.californium.elements.category.Small;
-import org.eclipse.californium.elements.util.Bytes;
-import org.eclipse.californium.elements.util.ClockUtil;
 import org.eclipse.californium.rule.CoapThreadsRule;
 import org.junit.After;
 import org.junit.Before;
@@ -148,9 +145,8 @@ public class CoapEndpointTest {
 			}
 		};
 
-		RawData inboundRequest = RawData.inbound(getSerializedRequest(),
-				new AddressEndpointContext(SOURCE_ADDRESS, clientId), false, ClockUtil.nanoRealtime(),
-				CONNECTOR_ADDRESS);
+		
+		RawData inboundRequest = RawData.inbound(getSerializedRequest(), new AddressEndpointContext(SOURCE_ADDRESS, clientId), false, System.nanoTime());
 		connector.receiveMessage(inboundRequest);
 		assertTrue(latch.await(2, TimeUnit.SECONDS));
 		assertThat(receivedRequests.get(0).getSourceContext().getPeerIdentity(), is(clientId));
@@ -158,8 +154,7 @@ public class CoapEndpointTest {
 
 	@Test
 	public void testStandardSchemeIsSetOnIncomingRequest() throws Exception {
-		RawData inboundRequest = RawData.inbound(getSerializedRequest(), new AddressEndpointContext(SOURCE_ADDRESS),
-				false, ClockUtil.nanoRealtime(), CONNECTOR_ADDRESS);
+		RawData inboundRequest = RawData.inbound(getSerializedRequest(), new AddressEndpointContext(SOURCE_ADDRESS), false, System.nanoTime());
 		connector.receiveMessage(inboundRequest);
 		assertTrue(latch.await(2, TimeUnit.SECONDS));
 		assertThat(receivedRequests.get(0).getScheme(), is(CoAP.COAP_URI_SCHEME));
@@ -188,10 +183,9 @@ public class CoapEndpointTest {
 		endpoint.setMessageDeliverer(deliverer);
 		endpoint.start();
 		cleanup.add(endpoint);
-		Bytes session = new Bytes("session".getBytes());
-		EndpointContext secureCtx = new DtlsEndpointContext(SOURCE_ADDRESS, null, null, session, 1, "CIPHER", 100);
-		RawData inboundRequest = RawData.inbound(getSerializedRequest(), secureCtx, false, ClockUtil.nanoRealtime(),
-				CONNECTOR_ADDRESS);
+		
+		EndpointContext secureCtx = new DtlsEndpointContext(SOURCE_ADDRESS, null, "session", "1", "CIPHER", "100");
+		RawData inboundRequest = RawData.inbound(getSerializedRequest(), secureCtx, false, System.nanoTime());
 		connector.receiveMessage(inboundRequest);
 		assertTrue(latch.await(2, TimeUnit.SECONDS));
 		assertThat(receivedRequests.get(0).getScheme(), is(CoAP.COAP_SECURE_URI_SCHEME));
@@ -206,8 +200,7 @@ public class CoapEndpointTest {
 				0x00, 0x10, // message ID
 				(byte) 0xFF // payload marker
 		};
-		RawData inboundMessage = RawData.inbound(malformedGetRequest, new AddressEndpointContext(SOURCE_ADDRESS), false,
-				ClockUtil.nanoRealtime(), CONNECTOR_ADDRESS);
+		RawData inboundMessage = RawData.inbound(malformedGetRequest, new AddressEndpointContext(SOURCE_ADDRESS), false, System.nanoTime());
 
 		// WHEN the incoming message is processed by the Inbox
 		connector.receiveMessage(inboundMessage);
@@ -239,11 +232,6 @@ public class CoapEndpointTest {
 		}
 
 		@Override
-		public boolean isRunning() {
-			return true;
-		}
-
-		@Override
 		public void start() throws IOException {
 		}
 
@@ -253,10 +241,6 @@ public class CoapEndpointTest {
 
 		@Override
 		public void destroy() {
-		}
-
-		@Override
-		public void processDatagram(DatagramPacket datagram) {
 		}
 
 		@Override

@@ -25,7 +25,7 @@ import org.junit.rules.ExpectedException;
 public class DatagramWriterTest {
 
 	@Rule
-	public ExpectedException exception = ExpectedExceptionWrapper.none();
+	public ExpectedException exception = ExpectedException.none();
 
 	DatagramWriter writer;
 
@@ -158,97 +158,6 @@ public class DatagramWriterTest {
 		writer.writeBytes(data);
 		byte[] wdata = writer.toByteArray();
 		assertEquals("6" + hex(data) + "0", hex(wdata));
-	}
-
-	@Test
-	public void testWriteVarByteArray() {
-		byte[] data = bin("ab12def671223344556677890a");
-		writer.writeVarBytes(data, Byte.SIZE);
-		byte[] wdata = writer.toByteArray();
-		String expected = String.format("%02X%s", data.length, hex(data));
-		assertEquals(expected, hex(wdata));
-	}
-
-	@Test
-	public void testWriteEmptyVarByteArray() {
-		byte[] data = Bytes.EMPTY;
-		writer.writeVarBytes(data, Byte.SIZE);
-		byte[] wdata = writer.toByteArray();
-		String expected = String.format("%02X%s", 0, hex(data));
-		assertEquals(expected, hex(wdata));
-	}
-
-	@Test
-	public void testWriteNullVarByteArray() {
-		byte[] data = null;
-		writer.writeVarBytes(data, Byte.SIZE);
-		byte[] wdata = writer.toByteArray();
-		String expected = "FF";
-		assertEquals(expected, hex(wdata));
-	}
-
-	@Test
-	public void testWriteVarBytes() {
-		byte[] data = bin("ab12def671223344556677890a0011");
-		writer.writeVarBytes(new Bytes(data), Short.SIZE);
-		byte[] wdata = writer.toByteArray();
-		String expected = String.format("%04X%s", data.length, hex(data));
-		assertEquals(expected, hex(wdata));
-	}
-
-	@Test
-	public void testWriteEmptyVarBytes() {
-		byte[] data = Bytes.EMPTY;
-		writer.writeVarBytes(new Bytes(data), Short.SIZE);
-		byte[] wdata = writer.toByteArray();
-		String expected = String.format("%04X%s", 0, hex(data));
-		assertEquals(expected, hex(wdata));
-	}
-
-	@Test
-	public void testWriteNullVarBytes() {
-		writer.writeVarBytes((Bytes)null, Short.SIZE);
-		byte[] wdata = writer.toByteArray();
-		String expected = "FFFF";
-		assertEquals(expected, hex(wdata));
-	}
-
-	@Test
-	public void testWritePosition() {
-		byte[] data = bin("ab12def671223344556677890a");
-		writer.writeBytes(data);
-		writer.writeAt(2, 0x123456, 24);
-		byte[] wdata = writer.toByteArray();
-		assertEquals("AB12123456223344556677890A", hex(wdata));
-
-	}
-
-	@Test
-	public void testWritePositionAppend() {
-		byte[] data = bin("ab12def671223344556677890a");
-		writer.writeBytes(data);
-		writer.writeAt(11, 0x123456, 24);
-		byte[] wdata = writer.toByteArray();
-		assertEquals("AB12DEF671223344556677123456", hex(wdata));
-	}
-
-	@Test
-	public void testWriteLongPosition() {
-		byte[] data = bin("ab12def671223344556677890a");
-		writer.writeBytes(data);
-		writer.writeLongAt(2, 0x12345678abL, 40);
-		byte[] wdata = writer.toByteArray();
-		assertEquals("AB1212345678AB44556677890A", hex(wdata));
-
-	}
-
-	@Test
-	public void testWriteLongPositionAppend() {
-		byte[] data = bin("ab12def671223344556677890a");
-		writer.writeBytes(data);
-		writer.writeLongAt(10, 0x12345678abL, 40);
-		byte[] wdata = writer.toByteArray();
-		assertEquals("AB12DEF671223344556612345678AB", hex(wdata));
 	}
 
 	@Test

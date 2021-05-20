@@ -58,7 +58,6 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.eclipse.californium.core.coap.BlockOption;
-import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.Message;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
@@ -222,13 +221,11 @@ public class InMemoryMessageExchangeStore implements MessageExchangeStore {
 		int mid = message.getMID();
 		if (Message.NONE == mid) {
 			InetSocketAddress dest = message.getDestinationContext().getPeerAddress();
-			try {
-				mid = messageIdProvider.getNextMessageId(dest);
+			mid = messageIdProvider.getNextMessageId(dest);
+			if (Message.NONE == mid) {
+				LOGGER.warn("{}cannot send message to {}, all MIDs are in use", tag, dest);
+			} else {
 				message.setMID(mid);
-			} catch (IllegalStateException ex) {
-				String code = CoAP.toCodeString(message.getRawCode());
-				LOGGER.warn("{}cannot send message {}-{} to {}, {}", tag, message.getType(), code,
-						StringUtil.toLog(dest), ex.getMessage());
 			}
 		}
 		return mid;
@@ -489,7 +486,7 @@ public class InMemoryMessageExchangeStore implements MessageExchangeStore {
 			Request origin = exchange.getRequest();
 			Request current = exchange.getCurrentRequest();
 			String pending = exchange.getRetransmissionHandle() == null ? "" : "/pending";
-			if (origin != current && !origin.getToken().equals(current.getToken())) {
+			if (origin != null && origin != current && !origin.getToken().equals(current.getToken())) {
 				HEALTH_LOGGER.debug("  {}, {}, retransmission {}{}, org {}, {}, {}", exchangeEntry.getKey(),
 						exchange, exchange.getFailedTransmissionCount(), pending, origin.getToken(),
 						current, exchange.getCurrentResponse());

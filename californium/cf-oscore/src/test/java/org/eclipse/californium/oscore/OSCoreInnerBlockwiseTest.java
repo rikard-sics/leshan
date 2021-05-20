@@ -20,6 +20,7 @@ package org.eclipse.californium.oscore;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
@@ -46,7 +47,6 @@ import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.elements.category.Medium;
 import org.eclipse.californium.elements.rule.TestNameLoggerRule;
 import org.eclipse.californium.elements.util.Bytes;
-import org.eclipse.californium.elements.util.ExpectedExceptionWrapper;
 import org.eclipse.californium.rule.CoapNetworkRule;
 import org.eclipse.californium.rule.CoapThreadsRule;
 import org.junit.Before;
@@ -188,14 +188,14 @@ public class OSCoreInnerBlockwiseTest {
 		assertEquals(response.getCode(), CoAP.ResponseCode.CHANGED);
 		assertFalse(response.getOptions().hasSize2());
 		assertTrue(response.getOptions().hasBlock1());
-		assertEquals(0, response.getPayloadSize());
+		assertNull(response.getPayload());
 		assertEquals(payload, resource.currentPayload);
 		assertEquals(1, resource.getCounter());
 		client.shutdown();
 	}
 
 	@Rule
-	public ExpectedException exceptionRule = ExpectedExceptionWrapper.none();
+	public ExpectedException exceptionRule = ExpectedException.none();
 
 	/**
 	 * Perform a PUT request that is not sent with (inner) block-wise even

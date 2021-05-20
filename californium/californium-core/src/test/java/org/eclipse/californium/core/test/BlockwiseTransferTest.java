@@ -43,10 +43,8 @@ import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.Endpoint;
 import org.eclipse.californium.core.network.config.NetworkConfig;
-import org.eclipse.californium.core.network.config.NetworkConfig.Keys;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.core.test.lockstep.ServerBlockwiseInterceptor;
-import org.eclipse.californium.core.test.lockstep.ServerBlockwiseInterceptor.ReceiveRequestHandler;
 import org.eclipse.californium.elements.category.Medium;
 import org.eclipse.californium.elements.rule.TestNameLoggerRule;
 import org.eclipse.californium.rule.CoapNetworkRule;
@@ -112,23 +110,23 @@ public class BlockwiseTransferTest {
 	@BeforeClass
 	public static void prepare() {
 		config = network.getStandardTestConfig()
-				.setInt(Keys.PREFERRED_BLOCK_SIZE, 32)
-				.setInt(Keys.MAX_MESSAGE_SIZE, 32)
-				.setInt(Keys.MAX_RESOURCE_BODY_SIZE, 500)
-				.setBoolean(Keys.BLOCKWISE_STRICT_BLOCK2_OPTION, false);
+				.setInt(NetworkConfig.Keys.PREFERRED_BLOCK_SIZE, 32)
+				.setInt(NetworkConfig.Keys.MAX_MESSAGE_SIZE, 32)
+				.setInt(NetworkConfig.Keys.MAX_RESOURCE_BODY_SIZE, 500)
+				.setBoolean(NetworkConfig.Keys.BLOCKWISE_STRICT_BLOCK2_OPTION, false);
 		
 		configEndpointStrictBlock2Option = network.createTestConfig()
-				.setInt(Keys.PREFERRED_BLOCK_SIZE, 32)
-				.setInt(Keys.MAX_MESSAGE_SIZE, 32)
-				.setInt(Keys.MAX_RESOURCE_BODY_SIZE, 500)
-				.setBoolean(Keys.BLOCKWISE_STRICT_BLOCK2_OPTION, true);
+				.setInt(NetworkConfig.Keys.PREFERRED_BLOCK_SIZE, 32)
+				.setInt(NetworkConfig.Keys.MAX_MESSAGE_SIZE, 32)
+				.setInt(NetworkConfig.Keys.MAX_RESOURCE_BODY_SIZE, 500)
+				.setBoolean(NetworkConfig.Keys.BLOCKWISE_STRICT_BLOCK2_OPTION, true);
 		
 		
 		configEndpointWithoutTransparentBlockwise = network.createTestConfig()
-			.setInt(Keys.PREFERRED_BLOCK_SIZE, 32)
-			.setInt(Keys.MAX_MESSAGE_SIZE, 32)
-			.setInt(Keys.MAX_RESOURCE_BODY_SIZE, 0)
-			.setBoolean(Keys.BLOCKWISE_STRICT_BLOCK2_OPTION, true);
+			.setInt(NetworkConfig.Keys.PREFERRED_BLOCK_SIZE, 32)
+			.setInt(NetworkConfig.Keys.MAX_MESSAGE_SIZE, 32)
+			.setInt(NetworkConfig.Keys.MAX_RESOURCE_BODY_SIZE, 0)
+			.setBoolean(NetworkConfig.Keys.BLOCKWISE_STRICT_BLOCK2_OPTION, true);
 		
 		server = createSimpleServer();
 		cleanup.add(server);
@@ -426,7 +424,7 @@ public class BlockwiseTransferTest {
 					exchange.respond(SHORT_GET_RESPONSE);
 				} else if (isEmptyResponseRequested(exchange)){
 					
-					exchange.respond(ResponseCode.CONTENT);
+					exchange.respond(ResponseCode._UNKNOWN_SUCCESS_CODE);
 				}else {
 					
 					exchange.respond(LONG_GET_RESPONSE);
@@ -463,4 +461,7 @@ public class BlockwiseTransferTest {
 		return result;
 	}
 
+	public interface ReceiveRequestHandler {
+		void receiveRequest(Request received);
+	}
 }

@@ -24,7 +24,6 @@ import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 import java.util.List;
 
-import org.eclipse.californium.elements.PersistentConnector;
 import org.eclipse.californium.scandium.ConnectionListener;
 
 /**
@@ -32,13 +31,7 @@ import org.eclipse.californium.scandium.ConnectionListener;
  * 
  * @since 1.1
  */
-public interface ResumptionSupportingConnectionStore extends PersistentConnector {
-
-	/**
-	 * Set connection listener.
-	 * 
-	 * @param listener connection listener
-	 */
+public interface ResumptionSupportingConnectionStore {
 	void setConnectionListener(ConnectionListener listener);
 
 	/**
@@ -52,15 +45,6 @@ public interface ResumptionSupportingConnectionStore extends PersistentConnector
 	 *             was already called before.
 	 */
 	void attach(ConnectionIdGenerator connectionIdGenerator);
-
-	/**
-	 * Restore connection.
-	 * 
-	 * @param connection connection to restore.
-	 * @return {@code true}, on success, {@code false}, otherwise.
-	 * @since 3.0
-	 */
-	boolean restore(Connection connection);
 
 	/**
 	 * Puts a connection into the store.

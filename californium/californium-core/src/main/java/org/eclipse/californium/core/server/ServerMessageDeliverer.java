@@ -37,7 +37,6 @@ import org.eclipse.californium.core.observe.ObserveManager;
 import org.eclipse.californium.core.observe.ObserveRelation;
 import org.eclipse.californium.core.observe.ObservingEndpoint;
 import org.eclipse.californium.core.server.resources.Resource;
-import org.eclipse.californium.elements.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -110,7 +109,7 @@ public class ServerMessageDeliverer implements MessageDeliverer {
 				if (LOGGER.isInfoEnabled()) {
 					Request request = exchange.getRequest();
 					LOGGER.info("did not find resource /{} requested by {}", request.getOptions().getUriPathString(),
-							StringUtil.toLog(request.getSourceContext().getPeerAddress()));
+							request.getSourceContext().getPeerAddress());
 				}
 				exchange.sendResponse(new Response(ResponseCode.NOT_FOUND));
 			}
@@ -154,7 +153,7 @@ public class ServerMessageDeliverer implements MessageDeliverer {
 
 			if (request.isObserve()) {
 				// Requests wants to observe and resource allows it :-)
-				LOGGER.debug("initiating an observe relation between {} and resource {}, {}", StringUtil.toLog(source), resource.getURI(), exchange);
+				LOGGER.debug("initiating an observe relation between {} and resource {}, {}", source, resource.getURI(), exchange);
 				ObservingEndpoint remote = observeManager.findObservingEndpoint(source);
 				ObserveRelation relation = new ObserveRelation(remote, resource, exchange);
 				remote.addObserveRelation(relation);

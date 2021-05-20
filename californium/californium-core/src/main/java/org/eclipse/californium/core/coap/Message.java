@@ -43,7 +43,7 @@
  ******************************************************************************/
 package org.eclipse.californium.core.coap;
 
-import java.net.InetSocketAddress;
+import java.net.InetAddress;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -68,7 +68,6 @@ import org.eclipse.californium.core.network.stack.ReliabilityLayerParameters;
 import org.eclipse.californium.core.observe.ObserveManager;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.EndpointContextUtil;
-import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.ClockUtil;
 import org.eclipse.californium.elements.util.NetworkInterfacesUtil;
 
@@ -141,7 +140,7 @@ public abstract class Message {
 	private OptionSet options;
 
 	/** The payload of this message. */
-	private byte[] payload = Bytes.EMPTY;
+	private byte[] payload;
 
 	/** Marks this message to have payload even if this is not intended */
 	private boolean unintendedPayload;
@@ -179,39 +178,25 @@ public abstract class Message {
 	 */
 	private volatile EndpointContext sourceContext;
 
-	/**
-	 * Local address of received messages.
-	 * 
-	 * @since 3.0
-	 */
-	private InetSocketAddress localAddress;
-
-	/** Indicates, if the message has sent. */
+	/** Indicates if the message has sent. */
 	private volatile boolean sent;
 
-	/** Indicates, if the message has been acknowledged. */
+	/** Indicates if the message has been acknowledged. */
 	private final AtomicBoolean acknowledged = new AtomicBoolean();
 
-	/** Indicates, if the message has been rejected. */
+	/** Indicates if the message has been rejected. */
 	private volatile boolean rejected;
 
-	/** Indicates, if the message has been canceled. */
+	/** Indicates if the message has been canceled. */
 	private volatile boolean canceled;
 
-	/** Indicates, if the message has timed out */
+	/** Indicates if the message has timed out */
 	private volatile boolean timedOut; // Important for CONs
 
-	/** Indicates, if the message is a duplicate. */
+	/** Indicates if the message is a duplicate. */
 	private volatile boolean duplicate;
 
-	/**
-	 * Indicates, if the message-transfer is complete.
-	 * 
-	 * @since 3.0
-	 */
-	private volatile boolean transferComplete;
-
-	/** Indicates, if sending the message caused an error. */
+	/** Indicates if sending the message caused an error. */
 	private volatile Throwable sendError;
 
 	/** The serialized message as byte array. */
@@ -606,13 +591,14 @@ public abstract class Message {
 	 * @return the payload size
 	 */
 	public int getPayloadSize() {
-		return payload.length;
+		byte[] payload = this.payload;
+		return payload == null ? 0 : payload.length;
 	}
 
 	/**
 	 * Gets the raw payload.
 	 *
-	 * @return the payload.
+	 * @return the payload, or {@code null}, if not available.
 	 * @throws IllegalStateException if message was {@link #offload}ed.
 	 */
 	public byte[] getPayload() {
@@ -633,7 +619,8 @@ public abstract class Message {
 		if (offload != null) {
 			throw new IllegalStateException("message " + offload + " offloaded!");
 		}
-		if (payload.length == 0) {
+		byte[] payload = this.payload;
+		if (payload == null) {
 			return "";
 		} else {
 			return new String(payload, CoAP.UTF8_CHARSET);
@@ -642,7 +629,7 @@ public abstract class Message {
 
 	protected String getPayloadTracingString() {
 		byte[] payload = this.payload;
-		if (payload.length == 0) {
+		if (null == payload || 0 == payload.length) {
 			return "no payload";
 		}
 		boolean text = true;
@@ -681,10 +668,10 @@ public abstract class Message {
 	 * 
 	 * Provides a fluent API to chain setters.
 	 * 
-	 * @param payload the payload as string. {@code null} is replaced by an
-	 *            empty string. An empty string is not considered to be payload
-	 *            and therefore not cause a IllegalArgumentException, if this
-	 *            message must not have payload.
+	 * @param payload the payload as string. {@code null} or a empty string are
+	 *            not considered to be payload and therefore not cause a
+	 *            IllegalArgumentException, if this message must not have
+	 *            payload.
 	 * @return this Message
 	 * @throws IllegalArgumentException if this message must not have payload
 	 * @see #isIntendedPayload()
@@ -692,8 +679,8 @@ public abstract class Message {
 	 * @see #setUnintendedPayload()
 	 */
 	public Message setPayload(String payload) {
-		if (payload == null || payload.isEmpty()) {
-			this.payload = Bytes.EMPTY;
+		if (payload == null) {
+			this.payload = null;
 		} else {
 			setPayload(payload.getBytes(CoAP.UTF8_CHARSET));
 		}
@@ -705,10 +692,10 @@ public abstract class Message {
 	 *
 	 * Provides a fluent API to chain setters.
 	 *
-	 * @param payload the new payload. {@code null} is replaced by an empty
-	 *            array. An empty array is not considered to be payload and
-	 *            therefore not cause an IllegalArgumentException, if this
-	 *            message must not have payload.
+	 * @param payload the new payload. {@code null} or a empty array are not
+	 *            considered to be payload and therefore not cause an
+	 *            IllegalArgumentException, if this message must not have
+	 *            payload.
 	 * @return this Message
 	 * @throws IllegalArgumentException if this message must not have payload
 	 * @see #isIntendedPayload()
@@ -716,25 +703,68 @@ public abstract class Message {
 	 * @see #setUnintendedPayload()
 	 */
 	public Message setPayload(byte[] payload) {
-		if (payload == null || payload.length == 0) {
-			this.payload = Bytes.EMPTY;
-		} else {
-			if (!isIntendedPayload() && !isUnintendedPayload()) {
-				throw new IllegalArgumentException("Message must not have payload!");
-			}
-			this.payload = payload;
+		if (payload != null && payload.length > 0 && !isIntendedPayload() && !isUnintendedPayload()) {
+			throw new IllegalArgumentException("Message must not have payload!");
 		}
+		this.payload = payload;
 		return this;
 	}
 
 	/**
-	 * Check, if the payload size matches the {@link BlockOption#getSize()}.
-	 * 
-	 * @throws IllegalStateException if the {@link BlockOption} is
-	 *        provided but the payload exceeds that.
-	 * @since 3.0
+	 * Gets the destination address.
+	 *
+	 * @return the destination
+	 * @deprecated use {@link #getDestinationContext()}
 	 */
-	public abstract void assertPayloadMatchsBlocksize();
+	public InetAddress getDestination() {
+		EndpointContext destinationContext = this.destinationContext;
+		if (destinationContext == null) {
+			return null;
+		}
+		return destinationContext.getPeerAddress().getAddress();
+	}
+
+	/**
+	 * Gets the destination port.
+	 *
+	 * @return the destination port
+	 * @deprecated use {@link #getDestinationContext()}
+	 */
+	public int getDestinationPort() {
+		EndpointContext destinationContext = this.destinationContext;
+		if (destinationContext == null) {
+			return -1;
+		}
+		return destinationContext.getPeerAddress().getPort();
+	}
+
+	/**
+	 * Gets the source address.
+	 *
+	 * @return the source
+	 * @deprecated use {@link #getSourceContext()}
+	 */
+	public InetAddress getSource() {
+		EndpointContext sourceContext = this.sourceContext;
+		if (sourceContext == null) {
+			return null;
+		}
+		return sourceContext.getPeerAddress().getAddress();
+	}
+
+	/**
+	 * Gets the source port.
+	 *
+	 * @return the source port
+	 * @deprecated use {@link #getSourceContext()}
+	 */
+	public int getSourcePort() {
+		EndpointContext sourceContext = this.sourceContext;
+		if (sourceContext == null) {
+			return -1;
+		}
+		return sourceContext.getPeerAddress().getPort();
+	}
 
 	/**
 	 * Get destination endpoint context.
@@ -831,27 +861,6 @@ public abstract class Message {
 	}
 
 	/**
-	 * Set address of the receiving local endpoint.
-	 * 
-	 * @param local local address of the receiving endpoint
-	 * @since 3.0
-	 */
-	public void setLocalAddress(InetSocketAddress local) {
-		this.localAddress = local;
-	}
-
-	/**
-	 * Gets the local address of the receiving endpoint.
-	 * 
-	 * @return local address of the receiving endpoint. {@code null} for
-	 *         outgoing messages.
-	 * @since 3.0
-	 */
-	public InetSocketAddress getLocalAddress() {
-		return localAddress;
-	}
-
-	/**
 	 * Checks if is this message has been acknowledged.
 	 *
 	 * @return true, if is acknowledged
@@ -863,25 +872,24 @@ public abstract class Message {
 	/**
 	 * Marks this message as acknowledged.
 	 *
-	 * Since 3.0 doesn't longer call
-	 * {@link MessageObserver#onAcknowledgement()}. Use {@link #acknowledge()}
-	 * instead.
-	 * 
 	 * Not part of the fluent API.
 	 *
 	 * @param acknowledged if acknowledged
 	 */
 	public void setAcknowledged(boolean acknowledged) {
 		this.acknowledged.set(acknowledged);
+		if (acknowledged) {
+			for (MessageObserver handler : getMessageObservers()) {
+				handler.onAcknowledgement();
+			}
+		}
 	}
 
 	/**
 	 * Acknowledge a unacknowledged confirmable message.
 	 *
 	 * Checks and set {@link #acknowledged} atomically. Calls
-	 * {@link #setAcknowledged(boolean)} and
-	 * {@link MessageObserver#onAcknowledgement()}, if message was
-	 * unacknowledged.
+	 * {@link #setAcknowledged(boolean)}, if message was unacknowledged.
 	 * 
 	 * Not part of the fluent API.
 	 *
@@ -893,9 +901,6 @@ public abstract class Message {
 	public boolean acknowledge() {
 		if (isConfirmable() && acknowledged.compareAndSet(false, true)) {
 			setAcknowledged(true);
-			for (MessageObserver handler : getMessageObservers()) {
-				handler.onAcknowledgement();
-			}
 			return true;
 		}
 		return false;
@@ -1078,18 +1083,10 @@ public abstract class Message {
 		}
 	}
 
-	/**
-	 * Report completion of message-transfer.
-	 * 
-	 * @since 3.0 (was onComplete())
-	 */
-	public void onTransferComplete() {
-		if (!transferComplete) {
-			transferComplete = true;
-			LOGGER.trace("Message transfer completed {}", this);
-			for (MessageObserver handler : getMessageObservers()) {
-				handler.onTransferComplete();
-			}
+	public void onComplete() {
+		LOGGER.trace("Message completed {}", this);
+		for (MessageObserver handler : getMessageObservers()) {
+			handler.onComplete();
 		}
 	}
 
@@ -1192,31 +1189,13 @@ public abstract class Message {
 	/**
 	 * Checks whether a given block offset falls into this message's payload.
 	 * 
-	 * Note: since 3.0 the block option of the message is also used for the
-	 * check. If this message exactly ends at the offset of the provided block,
-	 * this is also reported as overlapping.
-	 * 
-	 * @param block The offset of the block.
+	 * @param block2 The offset of the block.
 	 * @return {@code true} if this message has a payload and its size is
 	 *         greater then the offset.
 	 */
-	public abstract boolean hasBlock(final BlockOption block);
+	public boolean hasBlock(final BlockOption block2) {
 
-	/**
-	 * Checks whether a given block offset falls into this message's payload.
-	 * 
-	 * @param block The offset of the block.
-	 * @param messageOffset The offset of the payload within the resource-body.
-	 * @return {@code true} if this message has a payload and its size is
-	 *         greater then the offset.
-	 * @since 3.0
-	 */
-	protected boolean hasBlock(BlockOption block, BlockOption messageOffset) {
-		int offset = block.getOffset();
-		if (messageOffset != null) {
-			offset -= messageOffset.getOffset();
-		}
-		return 0 <= offset && offset <= getPayloadSize();
+		return 0 < getPayloadSize() && block2.getOffset() < getPayloadSize();
 	}
 
 	/**
@@ -1299,7 +1278,7 @@ public abstract class Message {
 			synchronized (acknowledged) {
 				offload = mode;
 				if (mode != null) {
-					payload = Bytes.EMPTY;
+					payload = null;
 					if (mode == OffloadMode.FULL) {
 						bytes = null;
 						if (options != null) {

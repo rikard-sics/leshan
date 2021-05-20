@@ -15,6 +15,7 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
+import java.net.InetSocketAddress;
 import java.util.Arrays;
 
 import org.eclipse.californium.elements.util.NoPublicAPI;
@@ -39,8 +40,10 @@ public class GenericHandshakeMessage extends HandshakeMessage {
 	 * Create generic handshake message.
 	 * 
 	 * @param type handshake type
+	 * @param peerAddress address of peer
 	 */
-	protected GenericHandshakeMessage(HandshakeType type) {
+	protected GenericHandshakeMessage(HandshakeType type, InetSocketAddress peerAddress) {
+		super(peerAddress);
 		this.type = type;
 	}
 
@@ -64,9 +67,10 @@ public class GenericHandshakeMessage extends HandshakeMessage {
 	 * Read generic generic handshake message from bytes.
 	 * 
 	 * @param type handshake type
+	 * @param peerAddress address of peer
 	 * @return generic handshake message
 	 */
-	public static GenericHandshakeMessage fromByteArray(HandshakeType type) {
-		return new GenericHandshakeMessage(type);
+	public static GenericHandshakeMessage fromByteArray(HandshakeType type, InetSocketAddress peerAddress) {
+		return new GenericHandshakeMessage(type, peerAddress);
 	}
 }

@@ -18,10 +18,12 @@ package org.eclipse.californium.scandium.dtls;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.nullValue;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
 
@@ -42,6 +44,8 @@ import org.junit.experimental.categories.Category;
 @Category(Small.class)
 public class CertificateRequestTest {
 
+	private static InetSocketAddress peerAddress = new InetSocketAddress(InetAddress.getLoopbackAddress(), 10000);
+
 	/**
 	 * Verifies that an ECDSA key is considered incompatible with the <em>dss_fixed_dh</em> certificate type.
 	 * 
@@ -51,7 +55,7 @@ public class CertificateRequestTest {
 	public void testIsSupportedKeyTypeFailsForUnsupportedKeyAlgorithm() throws Exception {
 
 		PublicKey key = DtlsTestTools.getClientPublicKey();
-		CertificateRequest req = new CertificateRequest();
+		CertificateRequest req = new CertificateRequest(peerAddress);
 		req.addCertificateType(ClientCertificateType.DSS_FIXED_DH);
 		assertFalse(req.isSupportedKeyType(key));
 	}
@@ -65,7 +69,7 @@ public class CertificateRequestTest {
 	public void testIsSupportedKeyTypeSucceedsForSupportedKeyAlgorithm() throws Exception {
 
 		PublicKey key = DtlsTestTools.getClientPublicKey();
-		CertificateRequest req = new CertificateRequest();
+		CertificateRequest req = new CertificateRequest(peerAddress);
 		req.addCertificateType(ClientCertificateType.ECDSA_SIGN);
 		assertTrue(req.isSupportedKeyType(key));
 	}
@@ -80,7 +84,7 @@ public class CertificateRequestTest {
 	public void testIsSupportedKeyTypeFailsForCertWithoutDigitalSignatureKeyUsage() throws Exception {
 
 		X509Certificate cert = DtlsTestTools.getNoSigningCertificate();
-		CertificateRequest req = new CertificateRequest();
+		CertificateRequest req = new CertificateRequest(peerAddress);
 		req.addCertificateType(ClientCertificateType.ECDSA_SIGN);
 		assertFalse(req.isSupportedKeyType(cert));
 	}
@@ -95,7 +99,7 @@ public class CertificateRequestTest {
 	public void testIsSupportedKeyTypeSucceedsForCertWithDigitalSignatureKeyUsage() throws Exception {
 
 		X509Certificate cert = DtlsTestTools.getClientCertificateChain()[0];
-		CertificateRequest req = new CertificateRequest();
+		CertificateRequest req = new CertificateRequest(peerAddress);
 		req.addCertificateType(ClientCertificateType.ECDSA_SIGN);
 		assertTrue(req.isSupportedKeyType(cert));
 	}
@@ -110,7 +114,7 @@ public class CertificateRequestTest {
 
 		PublicKey key = DtlsTestTools.getClientPublicKey();
 		assertThat(key.getAlgorithm(), is("EC"));
-		CertificateRequest req = new CertificateRequest();
+		CertificateRequest req = new CertificateRequest(peerAddress);
 		req.addCertificateType(ClientCertificateType.ECDSA_SIGN);
 		req.addSignatureAlgorithm(new SignatureAndHashAlgorithm(HashAlgorithm.SHA256, SignatureAlgorithm.RSA));
 		req.addSignatureAlgorithm(new SignatureAndHashAlgorithm(HashAlgorithm.MD5, SignatureAlgorithm.DSA));
@@ -131,7 +135,7 @@ public class CertificateRequestTest {
 		// algorithm
 		PublicKey key = DtlsTestTools.getClientPublicKey();
 		assertThat(key.getAlgorithm(), is("EC"));
-		CertificateRequest req = new CertificateRequest();
+		CertificateRequest req = new CertificateRequest(peerAddress);
 		req.addCertificateType(ClientCertificateType.ECDSA_SIGN);
 		SignatureAndHashAlgorithm preferredAlgorithm = new SignatureAndHashAlgorithm(HashAlgorithm.SHA256, SignatureAlgorithm.RSA);
 		SignatureAndHashAlgorithm ecdsaBasedAlgorithm = new SignatureAndHashAlgorithm(HashAlgorithm.SHA256, SignatureAlgorithm.ECDSA);
@@ -152,7 +156,7 @@ public class CertificateRequestTest {
 	@Test
 	public void testAddCertificateAuthorityAssertsMaxLength() {
 
-		CertificateRequest req = new CertificateRequest();
+		CertificateRequest req = new CertificateRequest(peerAddress);
 		X500Principal authority = new X500Principal("O=Eclipse, OU=Hono Project, CN=test");
 		int encodedLength = 2 + authority.getEncoded().length;
 		int maxLength = (1 << 16) - 1;

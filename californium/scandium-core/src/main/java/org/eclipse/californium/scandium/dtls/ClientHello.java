@@ -23,12 +23,11 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
-import javax.crypto.Mac;
 
 import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.DatagramReader;
@@ -59,7 +58,7 @@ public final class ClientHello extends HandshakeMessage {
 
 	private static final int COOKIE_LENGTH = 8;
 
-	private static final int CIPHER_SUITES_LENGTH_BITS = 16;
+	private static final int CIPHER_SUITS_LENGTH_BITS = 16;
 
 	private static final int COMPRESSION_METHODS_LENGTH_BITS = 8;
 
@@ -69,13 +68,13 @@ public final class ClientHello extends HandshakeMessage {
 	 * The version of the DTLS protocol by which the client wishes to
 	 * communicate during this session.
 	 */
-	private final ProtocolVersion clientVersion;
+	private ProtocolVersion clientVersion;
 
 	/** A client-generated random structure. */
-	private final Random random;
+	private Random random;
 
 	/** The ID of a session the client wishes to use for this connection. */
-	private final SessionId sessionId;
+	private SessionId sessionId;
 
 	/** The cookie used to prevent flooding attacks (potentially empty). */
 	private byte[] cookie;
@@ -84,19 +83,19 @@ public final class ClientHello extends HandshakeMessage {
 	 * This is a list of the cryptographic options supported by the client, with
 	 * the client's first preference first.
 	 */
-	private final List<CipherSuite> supportedCipherSuites;
+	private List<CipherSuite> supportedCipherSuites = new ArrayList<>();
 
 	/**
 	 * This is a list of the compression methods supported by the client, sorted
 	 * by client preference.
 	 */
-	private final List<CompressionMethod> compressionMethods;
+	private List<CompressionMethod> compressionMethods = new ArrayList<>();
 
 	/**
 	 * Clients MAY request extended functionality from servers by sending data
 	 * in the extensions field.
 	 */
-	private final HelloExtensions extensions;
+	private HelloExtensions extensions = new HelloExtensions();
 
 	// Constructors ///////////////////////////////////////////////////////////
 
@@ -114,6 +113,8 @@ public final class ClientHello extends HandshakeMessage {
 	 *            supported by the server
 	 * @param supportedGroups the list of the supported groups (curves) in order of
 	 *            the client’s preference (favorite choice first)
+	 * @param peerAddress the IP address and port of the peer this message has
+	 *            been received from or should be sent to
 	 * @since 2.3
 	 */
 	public ClientHello(
@@ -122,10 +123,11 @@ public final class ClientHello extends HandshakeMessage {
 			List<SignatureAndHashAlgorithm> supportedSignatureAndHashAlgorithms,
 			List<CertificateType> supportedClientCertificateTypes,
 			List<CertificateType> supportedServerCertificateTypes,
-			List<SupportedGroup> supportedGroups) {
+			List<SupportedGroup> supportedGroups,
+			InetSocketAddress peerAddress) {
 
 		this(version, null, supportedCipherSuites, supportedSignatureAndHashAlgorithms, supportedClientCertificateTypes,
-				supportedServerCertificateTypes, supportedGroups);
+				supportedServerCertificateTypes, supportedGroups, peerAddress);
 	}
 
 	/**
@@ -154,8 +156,8 @@ public final class ClientHello extends HandshakeMessage {
 
 		this(version, session.getSessionIdentifier(), Arrays.asList(session.getCipherSuite()),
 				supportedSignatureAndHashAlgorithms, supportedClientCertificateTypes, supportedServerCertificateTypes,
-				supportedGroups);
-		addCompressionMethod(session.getCompressionMethod());
+				supportedGroups, session.getPeer());
+		addCompressionMethod(session.getWriteState().getCompressionMethod());
 	}
 
 	private ClientHello(
@@ -165,8 +167,10 @@ public final class ClientHello extends HandshakeMessage {
 			List<SignatureAndHashAlgorithm> supportedSignatureAndHashAlgorithms,
 			List<CertificateType> supportedClientCertificateTypes,
 			List<CertificateType> supportedServerCertificateTypes,
-			List<SupportedGroup> supportedGroups) {
+			List<SupportedGroup> supportedGroups,
+			InetSocketAddress peerAddress) {
 
+		this(peerAddress);
 		this.clientVersion = version;
 		this.random = new Random();
 		this.cookie = Bytes.EMPTY;
@@ -175,21 +179,18 @@ public final class ClientHello extends HandshakeMessage {
 		} else {
 			this.sessionId = SessionId.emptySessionId();
 		}
-		this.supportedCipherSuites = new ArrayList<>();
 		if (supportedCipherSuites != null) {
 			this.supportedCipherSuites.addAll(supportedCipherSuites);
 		}
-		this.compressionMethods = new ArrayList<CompressionMethod>();
-		this.extensions = new HelloExtensions();
 
 		// we only need to include elliptic_curves and point_format extensions
 		// if the client supports at least one ECC based cipher suite
 		if (CipherSuite.containsEccBasedCipherSuite(supportedCipherSuites)) {
 			// the supported groups
-			addExtension(new SupportedEllipticCurvesExtension(supportedGroups));
+			this.extensions.addExtension(new SupportedEllipticCurvesExtension(supportedGroups));
 
 			// the supported point formats
-			addExtension(SupportedPointFormatsExtension.DEFAULT_POINT_FORMATS_EXTENSION);
+			this.extensions.addExtension(SupportedPointFormatsExtension.DEFAULT_POINT_FORMATS_EXTENSION);
 		}
 
 		// the supported signature and hash algorithms
@@ -199,43 +200,22 @@ public final class ClientHello extends HandshakeMessage {
 				supportedSignatureAndHashAlgorithms = SignatureAndHashAlgorithm
 						.getEcdsaCompatibleSignatureAlgorithms(supportedSignatureAndHashAlgorithms);
 			}
-			addExtension(new SignatureAlgorithmsExtension(supportedSignatureAndHashAlgorithms));
+			this.extensions.addExtension(new SignatureAlgorithmsExtension(supportedSignatureAndHashAlgorithms));
 		}
 
 		// the certificate types the client is able to provide to the server
 		if (useCertificateTypeExtension(supportedClientCertificateTypes)) {
 			CertificateTypeExtension clientCertificateType = new ClientCertificateTypeExtension(supportedClientCertificateTypes);
-			addExtension(clientCertificateType);
+			this.extensions.addExtension(clientCertificateType);
 		}
 
 		// the type of certificates the client is able to process when provided
 		// by the server
 		if (useCertificateTypeExtension(supportedServerCertificateTypes)) {
 			CertificateTypeExtension serverCertificateType = new ServerCertificateTypeExtension(supportedServerCertificateTypes);
-			addExtension(serverCertificateType);
+			this.extensions.addExtension(serverCertificateType);
 		}
-	}
-
-	private ClientHello(DatagramReader reader) throws HandshakeException {
-		int major = reader.read(VERSION_BITS);
-		int minor = reader.read(VERSION_BITS);
-		clientVersion = ProtocolVersion.valueOf(major, minor);
-
-		random = new Random(reader.readBytes(RANDOM_BYTES));
-
-		sessionId = new SessionId(reader.readVarBytes(SESSION_ID_LENGTH_BITS));
-
-		cookie = reader.readVarBytes(COOKIE_LENGTH);
-
-		int cipherSuitesLength = reader.read(CIPHER_SUITES_LENGTH_BITS);
-		DatagramReader rangeReader = reader.createRangeReader(cipherSuitesLength);
-		supportedCipherSuites = CipherSuite.listFromReader(rangeReader);
-
-		int compressionMethodsLength = reader.read(COMPRESSION_METHODS_LENGTH_BITS);
-		rangeReader = reader.createRangeReader(compressionMethodsLength);
-		compressionMethods = CompressionMethod.listFromReader(rangeReader);
-
-		extensions = HelloExtensions.fromReader(reader);
+		
 	}
 
 	/**
@@ -267,6 +247,10 @@ public final class ClientHello extends HandshakeMessage {
 		return false;
 	}
 
+	private ClientHello(InetSocketAddress peerAddress) {
+		super(peerAddress);
+	}
+
 	// Serialization //////////////////////////////////////////////////
 
 	@Override
@@ -279,17 +263,21 @@ public final class ClientHello extends HandshakeMessage {
 
 		writer.writeBytes(random.getBytes());
 
-		writer.writeVarBytes(sessionId, SESSION_ID_LENGTH_BITS);
+		writer.write(sessionId.length(), SESSION_ID_LENGTH_BITS);
+		writer.writeBytes(sessionId.getBytes());
 
-		writer.writeVarBytes(cookie, COOKIE_LENGTH);
+		writer.write(cookie.length, COOKIE_LENGTH);
+		writer.writeBytes(cookie);
 
-		writer.write(supportedCipherSuites.size() * 2, CIPHER_SUITES_LENGTH_BITS);
-		CipherSuite.listToWriter(writer, supportedCipherSuites);
+		writer.write(supportedCipherSuites.size() * 2, CIPHER_SUITS_LENGTH_BITS);
+		writer.writeBytes(CipherSuite.listToByteArray(supportedCipherSuites));
 
 		writer.write(compressionMethods.size(), COMPRESSION_METHODS_LENGTH_BITS);
-		CompressionMethod.listToWriter(writer, compressionMethods);
+		writer.writeBytes(CompressionMethod.listToByteArray(compressionMethods));
 
-		writer.writeBytes(extensions.toByteArray());
+		if (extensions != null) {
+			writer.writeBytes(extensions.toByteArray());
+		}
 
 		return writer.toByteArray();
 	}
@@ -299,14 +287,43 @@ public final class ClientHello extends HandshakeMessage {
 	 * 
 	 * @param reader 
 	 *            reader with the binary encoding of the message.
+	 * @param peerAddress
+	 *            the IP address and port of the peer this message has been
+	 *            received from or should be sent to
 	 * @return the ClientHello object
 	 * @throws HandshakeException
 	 *             if any of the extensions included in the message is of an
 	 *             unsupported type
 	 */
-	public static ClientHello fromReader(DatagramReader reader)
+	public static ClientHello fromReader(DatagramReader reader, InetSocketAddress peerAddress)
 			throws HandshakeException {
-		return new ClientHello(reader);
+		ClientHello result = new ClientHello(peerAddress);
+
+		int major = reader.read(VERSION_BITS);
+		int minor = reader.read(VERSION_BITS);
+		result.clientVersion = ProtocolVersion.valueOf(major, minor);
+
+		result.random = new Random(reader.readBytes(RANDOM_BYTES));
+
+		int sessionIdLength = reader.read(SESSION_ID_LENGTH_BITS);
+		result.sessionId = new SessionId(reader.readBytes(sessionIdLength));
+
+		int cookieLength = reader.read(COOKIE_LENGTH);
+		result.cookie = reader.readBytes(cookieLength);
+
+		int cipherSuitesLength = reader.read(CIPHER_SUITS_LENGTH_BITS);
+		DatagramReader rangeReader = reader.createRangeReader(cipherSuitesLength);
+		result.supportedCipherSuites = CipherSuite.listFromReader(rangeReader);
+
+		int compressionMethodsLength = reader.read(COMPRESSION_METHODS_LENGTH_BITS);
+		rangeReader = reader.createRangeReader(compressionMethodsLength);
+		result.compressionMethods = CompressionMethod.listFromReader(rangeReader);
+
+		if (reader.bytesAvailable()) {
+			result.extensions = HelloExtensions.fromReader(reader, peerAddress);
+		}
+		return result;
+
 	}
 
 	// Methods ////////////////////////////////////////////////////////
@@ -322,7 +339,7 @@ public final class ClientHello extends HandshakeMessage {
 		// if no extensions set, empty; otherwise 2 bytes for field length and
 		// then the length of the extensions. See
 		// http://tools.ietf.org/html/rfc5246#section-7.4.1.2
-		int extensionsLength = extensions.isEmpty() ? 0 : (2 + extensions.getLength());
+		int extensionsLength = (extensions == null || extensions.isEmpty()) ? 0 : (2 + extensions.getLength());
 
 		// fixed sizes: version (2) + random (32) + session ID length (1) +
 		// cookie length (1) + cipher suites length (2) + compression methods
@@ -351,11 +368,13 @@ public final class ClientHello extends HandshakeMessage {
 			sb.append(StringUtil.lineSeparator()).append("\t\t\tCipher Suite: ").append(cipher);
 		}
 		sb.append(StringUtil.lineSeparator()).append("\t\tCompression Methods Length: ").append(compressionMethods.size());
-		sb.append(StringUtil.lineSeparator()).append("\t\tCompression Methods (").append(compressionMethods.size()).append(" methods)");
+		sb.append(StringUtil.lineSeparator()).append("\t\tCompression Methods (").append(compressionMethods.size()).append(" method)");
 		for (CompressionMethod method : compressionMethods) {
 			sb.append(StringUtil.lineSeparator()).append("\t\t\tCompression Method: ").append(method);
 		}
-		sb.append(StringUtil.lineSeparator()).append(extensions);
+		if (extensions != null) {
+			sb.append(StringUtil.lineSeparator()).append(extensions);
+		}
 
 		return sb.toString();
 	}
@@ -377,10 +396,14 @@ public final class ClientHello extends HandshakeMessage {
 	/**
 	 * Checks whether this message contains a session ID.
 	 * 
-	 * @return {@code true}, if the message contains a non-empty session ID
+	 * @return <code>true</code> if the message contains a non-null session ID with length &gt; 0
 	 */
 	public boolean hasSessionId() {
-		return !sessionId.isEmpty();
+		return sessionId != null && sessionId.length() > 0;
+	}
+
+	void setSessionId(SessionId sessionId) {
+		this.sessionId = sessionId;
 	}
 
 	/**
@@ -411,24 +434,6 @@ public final class ClientHello extends HandshakeMessage {
 		fragmentChanged();
 	}
 
-	/**
-	 * Update hmac for cookie generation.
-	 * 
-	 * @param hmac initialized hmac
-	 * @since 3.0
-	 */
-	public void updateForCookie(Mac hmac) {
-		byte[] rawMessage = toByteArray();
-		int head = sessionId.length() + RANDOM_BYTES
-				+ (VERSION_BITS + VERSION_BITS + SESSION_ID_LENGTH_BITS) / Byte.SIZE;
-		int tail = head + 1 + MESSAGE_HEADER_LENGTH_BYTES;
-		if (cookie != null) {
-			tail += cookie.length;
-		}
-		hmac.update(rawMessage, MESSAGE_HEADER_LENGTH_BYTES, head);
-		hmac.update(rawMessage, tail, rawMessage.length - tail);
-	}
-
 	public List<CipherSuite> getCipherSuites() {
 		return Collections.unmodifiableList(supportedCipherSuites);
 	}
@@ -442,11 +447,16 @@ public final class ClientHello extends HandshakeMessage {
 	}
 
 	public void addCompressionMethod(CompressionMethod compressionMethod) {
+		if (compressionMethods == null) {
+			compressionMethods = new ArrayList<CompressionMethod>();
+		}
 		compressionMethods.add(compressionMethod);
 	}
 
 	void addExtension(HelloExtension extension) {
-		extensions.addExtension(extension);
+		if (extensions != null) {
+			extensions.addExtension(extension);
+		}
 	}
 
 	/**
@@ -462,103 +472,126 @@ public final class ClientHello extends HandshakeMessage {
 	 * Gets the supported elliptic curves.
 	 * 
 	 * @return the client's supported elliptic curves extension if available,
-	 *         otherwise {@code null}.
+	 *         otherwise <code>null</code>.
 	 */
 	public SupportedEllipticCurvesExtension getSupportedEllipticCurvesExtension() {
-		return extensions.getExtension(ExtensionType.ELLIPTIC_CURVES);
+		if (extensions != null) {
+			return (SupportedEllipticCurvesExtension) extensions.getExtension(ExtensionType.ELLIPTIC_CURVES);
+		} else {
+			return null;
+		}
 	}
 
 	/**
 	 * Gets the supported point formats.
 	 * 
 	 * @return the client's supported point formats extension if available,
-	 *         otherwise {@code null}.
+	 *         otherwise <code>null</code>.
 	 */
 	public SupportedPointFormatsExtension getSupportedPointFormatsExtension() {
-		return extensions.getExtension(ExtensionType.EC_POINT_FORMATS);
+		if (extensions != null) {
+			return (SupportedPointFormatsExtension) extensions.getExtension(ExtensionType.EC_POINT_FORMATS);
+		} else {
+			return null;
+		}
 	}
 
 	/**
 	 * 
 	 * @return the client's certificate type extension if available, otherwise
-	 *         {@code null}.
+	 *         <code>null</code>.
 	 */
 	public ClientCertificateTypeExtension getClientCertificateTypeExtension() {
-		return extensions.getExtension(ExtensionType.CLIENT_CERT_TYPE);
+		if (extensions != null) {
+			return (ClientCertificateTypeExtension) extensions.getExtension(ExtensionType.CLIENT_CERT_TYPE);
+		} else {
+			return null;
+		}
 	}
 
 	/**
 	 * 
 	 * @return the client's certificate type extension if available, otherwise
-	 *         {@code null}.
+	 *         <code>null</code>.
 	 */
 	public ServerCertificateTypeExtension getServerCertificateTypeExtension() {
-		return extensions.getExtension(ExtensionType.SERVER_CERT_TYPE);
+		if (extensions != null) {
+			return (ServerCertificateTypeExtension) extensions.getExtension(ExtensionType.SERVER_CERT_TYPE);
+		} else {
+			return null;
+		}
 	}
 
 	/**
 	 * Gets the <em>Signature and Hash Algorithms</em> extension data from this message.
 	 * 
-	 * @return the extension data or {@code null}, if this message does not contain the
+	 * @return the extension data or <code>null</code> if this message does not contain the
 	 *          <em>SignatureAlgorithms</em> extension.
 	 * 
 	 * @since 2.3
 	 */
 	public SignatureAlgorithmsExtension getSupportedSignatureAlgorithms() {
-		return (SignatureAlgorithmsExtension) extensions.getExtension(ExtensionType.SIGNATURE_ALGORITHMS);
+		if (extensions != null) {
+			return (SignatureAlgorithmsExtension) extensions.getExtension(ExtensionType.SIGNATURE_ALGORITHMS);
+		} else {
+			return null;
+		}
 	}
 
 	/**
 	 * Gets the <em>MaximumFragmentLength</em> extension data from this message.
 	 * 
-	 * @return the extension data or {@code null}, if this message does not contain the
+	 * @return the extension data or <code>null</code> if this message does not contain the
 	 *          <em>MaximumFragmentLength</em> extension.
 	 */
 	public MaxFragmentLengthExtension getMaxFragmentLengthExtension() {
-		return extensions.getExtension(ExtensionType.MAX_FRAGMENT_LENGTH);
+		if (extensions != null) {
+			return (MaxFragmentLengthExtension) extensions.getExtension(ExtensionType.MAX_FRAGMENT_LENGTH);
+		} else {
+			return null;
+		}
 	}
 
 	/**
 	 * Gets the <em>RecordSizeLimit</em> extension data from this message.
 	 * 
-	 * @return the extension data or {@code null}, if this message does not contain the
+	 * @return the extension data or <code>null</code> if this message does not contain the
 	 *          <em>RecordSizeLimit</em> extension.
 	 * @since 2.4
 	 */
 	public RecordSizeLimitExtension getRecordSizeLimitExtension() {
-		return extensions.getExtension(ExtensionType.RECORD_SIZE_LIMIT);
+		if (extensions != null) {
+			return (RecordSizeLimitExtension) extensions.getExtension(ExtensionType.RECORD_SIZE_LIMIT);
+		} else {
+			return null;
+		}
 	}
 
 	/**
 	 * Gets the <em>Server Name Indication</em> extension data from this message.
 	 * 
-	 * @return the extension data or {@code null}, if this message does not contain the
+	 * @return the extension data or <code>null</code> if this message does not contain the
 	 *          <em>Server Name Indication</em> extension.
 	 */
 	public ServerNameExtension getServerNameExtension() {
-		return extensions.getExtension(ExtensionType.SERVER_NAME);
+		if (extensions != null) {
+			return (ServerNameExtension) extensions.getExtension(ExtensionType.SERVER_NAME);
+		} else {
+			return null;
+		}
 	}
 
 	/**
 	 * Gets the <em>connection id</em> extension data from this message.
 	 * 
-	 * @return the extension data or {@code null}, if this message does not contain the
+	 * @return the extension data or <code>null</code> if this message does not contain the
 	 *          <em>connection id</em> extension.
 	 */
 	public ConnectionIdExtension getConnectionIdExtension() {
-		return extensions.getExtension(ExtensionType.CONNECTION_ID);
+		if (extensions != null) {
+			return (ConnectionIdExtension) extensions.getExtension(ExtensionType.CONNECTION_ID);
+		} else {
+			return null;
+		}
 	}
-
-	/**
-	 * Checks whether <em>ExtendedMasterSecret</em> extension is present in this
-	 * message.
-	 * 
-	 * @return {@code true}, if the <em>ExtendedMasterSecret</em> extension is
-	 *         present, {@code false}, otherwise
-	 * @since 3.0
-	 */
-	public boolean hasExtendedMasterSecret() {
-		return extensions.getExtension(ExtensionType.EXTENDED_MASTER_SECRET) != null;
-	}
-
 }

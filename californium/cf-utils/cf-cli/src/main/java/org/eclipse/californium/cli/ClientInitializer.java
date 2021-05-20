@@ -49,9 +49,9 @@ import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig.Builder;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.ConnectionId;
-import org.eclipse.californium.scandium.dtls.HandshakeResultHandler;
 import org.eclipse.californium.scandium.dtls.PskPublicInformation;
 import org.eclipse.californium.scandium.dtls.PskSecretResult;
+import org.eclipse.californium.scandium.dtls.PskSecretResultHandler;
 import org.eclipse.californium.scandium.dtls.SingleNodeConnectionIdGenerator;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite.KeyExchangeAlgorithm;
@@ -69,6 +69,7 @@ import picocli.CommandLine.ParseResult;
 /**
  * Client initializer.
  */
+@SuppressWarnings("deprecation")
 public class ClientInitializer {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(ClientInitializer.class);
@@ -307,7 +308,6 @@ public class ClientInitializer {
 				retransmissionTimeout = dtlsRetransmissionTimeout;
 			}
 			int localPort = clientConfig.localPort == null ? 0 : clientConfig.localPort;
-			Long autoResumption = clientConfig.dtlsAutoResumption;
 			Integer recordSizeLimit = clientConfig.recordSizeLimit;
 			Integer mtu = clientConfig.mtu;
 			if (clientConfig.cidLength != null) {
@@ -399,9 +399,6 @@ public class ClientInitializer {
 			if (mtu != null) {
 				dtlsConfig.setMaxTransmissionUnit(mtu);
 			}
-			if (autoResumption != null) {
-				dtlsConfig.setAutoResumptionTimeoutMillis(autoResumption);
-			}
 			return dtlsConfig;
 		}
 
@@ -440,7 +437,7 @@ public class ClientInitializer {
 
 		@Override
 		public PskSecretResult requestPskSecretResult(ConnectionId cid, ServerNames serverName,
-				PskPublicInformation identity, String hmacAlgorithm, SecretKey otherSecret, byte[] seed, boolean useExtendedMasterSecret) {
+				PskPublicInformation identity, String hmacAlgorithm, SecretKey otherSecret, byte[] seed) {
 
 			SecretKey secret = null;
 			if (this.identity.equals(identity)) {
@@ -460,7 +457,7 @@ public class ClientInitializer {
 		}
 
 		@Override
-		public void setResultHandler(HandshakeResultHandler resultHandler) {
+		public void setResultHandler(PskSecretResultHandler resultHandler) {
 		}
 	}
 }

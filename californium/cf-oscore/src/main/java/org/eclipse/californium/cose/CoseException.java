@@ -39,13 +39,7 @@ package org.eclipse.californium.cose;
  * @author jimsch
  */
 public class CoseException extends Exception {
-
-	/**
-	 * 
-	 */
-	private static final long serialVersionUID = 1L;
-
-	public CoseException(String message) {
+    public CoseException(String message) {
         super(message);
     }
     public CoseException(String message, Exception ex) {

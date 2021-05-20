@@ -28,11 +28,13 @@ package org.eclipse.californium.scandium.dtls;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
@@ -65,6 +67,7 @@ public class ClientHandshakerTest {
 	@Rule
 	public ThreadsRule cleanup = new ThreadsRule();
 
+	final InetSocketAddress localPeer = new InetSocketAddress(InetAddress.getLoopbackAddress(), 0);
 	final SimpleRecordLayer recordLayer = new SimpleRecordLayer();
 	final String serverName = "iot.eclipse.org";
 
@@ -108,7 +111,7 @@ public class ClientHandshakerTest {
 	@Test
 	public void testServerCertExtPrefersX509WithEmptyTrustStore() throws Exception {
 
-		givenAClientHandshaker(false, true);
+		givenAClientHandshaker(localPeer, false, true);
 		handshaker.startHandshake();
 		ClientHello clientHello = getClientHello(recordLayer.getSentFlight());
 		assertPreferredServerCertificateExtension(clientHello, CertificateType.X_509);
@@ -124,7 +127,7 @@ public class ClientHandshakerTest {
 	@Test
 	public void testServerCertExtPrefersRawPublicKeysWithoutTrustStore() throws Exception {
 
-		givenAClientHandshaker(null, false, false, true, false);
+		givenAClientHandshaker(localPeer, null, false, false, true, false);
 		handshaker.startHandshake();
 		ClientHello clientHello = getClientHello(recordLayer.getSentFlight());
 		assertPreferredServerCertificateExtension(clientHello, CertificateType.RAW_PUBLIC_KEY);
@@ -161,7 +164,7 @@ public class ClientHandshakerTest {
 	public void testClientHelloLacksServerNameExtensionForDisabledSni() throws Exception {
 
 		// GIVEN a handshaker for a virtual host but with SNI disabled
-		givenAClientHandshaker(serverName, false, false, false, false);
+		givenAClientHandshaker(localPeer, serverName, false, false, false, false);
 
 		// WHEN a handshake is started with the peer
 		handshaker.startHandshake();
@@ -210,9 +213,9 @@ public class ClientHandshakerTest {
 		HelloExtensions extensions = new HelloExtensions();
 		extensions.addExtension(ConnectionIdExtension.fromConnectionId(ConnectionId.EMPTY));
 		ServerHello serverHello = new ServerHello(clientHello.getClientVersion(), new Random(), new SessionId(),
-				cipherSuite, CompressionMethod.NULL, extensions);
-		Record record =  DtlsTestTools.getRecordForMessage(0, 1, serverHello);
-		record.decodeFragment(handshaker.getDtlsContext().getReadState());
+				cipherSuite, CompressionMethod.NULL, extensions, localPeer);
+		Record record =  DtlsTestTools.getRecordForMessage(0, 1, serverHello, localPeer);
+		record.applySession(handshaker.session);
 		try {
 			handshaker.processMessage(record);
 			fail("Broken SERVER_HELLO not detected!");
@@ -227,14 +230,15 @@ public class ClientHandshakerTest {
 	}
 
 	private void givenAClientHandshaker(final String virtualHost, final boolean configureTrustStore) throws Exception {
-		givenAClientHandshaker(virtualHost, configureTrustStore, false, false, true);
+		givenAClientHandshaker(localPeer, virtualHost, configureTrustStore, false, false, true);
 	}
 
-	private void givenAClientHandshaker(final boolean configureTrustStore, final boolean configureEmptyTrustStore) throws Exception {
-		givenAClientHandshaker(serverName, configureTrustStore, configureEmptyTrustStore, false, true);
+	private void givenAClientHandshaker(final InetSocketAddress peer, final boolean configureTrustStore, final boolean configureEmptyTrustStore) throws Exception {
+		givenAClientHandshaker(peer, serverName, configureTrustStore, configureEmptyTrustStore, false, true);
 	}
 
 	private void givenAClientHandshaker(
+			final InetSocketAddress peer,
 			final String virtualHost,
 			final boolean configureTrustStore,
 			final boolean configureEmptyTrustStore,
@@ -243,6 +247,7 @@ public class ClientHandshakerTest {
 
 		DtlsConnectorConfig.Builder builder = 
 				DtlsConnectorConfig.builder()
+					.setAddress(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0))
 					.setIdentity(
 						DtlsTestTools.getClientPrivateKey(),
 						DtlsTestTools.getClientCertificateChain(),
@@ -259,14 +264,15 @@ public class ClientHandshakerTest {
 		} else {
 			builder.setClientAuthenticationRequired(false);
 		}
-		DtlsConnectorConfig config = builder.build();
-		Connection connection = new Connection(config.getAddress(), new SyncSerialExecutor());
+		Connection connection = new Connection(peer, new SyncSerialExecutor());
+		DTLSSession session = new DTLSSession(peer);
+		session.setHostName(virtualHost);
 		handshaker = new ClientHandshaker(
-				virtualHost,
+				session,
 				recordLayer,
 				timer,
 				connection,
-				config,
+				builder.build(),
 				false);
 		recordLayer.setHandshaker(handshaker);
 	}

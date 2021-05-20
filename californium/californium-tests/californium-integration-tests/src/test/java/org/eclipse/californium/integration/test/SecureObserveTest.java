@@ -28,9 +28,10 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 import java.net.InetSocketAddress;
@@ -129,7 +130,7 @@ public class SecureObserveTest {
 		assertTrue(handler.waitOnLoadCalls(1, TIMEOUT_IN_MILLIS, TimeUnit.MILLISECONDS));
 
 		assertFalse("Response not received", rel.isCanceled());
-		assertThat("Response not received", rel.getCurrent(), is(notNullValue()));
+		assertNotNull("Response not received", rel.getCurrent());
 		assertEquals("\"resource says hi for the 1 time\"", rel.getCurrent().getResponseText());
 
 		for (int i = 0; i < REPEATS; ++i) {
@@ -184,7 +185,7 @@ public class SecureObserveTest {
 		assertTrue(handler.waitOnLoadCalls(1, TIMEOUT_IN_MILLIS, TimeUnit.MILLISECONDS));
 
 		assertFalse("Response not received", rel.isCanceled());
-		assertThat("Response not received", rel.getCurrent(), is(notNullValue()));
+		assertNotNull("Response not received", rel.getCurrent());
 		assertEquals("\"resource says hi for the 1 time\"", rel.getCurrent().getResponseText());
 
 		for (int i = 0; i < REPEATS; ++i) {
@@ -203,7 +204,7 @@ public class SecureObserveTest {
 
 		// new handshake
 		CoapResponse response = client.get();
-		assertThat("Response not received", response, is(notNullValue()));
+		assertNotNull("Response not received", response);
 
 		// notify (in scope of old DTLS session) should be rejected by the server 
 		resource.changed("new client");
@@ -238,10 +239,10 @@ public class SecureObserveTest {
 		assertTrue(handler.waitOnLoadCalls(1, TIMEOUT_IN_MILLIS, TimeUnit.MILLISECONDS));
 
 		assertFalse("Response not received", rel.isCanceled());
-		assertThat("Response not received", rel.getCurrent(), is(notNullValue()));
+		assertNotNull("Response not received", rel.getCurrent());
 		assertEquals("\"resource says hi for the 1 time\"", rel.getCurrent().getResponseText());
 		EndpointContext context1 = rel.getCurrent().advanced().getSourceContext();
-		assertThat("context-1 missing", context1, is(notNullValue()));
+		assertNotNull("context-1 missing", context1);
 
 		for (int i = 0; i < REPEATS; ++i) {
 			resource.changed("client");
@@ -268,7 +269,7 @@ public class SecureObserveTest {
 		assertThat("sending response caused error", resource.getCurrentResponse().getSendError(), is(nullValue()));
 
 		EndpointContext context2 = rel.getCurrent().advanced().getSourceContext();
-		assertThat("context-2 missing", context2, is(notNullValue()));
+		assertNotNull("context-2 missing", context2);
 		assertThat(context2.get(DtlsEndpointContext.KEY_HANDSHAKE_TIMESTAMP),
 				is(context1.get(DtlsEndpointContext.KEY_HANDSHAKE_TIMESTAMP)));
 
@@ -277,7 +278,7 @@ public class SecureObserveTest {
 		
 		client.setURI(natURI);
 		CoapResponse coapResponse = client.get();
-		assertThat("response missing", coapResponse, is(notNullValue()));
+		assertNotNull("response missing", coapResponse);
 		client.shutdown();
 	}
 
@@ -305,10 +306,10 @@ public class SecureObserveTest {
 		assertTrue(handler.waitOnLoadCalls(1, TIMEOUT_IN_MILLIS, TimeUnit.MILLISECONDS));
 
 		assertFalse("Response not received", rel.isCanceled());
-		assertThat("Response not received", rel.getCurrent(), is(notNullValue()));
+		assertNotNull("Response not received", rel.getCurrent());
 		assertEquals("\"resource says hi for the 1 time\"", rel.getCurrent().getResponseText());
 		EndpointContext context1 = rel.getCurrent().advanced().getSourceContext();
-		assertThat("context-1 missing", context1, is(notNullValue()));
+		assertNotNull("context-1 missing", context1);
 
 		for (int i = 0; i < REPEATS; ++i) {
 			resource.changed("client");
@@ -336,7 +337,7 @@ public class SecureObserveTest {
 		assertThat("sending response caused error", resource.getCurrentResponse().getSendError(), is(nullValue()));
 
 		EndpointContext context2 = rel.getCurrent().advanced().getSourceContext();
-		assertThat("context-2 missing", context2, is(notNullValue()));
+		assertNotNull("context-2 missing", context2);
 		assertThat(context2.get(DtlsEndpointContext.KEY_HANDSHAKE_TIMESTAMP),
 				not(context1.get(DtlsEndpointContext.KEY_HANDSHAKE_TIMESTAMP)));
 		client.shutdown();
@@ -363,7 +364,7 @@ public class SecureObserveTest {
 		assertTrue(handler.waitOnLoadCalls(1, TIMEOUT_IN_MILLIS, TimeUnit.MILLISECONDS));
 
 		assertFalse("Response not received", rel.isCanceled());
-		assertThat("Response not received", rel.getCurrent(), is(notNullValue()));
+		assertNotNull("Response not received", rel.getCurrent());
 		assertEquals("\"resource says hi for the 1 time\"", rel.getCurrent().getResponseText());
 
 		for (int i = 0; i < REPEATS; ++i) {
@@ -417,7 +418,7 @@ public class SecureObserveTest {
 		assertTrue(handler.waitOnLoadCalls(1, TIMEOUT_IN_MILLIS, TimeUnit.MILLISECONDS));
 
 		assertFalse("Response not received", rel.isCanceled());
-		assertThat("Response not received", rel.getCurrent(), is(notNullValue()));
+		assertNotNull("Response not received", rel.getCurrent());
 		assertEquals("\"resource says hi for the 1 time\"", rel.getCurrent().getResponseText());
 
 		for (int i = 0; i < REPEATS; ++i) {
@@ -466,7 +467,7 @@ public class SecureObserveTest {
 		assertTrue(handler.waitOnLoadCalls(1, TIMEOUT_IN_MILLIS, TimeUnit.MILLISECONDS));
 
 		assertFalse("Response not received", rel.isCanceled());
-		assertThat("Response not received", rel.getCurrent(), is(notNullValue()));
+		assertNotNull("Response not received", rel.getCurrent());
 		assertEquals("\"resource says hi for the 1 time\"", rel.getCurrent().getResponseText());
 
 		for (int i = 0; i < REPEATS; ++i) {

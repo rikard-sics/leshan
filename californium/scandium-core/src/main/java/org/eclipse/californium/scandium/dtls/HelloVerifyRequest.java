@@ -17,6 +17,9 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
+import java.net.InetSocketAddress;
+import java.util.Arrays;
+
 import org.eclipse.californium.elements.util.DatagramReader;
 import org.eclipse.californium.elements.util.DatagramWriter;
 import org.eclipse.californium.elements.util.StringUtil;
@@ -104,34 +107,37 @@ public final class HelloVerifyRequest extends HandshakeMessage {
 
 	// Constructor ////////////////////////////////////////////////////
 
-	public HelloVerifyRequest(ProtocolVersion version, byte[] cookie) {
+	public HelloVerifyRequest(ProtocolVersion version, byte[] cookie, InetSocketAddress peerAddress) {
+		super(peerAddress);
 		this.serverVersion = version;
-		this.cookie = cookie;
+		this.cookie = Arrays.copyOf(cookie, cookie.length);
 	}
 
 	// Serialization //////////////////////////////////////////////////
 
 	@Override
 	public byte[] fragmentToByteArray() {
-		DatagramWriter writer = new DatagramWriter(cookie.length + 3);
+		DatagramWriter writer = new DatagramWriter();
 
 		writer.write(serverVersion.getMajor(), VERSION_BITS);
 		writer.write(serverVersion.getMinor(), VERSION_BITS);
 
-		writer.writeVarBytes(cookie, COOKIE_LENGTH_BITS);
+		writer.write(cookie.length, COOKIE_LENGTH_BITS);
+		writer.writeBytes(cookie);
 
 		return writer.toByteArray();
 	}
 
-	public static HandshakeMessage fromReader(DatagramReader reader) {
+	public static HandshakeMessage fromReader(DatagramReader reader, InetSocketAddress peerAddress) {
 
 		int major = reader.read(VERSION_BITS);
 		int minor = reader.read(VERSION_BITS);
 		ProtocolVersion version = ProtocolVersion.valueOf(major, minor);
 
-		byte[] cookie = reader.readVarBytes(COOKIE_LENGTH_BITS);
+		int cookieLength = reader.read(COOKIE_LENGTH_BITS);
+		byte[] cookie = reader.readBytes(cookieLength);
 
-		return new HelloVerifyRequest(version, cookie);
+		return new HelloVerifyRequest(version, cookie, peerAddress);
 	}
 
 	// Methods ////////////////////////////////////////////////////////

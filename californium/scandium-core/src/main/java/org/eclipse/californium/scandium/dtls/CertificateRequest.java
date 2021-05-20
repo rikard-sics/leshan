@@ -22,6 +22,7 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
+import java.net.InetSocketAddress;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -84,8 +85,12 @@ public final class CertificateRequest extends HandshakeMessage {
 
 	/**
 	 * Initializes an empty certificate request.
+	 * 
+	 * @param peerAddress the IP address and port of the peer this
+	 *           message has been received from or should be sent to
 	 */
-	public CertificateRequest() {
+	public CertificateRequest(InetSocketAddress peerAddress) {
+		super(peerAddress);
 	}
 
 	/**
@@ -96,11 +101,15 @@ public final class CertificateRequest extends HandshakeMessage {
 	 *            the list of supported signature and hash algorithms.
 	 * @param certificateAuthorities
 	 *            the list of allowed certificate authorities.
+	 * @param peerAddress the IP address and port of the peer this
+	 *            message has been received from or should be sent to
 	 */
 	public CertificateRequest(
 			List<ClientCertificateType> certificateTypes,
 			List<SignatureAndHashAlgorithm> supportedSignatureAlgorithms,
-			List<X500Principal> certificateAuthorities) {
+			List<X500Principal> certificateAuthorities,
+			InetSocketAddress peerAddress) {
+		super(peerAddress);
 		if (certificateTypes != null) {
 			this.certificateTypes.addAll(certificateTypes);
 		}
@@ -178,7 +187,8 @@ public final class CertificateRequest extends HandshakeMessage {
 		for (X500Principal distinguishedName : certificateAuthorities) {
 			// since a distinguished name has variable length, we need to write length field for each name as well, has influence on total length!
 			byte[] encoded = distinguishedName.getEncoded();
-			writer.writeVarBytes(encoded, CERTIFICATE_AUTHORITY_LENGTH_BITS);
+			writer.write(encoded.length, CERTIFICATE_AUTHORITY_LENGTH_BITS);
+			writer.writeBytes(encoded);
 		}
 
 		return writer.toByteArray();
@@ -188,9 +198,10 @@ public final class CertificateRequest extends HandshakeMessage {
 	 * Parses a certificate request message from its binary encoding.
 	 * 
 	 * @param reader reader for the binary encoding of the message.
+	 * @param peerAddress The origin address of the message.
 	 * @return The parsed instance.
 	 */
-	public static HandshakeMessage fromReader(DatagramReader reader) {
+	public static HandshakeMessage fromReader(DatagramReader reader, InetSocketAddress peerAddress) {
 
 		List<ClientCertificateType> certificateTypes = new ArrayList<>();
 		int length = reader.read(CERTIFICATE_TYPES_LENGTH_BITS);
@@ -213,11 +224,12 @@ public final class CertificateRequest extends HandshakeMessage {
 		length = reader.read(CERTIFICATE_AUTHORITIES_LENGTH_BITS);
 		rangeReader = reader.createRangeReader(length);
 		while (rangeReader.bytesAvailable()) {
-			byte[] name = rangeReader.readVarBytes(CERTIFICATE_AUTHORITY_LENGTH_BITS);
+			int nameLength = rangeReader.read(CERTIFICATE_AUTHORITY_LENGTH_BITS);
+			byte[] name = rangeReader.readBytes(nameLength);
 			certificateAuthorities.add(new X500Principal(name));
 		}
 
-		return new CertificateRequest(certificateTypes, supportedSignatureAlgorithms, certificateAuthorities);
+		return new CertificateRequest(certificateTypes, supportedSignatureAlgorithms, certificateAuthorities, peerAddress);
 	}
 
 	// Enums //////////////////////////////////////////////////////////
@@ -258,6 +270,17 @@ public final class CertificateRequest extends HandshakeMessage {
 		 */
 		public int getCode() {
 			return code;
+		}
+
+		/**
+		 * Gets the JCA standard key algorithm name this certificate type is compatible with.
+		 * 
+		 * @return The algorithm name.
+		 * @deprecated
+		 */
+		@Deprecated
+		public String getJcaAlgorithm() {
+			return jcaAlgorithms[0];
 		}
 
 		/**
@@ -443,7 +466,7 @@ public final class CertificateRequest extends HandshakeMessage {
 		String algorithm = cert.getPublicKey().getAlgorithm();
 		for (ClientCertificateType type : certificateTypes) {
 			if (!type.isCompatibleWithKeyAlgorithm(algorithm)) {
-				LOGGER.debug("type: {}, is not compatible with KeyAlgorithm[{}]: {}", type, algorithm);
+				LOGGER.debug("type: {}, is not compatible with KeyAlgorithm[{}]", type, algorithm);
 				continue;
 			}
 			// KeyUsage is an optional extension which may be used to restrict

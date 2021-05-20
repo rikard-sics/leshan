@@ -282,7 +282,8 @@ public class ReceivetestClient {
 		StringBuilder statistic = new StringBuilder();
 		JsonElement element = null;
 		try {
-			element = JsonParser.parseString(payload);
+			JsonParser parser = new JsonParser();
+			element = parser.parse(payload);
 
 			if (verbose && element.isJsonArray()) {
 				// expected JSON data
@@ -372,7 +373,7 @@ public class ReceivetestClient {
 						CBORObject value;
 						if ((value = item.get("rid")) != null) {
 							String rid = value.AsString();
-							long time = item.get("time").AsNumber().ToInt64Checked();
+							long time = item.get("time").AsInt64();
 							if (rid.startsWith(REQUEST_ID_PREFIX)) {
 								boolean hit = errors.contains(rid);
 								rid = rid.substring(REQUEST_ID_PREFIX.length());
@@ -393,7 +394,7 @@ public class ReceivetestClient {
 							}
 							if ((value = item.get("ep")) != null) {
 								byte[] endpoint = value.GetByteString();
-								int port = item.get("port").AsNumber().ToInt16Checked() & 0xffff;
+								int port = item.get("port").AsInt16() & 0xffff;
 								statistic.append(System.lineSeparator());
 								String address = InetAddress.getByAddress(endpoint).getHostAddress();
 								if (address.contains(":")) {
@@ -403,7 +404,7 @@ public class ReceivetestClient {
 							}
 							statistic.append(System.lineSeparator());
 						} else {
-							long time = item.get("systemstart").AsNumber().ToInt64Checked();
+							long time = item.get("systemstart").AsInt64();
 							statistic.append("Server's system start: ").append(format.format(time));
 							statistic.append(System.lineSeparator());
 						}

@@ -46,6 +46,7 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
+import java.security.Principal;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -171,6 +172,15 @@ import org.eclipse.californium.elements.util.StringUtil;
  * are required, set them via {@link #getOptions()}.
  * </p>
  * 
+ * <p>
+ * Note:
+ * Using {@link #setDestination(InetAddress)} or
+ * {@link #setDestinationPort(int)} is deprecated since 2017-09. Using these
+ * functions may result in unexpected behavior, especially, if other
+ * destinations are used as in a provided URI. 
+ * Don't use it in combination with the new proxy support of 2.1!
+ * </p>
+ * 
  * @see Response
  */
 public class Request extends Message {
@@ -186,6 +196,8 @@ public class Request extends Message {
 
 	/** The current response for the request. */
 	private Response response;
+
+	private boolean ready;
 
 	/**
 	 * Request's scheme.
@@ -221,6 +233,14 @@ public class Request extends Message {
 	 * <a href="https://tools.ietf.org/html/rfc7252#section-5.10.2">Proxy-URI</a>
 	 */
 	private boolean proxyScheme;
+
+	/** The destination address of this message. */
+	@Deprecated
+	private InetAddress destination;
+
+	/** The destination port of this message. */
+	@Deprecated
+	private int destinationPort;
 
 	/** Contextual information about this request */
 	private Map<String, String> userContext;
@@ -319,14 +339,6 @@ public class Request extends Message {
 	public Request setPayload(byte[] payload) {
 		super.setPayload(payload);
 		return this;
-	}
-
-	@Override
-	public void assertPayloadMatchsBlocksize() {
-		BlockOption block1 = getOptions().getBlock1();
-		if (block1 != null) {
-			block1.assertPayloadSize(getPayloadSize());
-		}
 	}
 
 	/**
@@ -545,7 +557,11 @@ public class Request extends Message {
 		checkURI(uri);
 		EndpointContext destinationContext = getDestinationContext();
 		if (destinationContext == null) {
-			throw new IllegalStateException("destination must be set ahead!");
+			InetAddress destination = getDestination();
+			if (destination == null) {
+				throw new IllegalStateException("destination must be set ahead!");
+			}
+			destinationContext = new AddressEndpointContext(destination, destinationPort);
 		}
 		setOptionsInternal(uri, destinationContext.getPeerAddress(), IP_PATTERN.matcher(uri.getHost()).matches());
 		this.uri = true;
@@ -714,19 +730,15 @@ public class Request extends Message {
 		String host = options.getUriHost();
 		Integer port = options.getUriPort();
 		if (host == null) {
-			if (getDestinationContext() != null) {
-				host = getDestinationContext().getPeerAddress().getAddress().getHostAddress();
+			if (getDestination() != null) {
+				host = getDestination().getHostAddress();
 			} else {
 				// used during construction or when receiving
 				host = "localhost";
 			}
 		}
 		if (port == null) {
-			if (getDestinationContext() != null) {
-				port = getDestinationContext().getPeerAddress().getPort();
-			} else {
-				port = -1;
-			}
+			port = getDestinationPort();
 		}
 		if (port > 0) {
 			if (CoAP.isSupportedScheme(getScheme())) {
@@ -750,9 +762,114 @@ public class Request extends Message {
 		}
 	}
 
-	@Override
-	public boolean hasBlock(final BlockOption block) {
-		return hasBlock(block, getOptions().getBlock1());
+	/**
+	 * Gets the destination address.
+	 *
+	 * @return the destination
+	 * @deprecated use {@link #getDestinationContext()}.
+	 */
+	@Deprecated
+	public InetAddress getDestination() {
+		EndpointContext context = getDestinationContext();
+		if (context != null) {
+			return context.getPeerAddress().getAddress();
+		}
+		return destination;
+	}
+
+	/**
+	 * Sets the destination address.
+	 *
+	 * Provides a fluent API to chain setters.
+	 *
+	 * @param destination the new destination
+	 * @return this Message
+	 * @throws IllegalStateException if destination context is already set.
+	 * @deprecated
+	 * Note: intended to be removed with {@link #setDestinationPort(int)} and 
+	 * {@link Request#prepareDestinationContext()}
+	 */
+	@Deprecated
+	public Message setDestination(InetAddress destination) {
+		if (getDestinationContext() != null) {
+			throw new IllegalStateException("destination context already set!");
+		}
+		this.destination = destination;
+		multicast = NetworkInterfacesUtil.isMultiAddress(destination);
+		return this;
+	}
+
+	/**
+	 * Gets the destination port.
+	 *
+	 * @return the destination port
+	 * @deprecated use {@link #getDestinationContext()}.
+	 */
+	@Deprecated
+	public int getDestinationPort() {
+		EndpointContext context = getDestinationContext();
+		if (context != null) {
+			return context.getPeerAddress().getPort();
+		}
+		return destinationPort;
+	}
+
+	/**
+	 * Sets the destination port.
+	 *
+	 * Provides a fluent API to chain setters.
+	 *
+	 * @param destinationPort the new destination port
+	 * @return this Message
+	 * @throws IllegalStateException if destination context is already set.
+	 * @deprecated
+	 * Note: intended to be removed with {@link #setDestination(InetAddress)} and 
+	 * {@link Request#prepareDestinationContext()}
+	 */
+	@Deprecated
+	public Message setDestinationPort(int destinationPort) {
+		if (getDestinationContext() != null) {
+			throw new IllegalStateException("destination context already set!");
+		}
+		this.destinationPort = destinationPort;
+		return this;
+	}
+
+	/**
+	 * Gets the authenticated (remote) sender's identity.
+	 * 
+	 * @return the identity or {@code null} if the sender has not been
+	 *         authenticated
+	 * @deprecated use {@link #getSourceContext()}
+	 */
+	@Deprecated
+	public Principal getSenderIdentity() {
+		return getSourceContext().getPeerIdentity();
+	}
+
+	/**
+	 * Prepare destination endpoint context. If not already available, create it
+	 * from the {@link #destination} and {@link #destinationPort}.
+	 * 
+	 * @throws IllegalStateException if no destination endpoint context is
+	 *             available and the destination is missing
+	 * @deprecated Removing with {@link #setDestination(InetAddress)} and
+	 *             {@link #setDestinationPort(int)} obsoletes this
+	 */
+	@Deprecated
+	public void prepareDestinationContext() {
+		EndpointContext context = getDestinationContext();
+		if (context == null) {
+			if (destination == null) {
+				throw new IllegalStateException("missing destination!");
+			}
+			context = new AddressEndpointContext(
+					new InetSocketAddress(destination, destinationPort),
+					getOptions().getUriHost(),
+					null);
+			super.setDestinationContext(context);
+		}
+		multicast = NetworkInterfacesUtil.isMultiAddress(context.getPeerAddress().getAddress());
 	}
 
 	/**
@@ -769,9 +886,16 @@ public class Request extends Message {
 	 * 
 	 * @param peerContext destination endpoint context
 	 * @return this Request
+	 * 
+	 * @throws IllegalStateException if destination differs.
 	 */
 	@Override
 	public Request setDestinationContext(EndpointContext peerContext) {
+		if (destination != null) {
+			if (!destination.equals(peerContext.getPeerAddress().getAddress())) {
+				throw new IllegalStateException("different destination!");
+			}
+		}
 		super.setRequestDestinationContext(peerContext);
 		multicast = peerContext != null && !peerContext.getPeerAddress().isUnresolved()
 				&& NetworkInterfacesUtil.isMultiAddress(peerContext.getPeerAddress().getAddress());
@@ -779,25 +903,11 @@ public class Request extends Message {
 	}
 
 	/**
-	 * Set address of the receiving local endpoint.
-	 * 
-	 * @param local local address of the receiving endpoint
-	 * @param multicast {@code true}, if request is received via a multicast
-	 *            address, {@code false}, otherwise.
-	 * @since 3.0
-	 */
-	public void setLocalAddress(InetSocketAddress local, boolean multicast) {
-		super.setLocalAddress(local);
-		this.multicast = multicast;
-	}
-
-	/**
 	 * Sends the request over the default endpoint to its destination and
 	 * expects a response back.
 	 * 
 	 * @return this request
-	 * @throws IllegalStateException if this request has no valid destination
-	 *             set. (since 3.0, was NullPointerException before)
+	 * @throws NullPointerException if this request has no destination set.
 	 */
 	public Request send() {
 		send(EndpointManager.getEndpointManager().getDefaultEndpoint(getScheme()));
@@ -810,8 +920,7 @@ public class Request extends Message {
 	 * 
 	 * @param endpoint the endpoint
 	 * @return this request
-	 * @throws IllegalStateException if this request has no valid destination
-	 *             set. (since 3.0, was NullPointerException before)
+	 * @throws NullPointerException if this request has no destination set.
 	 */
 	public Request send(Endpoint endpoint) {
 		validateBeforeSending();
@@ -823,14 +932,11 @@ public class Request extends Message {
 	 * Validate before sending that there is a destination set.
 	 */
 	private void validateBeforeSending() {
-		if (getDestinationContext() == null) {
-			throw new IllegalStateException("Destination is null");
+		if (getDestination() == null) {
+			throw new NullPointerException("Destination is null");
 		}
-		if (getDestinationContext().getPeerAddress().getAddress() == null) {
-			throw new IllegalStateException("Destination address is null");
-		}
-		if (getDestinationContext().getPeerAddress().getPort() == 0) {
-			throw new IllegalStateException("Destination port is 0");
+		if (getDestinationPort() == 0) {
+			throw new NullPointerException("Destination port is 0");
 		}
 	}
 
@@ -926,10 +1032,23 @@ public class Request extends Message {
 	}
 
 	/**
-	 * Wait for the response. This function blocks until there is a response or
-	 * the request has been canceled.
+	 * Wait for the response.
 	 * 
-	 * @return the response
+	 * This function blocks until there is a response, the request gets rejected
+	 * by the server, has been canceled, timed out, or an error occurred.
+	 * <p>
+	 * This method also sets the response to {@code null} so that succeeding
+	 * calls will wait for the next response. Repeatedly calling this method is
+	 * useful if the client expects multiple responses, e.g., multiple responses
+	 * to a multicast request.
+	 * 
+	 * Note: for 2.6.x, if {@link #setOnResponseError(Throwable)} is called,
+	 * {@link #setCanceled(boolean)} is called afterwards. That may result in a
+	 * race condition, where this {@link #waitForResponse()} call returns, but
+	 * the {@link #isCanceled()} not already set.
+	 * 
+	 * @return the response ({@code null} if an other event terminated the
+	 *         request)
 	 * @throws InterruptedException the interrupted exception
 	 */
 	public Response waitForResponse() throws InterruptedException {
@@ -938,31 +1057,34 @@ public class Request extends Message {
 
 	/**
 	 * Waits for the arrival of the response to this request.
+	 * 
+	 * This function blocks until there is a response, the request gets rejected
+	 * by the server, has been canceled, timed out, or an error occurred. Or the
+	 * specified wait-timeout has expired. A wait-timeout of 0 is interpreted as
+	 * infinity. If a response is already here, this method returns it
+	 * immediately. Also, if one of the other terminating events has already
+	 * occurred, e.g. the request was rejected or has been canceled.
 	 * <p>
-	 * This function blocks until there is a response, the request has been
-	 * canceled or the specified timeout has expired. A timeout of 0 is
-	 * interpreted as infinity. If a response is already here, this method
-	 * returns it immediately.
-	 * <p>
-	 * The calling thread returns if either a response arrives, the request gets
-	 * rejected by the server, the request gets canceled or, in case of a
-	 * confirmable request, timeouts. In that case, if no response has arrived
-	 * yet the return value is null.
-	 * <p>
-	 * This method also sets the response to null so that succeeding calls will
-	 * wait for the next response. Repeatedly calling this method is useful if
-	 * the client expects multiple responses, e.g., multiple notifications to an
-	 * observe request or multiple responses to a multicast request.
+	 * This method also sets the response to {@code null} so that succeeding
+	 * calls will wait for the next response. Repeatedly calling this method is
+	 * useful if the client expects multiple responses, e.g., multiple responses
+	 * to a multicast request.
+	 * 
+	 * Note: for 2.6.x, if {@link #setOnResponseError(Throwable)} is called,
+	 * {@link #setCanceled(boolean)} is called afterwards. That may result in a
+	 * race condition, where this {@link #waitForResponse()} call returns, but
+	 * the {@link #isCanceled()} not already set.
 	 * 
 	 * @param timeout the maximum time to wait in milliseconds.
-	 * @return the response (null if timeout occurred)
+	 * @return the response ({@code null} if timeout occurred, or an other event
+	 *         terminated the request)
 	 * @throws InterruptedException the interrupted exception
 	 */
 	public Response waitForResponse(long timeout) throws InterruptedException {
 		long expiresNano = ClockUtil.nanoRealtime() + TimeUnit.MILLISECONDS.toNanos(timeout);
 		long leftTimeout = timeout;
 		synchronized (this) {
-			while (this.response == null && !isCanceled() && !isTimedOut() && !isRejected() && getSendError() == null) {
+			while (!ready && response == null) {
 				wait(leftTimeout);
 				// timeout expired?
 				if (timeout > 0) {
@@ -992,6 +1114,7 @@ public class Request extends Message {
 		super.setTimedOut(timedOut);
 		if (timedOut) {
 			synchronized (this) {
+				ready = true;
 				notifyAll();
 			}
 		}
@@ -1008,6 +1131,7 @@ public class Request extends Message {
 		super.setCanceled(canceled);
 		if (canceled) {
 			synchronized (this) {
+				ready = true;
 				notifyAll();
 			}
 		}
@@ -1018,6 +1142,7 @@ public class Request extends Message {
 		super.setRejected(rejected);
 		if (rejected) {
 			synchronized (this) {
+				ready = true;
 				notifyAll();
 			}
 		}
@@ -1028,6 +1153,7 @@ public class Request extends Message {
 		super.setSendError(sendError);
 		if (sendError != null) {
 			synchronized (this) {
+				ready = true;
 				notifyAll();
 			}
 		}
@@ -1055,10 +1181,13 @@ public class Request extends Message {
 		this.responseHandlingError = cause;
 		if (responseHandlingError != null) {
 			for (MessageObserver handler : getMessageObservers()) {
-				handler.onResponseHandlingError(responseHandlingError);
+				if (handler instanceof MessageObserver2) {
+					((MessageObserver2) handler).onResponseHandlingError(responseHandlingError);
+				}
 			}
 
 			synchronized (this) {
+				ready = true;
 				notifyAll();
 			}
 		}

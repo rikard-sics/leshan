@@ -52,7 +52,7 @@ public enum CompressionMethod {
 
 	// Members ////////////////////////////////////////////////////////
 
-	private final int code;
+	private int code;
 	
 	// Constructor ////////////////////////////////////////////////////
 
@@ -82,16 +82,21 @@ public enum CompressionMethod {
 	// Serialization //////////////////////////////////////////////////
 
 	/**
-	 * Write a list of compression methods.
+	 * Takes a list of compression methods and creates the representing byte
+	 * stream.
 	 * 
-	 * @param writer writer to write to
-	 * @param compressionMethods the list of the compression methods
-	 * @since 3.0
+	 * @param compressionMethods
+	 *            the list of the compression methods
+	 * @return the corresponding byte array
 	 */
-	public static void listToWriter(DatagramWriter writer, List<CompressionMethod> compressionMethods) {
+	public static byte[] listToByteArray(List<CompressionMethod> compressionMethods) {
+
+		DatagramWriter writer = new DatagramWriter();
 		for (CompressionMethod compressionMethod : compressionMethods) {
 			writer.write(compressionMethod.getCode(), COMPRESSION_METHOD_BITS);
 		}
+
+		return writer.toByteArray();
 	}
 
 	/**

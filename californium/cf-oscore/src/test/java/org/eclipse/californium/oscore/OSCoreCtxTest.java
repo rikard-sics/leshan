@@ -24,7 +24,6 @@ import static org.junit.Assert.assertTrue;
 import java.util.Arrays;
 
 import org.eclipse.californium.cose.AlgorithmID;
-import org.eclipse.californium.elements.util.ExpectedExceptionWrapper;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -49,7 +48,7 @@ public class OSCoreCtxTest {
 	private final AlgorithmID kdf = AlgorithmID.HKDF_HMAC_SHA_256;
 
 	@Rule
-	public final ExpectedException exception = ExpectedExceptionWrapper.none();
+	public final ExpectedException exception = ExpectedException.none();
 
 	@Before
 	public void setUp() throws Exception {

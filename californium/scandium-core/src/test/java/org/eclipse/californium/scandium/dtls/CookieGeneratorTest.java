@@ -17,10 +17,10 @@ package org.eclipse.californium.scandium.dtls;
 
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThat;
 
 import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
@@ -78,50 +78,50 @@ public class CookieGeneratorTest {
 
 	@Test
 	public void testCookieGeneratorGeneratesSameCookie() throws GeneralSecurityException {
-		ClientHello clientHello = ClientHelloTest.createClientHello(
+		ClientHello clientHello = ClientHelloTest.createClientHello(peerAddress,
 				Collections.singletonList(CipherSuite.TLS_PSK_WITH_AES_128_CBC_SHA256),
 				SignatureAndHashAlgorithm.DEFAULT, Collections.<CertificateType> emptyList(),
 				Collections.<CertificateType> emptyList(), Collections.singletonList(SupportedGroup.secp256r1));
-		byte[] cookie1 = generator.generateCookie(peerAddress, clientHello);
+		byte[] cookie1 = generator.generateCookie(clientHello);
 
 		clientHello.setCookie(cookie1);
 
-		byte[] cookie2 = generator.generateCookie(peerAddress, clientHello);
+		byte[] cookie2 = generator.generateCookie(clientHello);
 		assertArrayEquals(cookie1, cookie2);
 	}
 
 	@Test
 	public void testCookieGeneratorGeneratesDifferentCookie() throws GeneralSecurityException, HandshakeException {
-		ClientHello clientHello1 = ClientHelloTest.createClientHello(
+		ClientHello clientHello1 = ClientHelloTest.createClientHello(peerAddress,
 				Collections.singletonList(CipherSuite.TLS_PSK_WITH_AES_128_CBC_SHA256),
 				SignatureAndHashAlgorithm.DEFAULT, Collections.<CertificateType> emptyList(),
 				Collections.<CertificateType> emptyList(), Collections.singletonList(SupportedGroup.secp256r1));
-		byte[] cookie1 = generator.generateCookie(peerAddress, clientHello1);
+		byte[] cookie1 = generator.generateCookie(clientHello1);
 		byte[] byteArray = clientHello1.fragmentToByteArray();
-		ClientHello clientHello2 = ClientHello.fromReader(new DatagramReader(byteArray));
+		ClientHello clientHello2 = ClientHello.fromReader(new DatagramReader(byteArray), peerAddress);
 		clientHello2.setCookie(cookie1);
 
-		byte[] cookie2 = generator.generateCookie(peerAddress, clientHello2);
+		byte[] cookie2 = generator.generateCookie(clientHello2);
 		assertArrayEquals(cookie1, cookie2);
 
-		ClientHello clientHello3 = ClientHello.fromReader(new DatagramReader(byteArray));
+		ClientHello clientHello3 = ClientHello.fromReader(new DatagramReader(byteArray), peerAddress2);
 		clientHello3.setCookie(cookie1);
 
-		byte[] cookie3 = generator.generateCookie(peerAddress2, clientHello3);
+		byte[] cookie3 = generator.generateCookie(clientHello3);
 		assertFalse("byte arrays are equal!", Arrays.equals(cookie1, cookie3));
 	}
 
 	@Test
 	public void testCookieGeneratorGeneratesDifferentCookieWhenPeriodExpires()
 			throws GeneralSecurityException, HandshakeException {
-		ClientHello clientHello1 = ClientHelloTest.createClientHello(
+		ClientHello clientHello1 = ClientHelloTest.createClientHello(peerAddress,
 				Collections.singletonList(CipherSuite.TLS_PSK_WITH_AES_128_CBC_SHA256),
 				SignatureAndHashAlgorithm.DEFAULT, Collections.<CertificateType> emptyList(),
 				Collections.<CertificateType> emptyList(), Collections.singletonList(SupportedGroup.secp256r1));
-		byte[] cookie1 = generator.generateCookie(peerAddress, clientHello1);
+		byte[] cookie1 = generator.generateCookie(clientHello1);
 		time.addTestTimeShift(CookieGenerator.COOKIE_LIFE_TIME + 1000, TimeUnit.NANOSECONDS);
-		byte[] cookie2 = generator.generateCookie(peerAddress, clientHello1);
-		byte[] cookie3 = generator.generatePastCookie(peerAddress, clientHello1);
+		byte[] cookie2 = generator.generateCookie(clientHello1);
+		byte[] cookie3 = generator.generatePastCookie(clientHello1);
 
 		assertFalse("byte arrays are equal!", Arrays.equals(cookie1, cookie2));
 		assertArrayEquals(cookie1, cookie3);
@@ -132,7 +132,7 @@ public class CookieGeneratorTest {
 		final int LOOPS = TestScope.enableIntensiveTests() ? 20000 : 2000;
 		final int COOKIE_USAGE = 100;
 		final CountDownLatch done = new CountDownLatch(LOOPS);
-		final ClientHello clientHello = ClientHelloTest.createClientHello(
+		final ClientHello clientHello = ClientHelloTest.createClientHello(peerAddress,
 				Collections.singletonList(CipherSuite.TLS_PSK_WITH_AES_128_CBC_SHA256),
 				SignatureAndHashAlgorithm.DEFAULT, Collections.<CertificateType> emptyList(),
 				Collections.<CertificateType> emptyList(), Collections.singletonList(SupportedGroup.secp256r1));
@@ -149,7 +149,7 @@ public class CookieGeneratorTest {
 					public void run() {
 						byte[] cookie;
 						try {
-							cookie = generator.generateCookie(peerAddress, clientHello);
+							cookie = generator.generateCookie(clientHello);
 							cookies.add(new Bytes(cookie, 32, false));
 						} catch (GeneralSecurityException e) {
 							errors.add(e);

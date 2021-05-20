@@ -139,7 +139,7 @@ public enum CipherSuite {
 	private final MACAlgorithm macAlgorithm;
 	private final PRFAlgorithm pseudoRandomFunction;
 	private final int maxCipherTextExpansion;
-	private final boolean recommendedCipherSuite;
+	private boolean recommendedCipherSuite;
 
 	// Constructor ////////////////////////////////////////////////////
 
@@ -499,6 +499,33 @@ public enum CipherSuite {
 	}
 
 	/**
+	 * Get a list of all supported PSK cipher suites.
+	 * 
+	 * @param recommendedCipherSuitesOnly {@code true} use only recommended
+	 *            cipher suites
+	 * @param ecdhePsk {@code true} include ECDHE_PSK cipher suites
+	 * @return list of all supported PSK cipher suites. Ordered by their
+	 *         definition above.
+	 * @deprecated use
+	 *             {@link #getCipherSuitesByKeyExchangeAlgorithm(boolean, KeyExchangeAlgorithm...)}
+	 */
+	@Deprecated
+	public static List<CipherSuite> getPskCipherSuites(boolean recommendedCipherSuitesOnly, boolean ecdhePsk) {
+		List<CipherSuite> list = new ArrayList<>();
+		for (CipherSuite suite : values()) {
+			if (suite.isSupported()) {
+				if (KeyExchangeAlgorithm.PSK.equals(suite.keyExchange)
+						|| (ecdhePsk && KeyExchangeAlgorithm.ECDHE_PSK.equals(suite.keyExchange))) {
+					if (!recommendedCipherSuitesOnly || suite.recommendedCipherSuite) {
+						list.add(suite);
+					}
+				}
+			}
+		}
+		return list;
+	}
+
+	/**
 	 * Get a list of all cipher suites using the provided key exchange
 	 * algorithms.
 	 * 
@@ -728,16 +755,39 @@ public enum CipherSuite {
 	// Serialization //////////////////////////////////////////////////
 
 	/**
-	 * Write a list of cipher suites.
+	 * Transform a list of cipher suites into the appropriate bit-format.
 	 * 
-	 * @param writer writer to write to
-	 * @param cipherSuites the cipher suites
-	 * @since 3.0
+	 * @param cipherSuites
+	 *            the cipher suites
+	 * @return the byte[]
 	 */
-	public static void listToWriter(DatagramWriter writer, List<CipherSuite> cipherSuites) {
+	public static byte[] listToByteArray(List<CipherSuite> cipherSuites) {
+
+		DatagramWriter writer = new DatagramWriter();
 		for (CipherSuite cipherSuite : cipherSuites) {
 			writer.write(cipherSuite.getCode(), CIPHER_SUITE_BITS);
 		}
+
+		return writer.toByteArray();
+	}
+
+	/**
+	 * Decode cipher suite list from byte array.
+	 * 
+	 * @param byteArray byte array with encoded cipher suites
+	 * @param numElements number of encoded cipher suites
+	 * @return list of cipher suites
+	 * @throws IllegalArgumentException if provided number of cipher suites
+	 *             doesn't macht the provided byte array
+	 * @deprecated use {@link #listFromReader(DatagramReader)}
+	 */
+	@Deprecated
+	public static List<CipherSuite> listFromByteArray(byte[] byteArray, int numElements) {
+		List<CipherSuite> cipherSuites = listFromReader(new DatagramReader(byteArray, false));
+		if (cipherSuites.size() != numElements) {
+			throw new IllegalArgumentException("");
+		}
+		return cipherSuites;
 	}
 
 	/**
@@ -916,9 +966,9 @@ public enum CipherSuite {
 		// key_length & record_iv_length as documented in RFC 5426, Appendix C
 		// see http://tools.ietf.org/html/rfc5246#appendix-C
 		NULL("NULL", CipherType.NULL, 0, 0, 0),
-		B_3DES_EDE_CBC("DESede/CBC/NoPadding", CipherType.BLOCK, 24, 0, 8), // don't know
-		AES_128_CBC("AES/CBC/NoPadding", CipherType.BLOCK, 16, 0, 16), // http://www.ietf.org/mail-archive/web/tls/current/msg08445.html
-		AES_256_CBC("AES/CBC/NoPadding", CipherType.BLOCK, 32, 0, 16),
+		B_3DES_EDE_CBC("DESede/CBC/NoPadding", CipherType.BLOCK, 24, 4, 8), // don't know
+		AES_128_CBC("AES/CBC/NoPadding", CipherType.BLOCK, 16, 4, 16), // http://www.ietf.org/mail-archive/web/tls/current/msg08445.html
+		AES_256_CBC("AES/CBC/NoPadding", CipherType.BLOCK, 32, 4, 16),
 		AES_128_CCM_8(AeadBlockCipher.AES_CCM, CipherType.AEAD, 16, 4, 8, 8), // explicit nonce (record IV) length = 8
 		AES_256_CCM_8(AeadBlockCipher.AES_CCM, CipherType.AEAD, 32, 4, 8, 8), // explicit nonce (record IV) length = 8
 		AES_128_CCM(AeadBlockCipher.AES_CCM, CipherType.AEAD, 16, 4, 8, 16), // explicit nonce (record IV) length = 8

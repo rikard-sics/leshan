@@ -23,7 +23,6 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 
-import org.eclipse.californium.elements.util.ExpectedExceptionWrapper;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -35,7 +34,7 @@ public class ByteIdTest {
 	private final byte[] iv3 = new byte[] { 0x02, 0x01 };
 
 	@Rule
-	public final ExpectedException exception = ExpectedExceptionWrapper.none();
+	public final ExpectedException exception = ExpectedException.none();
 
 	@Test
 	public void testConstructor() {

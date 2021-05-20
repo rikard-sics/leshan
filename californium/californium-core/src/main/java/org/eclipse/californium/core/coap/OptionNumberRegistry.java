@@ -58,9 +58,6 @@ public final class OptionNumberRegistry {
 
 	//TODO temporary assignment
 	public static final int OSCORE			= 9;
-	
-	// EDHOC (temporary assignment)
-	public static final int EDHOC			= 21;
 
 	/**
 	 * Option names.
@@ -91,9 +88,6 @@ public final class OptionNumberRegistry {
 		public static final String Size2			= "Size2";
 
 		public static final String Object_Security  = "Object-Security";
-		
-		public static final String Edhoc            = "EDHOC";
-		
 	}
 
 	/**
@@ -145,9 +139,6 @@ public final class OptionNumberRegistry {
 		case IF_MATCH:
 		case OSCORE:
 			return optionFormats.OPAQUE;
-		// EDHOC
-		case EDHOC:
-			return optionFormats.EMPTY;
 		default:
 			return optionFormats.UNKNOWN;
 		}
@@ -244,11 +235,6 @@ public final class OptionNumberRegistry {
 		case OBSERVE:
 		case ACCEPT:
 		case OSCORE:
-		case BLOCK1:
-		case BLOCK2:
-		case SIZE1:
-		case SIZE2:
-		case EDHOC: // EDHOC
 		default:
 			return true;
 		case ETAG:
@@ -258,109 +244,6 @@ public final class OptionNumberRegistry {
 		case LOCATION_PATH:
 		case LOCATION_QUERY:
 			return false;
-		}
-	}
-
-	/**
-	 * Assert, that the value matches the options's definition.
-	 * 
-	 * See <a href= "https://tools.ietf.org/html/rfc7252#page-53">RFC7252, 5.10.
-	 * Option Definitions </a>.
-	 * 
-	 * @param optionNumber option's number
-	 * @param value value to check
-	 * @throws IllegalArgumentException if value doesn't match the definition
-	 * @since 3.0
-	 */
-	public static void assertValue(int optionNumber, long value) {
-		try {
-			int length = (Long.SIZE - Long.numberOfLeadingZeros(value) + 7) / Byte.SIZE;
-			assertValueLength(optionNumber, length);
-		} catch (IllegalArgumentException ex) {
-			throw new IllegalArgumentException(ex.getMessage() + " Value " + value);
-		}
-	}
-
-	/**
-	 * Assert, that the value length matches the options's definition.
-	 * 
-	 * See <a href= "https://tools.ietf.org/html/rfc7252#page-53">RFC7252, 5.10.
-	 * Option Definitions </a>.
-	 * 
-	 * @param optionNumber option's number
-	 * @param valueLength value length
-	 * @throws IllegalArgumentException if value length doesn't match the
-	 *             definition
-	 * @since 3.0
-	 */
-	public static void assertValueLength(int optionNumber, int valueLength) {
-		int min = 0;
-		int max = 65535 + 269;
-		switch (optionNumber) {
-		case IF_MATCH:
-			max = 8;
-			break;
-		case URI_HOST:
-		case PROXY_SCHEME:
-			min = 1;
-			max = 255;
-			break;
-		case ETAG:
-			min = 1;
-			max = 8;
-			break;
-		case IF_NONE_MATCH:
-			max = 0;
-			break;
-		case URI_PORT:
-		case CONTENT_FORMAT:
-		case ACCEPT:
-			max = 2;
-			break;
-		case URI_PATH:
-		case URI_QUERY:
-		case LOCATION_PATH:
-		case LOCATION_QUERY:
-		case OSCORE:
-			max = 255;
-			break;
-		// EDHOC
-		case EDHOC:
-			max = 0;
-			break;
-
-		case MAX_AGE:
-		case SIZE1:
-		case SIZE2:
-			max = 4;
-			break;
-
-		case PROXY_URI:
-			min = 1;
-			max = 1034;
-			break;
-		case OBSERVE:
-		case BLOCK1:
-		case BLOCK2:
-			max = 3;
-			break;
-		default:
-			// empty, already min/max already initialized.
-		}
-		if (valueLength < min || valueLength > max) {
-			String name = toString(optionNumber);
-			if (min == max) {
-				if (min == 0) {
-					throw new IllegalArgumentException(
-							"Option " + name + " value of " + valueLength + " bytes must be empty.");
-				} else {
-					throw new IllegalArgumentException(
-							"Option " + name + " value of " + valueLength + " bytes must be " + min + " bytes.");
-				}
-			} else {
-				throw new IllegalArgumentException("Option " + name + " value of " + valueLength
-						+ " bytes must be in range of [" + min + "-" + max + "] bytes.");
-			}
 		}
 	}
 
@@ -431,11 +314,6 @@ public final class OptionNumberRegistry {
 			return Names.Size1;
 		case OSCORE:
 			return Names.Object_Security;
-		
-		// EDHOC
-		case EDHOC:
-			return Names.Edhoc;
-			
 		default:
 			return String.format("Unknown (%d)", optionNumber);
 		}
@@ -462,7 +340,6 @@ public final class OptionNumberRegistry {
 		else if (Names.Size2.equals(name))			return SIZE2;
 		else if (Names.Size1.equals(name))			return SIZE1;
 		else if (Names.Object_Security.equals(name)) return OSCORE;
-		else if (Names.Edhoc.equals(name))          return EDHOC; // EDHOC
 		else return UNKNOWN;
 	}
 

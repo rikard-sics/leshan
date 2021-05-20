@@ -39,6 +39,7 @@ import org.eclipse.californium.scandium.dtls.CertificateMessage;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.CertificateVerificationResult;
 import org.eclipse.californium.scandium.dtls.ConnectionId;
+import org.eclipse.californium.scandium.dtls.DTLSSession;
 import org.eclipse.californium.scandium.dtls.HandshakeException;
 import org.eclipse.californium.scandium.dtls.HandshakeResultHandler;
 import org.eclipse.californium.scandium.util.ServerNames;
@@ -119,12 +120,13 @@ public class StaticNewAdvancedCertificateVerifier implements NewAdvancedCertific
 
 	@Override
 	public CertificateVerificationResult verifyCertificate(ConnectionId cid, ServerNames serverName,
-			boolean clientUsage, boolean truncateCertificatePath, CertificateMessage message) {
+			Boolean clientUsage, boolean truncateCertificatePath, CertificateMessage message, DTLSSession session) {
 		try {
 			CertPath certChain = message.getCertificateChain();
 			if (certChain == null) {
 				if (trustedRPKs == null) {
-					AlertMessage alert = new AlertMessage(AlertLevel.FATAL, AlertDescription.UNSUPPORTED_CERTIFICATE);
+					AlertMessage alert = new AlertMessage(AlertLevel.FATAL, AlertDescription.INTERNAL_ERROR,
+							session.getPeer());
 					throw new HandshakeException("RPK verification not enabled!", alert);
 				}
 				PublicKey publicKey = message.getPublicKey();
@@ -132,30 +134,31 @@ public class StaticNewAdvancedCertificateVerifier implements NewAdvancedCertific
 					RawPublicKeyIdentity rpk = new RawPublicKeyIdentity(publicKey);
 					if (!trustedRPKs.contains(rpk)) {
 						LOGGER.debug("Certificate validation failed: Raw public key is not trusted");
-						AlertMessage alert = new AlertMessage(AlertLevel.FATAL, AlertDescription.BAD_CERTIFICATE);
+						AlertMessage alert = new AlertMessage(AlertLevel.FATAL, AlertDescription.BAD_CERTIFICATE,
+								session.getPeer());
 						throw new HandshakeException("Raw public key is not trusted!", alert);
 					}
 				}
 				return new CertificateVerificationResult(cid, publicKey, null);
 			} else {
 				if (trustedCertificates == null) {
-					AlertMessage alert = new AlertMessage(AlertLevel.FATAL, AlertDescription.UNSUPPORTED_CERTIFICATE);
+					AlertMessage alert = new AlertMessage(AlertLevel.FATAL, AlertDescription.INTERNAL_ERROR,
+							session.getPeer());
 					throw new HandshakeException("x509 verification not enabled!", alert);
 				}
 				try {
-					CertPath certPath = message.getCertificateChain();
-					if (!message.isEmpty()) {
-						Certificate certificate = certPath.getCertificates().get(0);
+					if (clientUsage != null && !message.isEmpty()) {
+						Certificate certificate = certChain.getCertificates().get(0);
 						if (certificate instanceof X509Certificate) {
 							if (!CertPathUtil.canBeUsedForAuthentication((X509Certificate) certificate, clientUsage)) {
 								LOGGER.debug("Certificate validation failed: key usage doesn't match");
 								AlertMessage alert = new AlertMessage(AlertLevel.FATAL,
-										AlertDescription.BAD_CERTIFICATE);
+										AlertDescription.BAD_CERTIFICATE, session.getPeer());
 								throw new HandshakeException("Key Usage doesn't match!", alert);
 							}
 						}
 					}
-					certChain = CertPathUtil.validateCertificatePathWithIssuer(truncateCertificatePath, certPath,
+					certChain = CertPathUtil.validateCertificatePathWithIssuer(truncateCertificatePath, certChain,
 							trustedCertificates);
 					return new CertificateVerificationResult(cid, certChain, null);
 				} catch (GeneralSecurityException e) {
@@ -164,7 +167,8 @@ public class StaticNewAdvancedCertificateVerifier implements NewAdvancedCertific
 					} else if (LOGGER.isDebugEnabled()) {
 						LOGGER.debug("Certificate validation failed due to {}", e.getMessage());
 					}
-					AlertMessage alert = new AlertMessage(AlertLevel.FATAL, AlertDescription.DECRYPT_ERROR);
+					AlertMessage alert = new AlertMessage(AlertLevel.FATAL, AlertDescription.BAD_CERTIFICATE,
+							session.getPeer());
 					throw new HandshakeException("Certificate chain could not be validated", alert, e);
 				}
 			}

@@ -87,18 +87,6 @@ public class EmptyMessage extends Message {
 		return false;
 	}
 
-	@Override
-	public void assertPayloadMatchsBlocksize() {
-		if (getPayloadSize() > 0) {
-			throw new IllegalStateException("Empty message contains " + getPayloadSize() + " bytes payload!");
-		}
-	}
-
-	@Override
-	public boolean hasBlock(final BlockOption block) {
-		return false;
-	}
-
 	/**
 	 * Create a new acknowledgment for the specified message.
 	 *

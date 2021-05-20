@@ -23,7 +23,6 @@ import java.lang.reflect.Method;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.regex.Pattern;
@@ -82,9 +81,20 @@ public class StringUtil {
 			// android before API 18
 		}
 		SUPPORT_HOST_STRING = support;
-		CALIFORNIUM_VERSION = StringUtil.class.getPackage().getImplementationVersion();
+		String version = null;
+		Package pack = StringUtil.class.getPackage();
+		if (pack != null) {
+			version = pack.getImplementationVersion();
+			if ("0.0".equals(version)) {
+				// that seems to be a dummy value used,
+				// if the version is not available
+				version = null;
+			}
+		}
+		CALIFORNIUM_VERSION = version;
 	}
 
+	@NotForAndroid
 	private static String toHostString(InetSocketAddress address) {
 		return address.getHostString();
 	}
@@ -359,25 +369,6 @@ public class StringUtil {
 	 * Get socket address as string for logging.
 	 * 
 	 * @param address socket address to be converted to string
-	 * @return the socket address as string, or {@code null}, if address is
-	 *         {@code null}.
-	 * @see #toString(InetSocketAddress)
-	 * @since 2.6
-	 */
-	public static String toString(SocketAddress address) {
-		if (address == null) {
-			return null;
-		}
-		if (address instanceof InetSocketAddress) {
-			return toString((InetSocketAddress) address);
-		}
-		return address.toString();
-	}
-
-	/**
-	 * Get socket address as string for logging.
-	 * 
-	 * @param address socket address to be converted to string
 	 * @return the host string, if available, separated by "/", appended by the
 	 *         host address, ":" and the port. For "any addresses", "port #port"
 	 *         is returned. And {@code null}, if address is {@code null}.
@@ -404,34 +395,6 @@ public class StringUtil {
 		} else {
 			return name + host + ":" + address.getPort();
 		}
-	}
-
-	/**
-	 * Returns a "lazy message supplier" for socket addresses.
-	 * 
-	 * Converts the provided socket address into a display string on calling
-	 * {@link Object#toString()} on the returned object. Emulates the
-	 * {@code MessageSupplier} idea of log4j.
-	 * 
-	 * @param address address to log.
-	 * @return "lazy message supplier".
-	 * @see #toDisplayString(InetSocketAddress)
-	 * @since 3.0
-	 */
-	public static Object toLog(final SocketAddress address) {
-		if (address == null) {
-			return null;
-		}
-		return new Object() {
-
-			public String toString() {
-				if (address instanceof InetSocketAddress) {
-					return toDisplayString((InetSocketAddress) address);
-				} else {
-					return address.toString();
-				}
-			}
-		};
 	}
 
 	/**
@@ -503,10 +466,8 @@ public class StringUtil {
 	}
 
 	/**
-	 * Get configuration value.
-	 * 
-	 * Try first {@link System#getenv(String)}, if that returns {@code null} or
-	 * an empty value, then return {@link System#getProperty(String)}.
+	 * Get configuration value. Try first {@link System#getenv(String)}, if that
+	 * returns {@code null} or an empty value, then return {@link System#getProperty(String)}.
 	 * 
 	 * @param name the name of the configuration value.
 	 * @return the value, or {@code null}, if neither
@@ -523,10 +484,9 @@ public class StringUtil {
 	}
 
 	/**
-	 * Get long configuration value.
-	 * 
-	 * Try first {@link System#getenv(String)}, if that returns {@code null} or
-	 * an empty value, then return {@link System#getProperty(String)} as long.
+	 * Get long configuration value. Try first {@link System#getenv(String)}, if
+	 * that returns {@code null} or an empty value, then return
+	 * {@link System#getProperty(String)}.
 	 * 
 	 * @param name the name of the configuration value.
 	 * @return the long value, or {@code null}, if neither
@@ -547,26 +507,17 @@ public class StringUtil {
 	}
 
 	/**
-	 * Get boolean configuration value.
-	 * 
-	 * Try first {@link System#getenv(String)}, if that returns {@code null} or
-	 * an empty value, then return {@link System#getProperty(String)} as
-	 * Boolean.
-	 * 
-	 * Since 3.0, return type changed from {@code boolean} to {@code Boolean}.
+	 * Get boolean configuration value. Try first {@link System#getenv(String)}, if
+	 * that returns {@code null} or an empty value, then return
+	 * {@link System#getProperty(String)}.
 	 * 
 	 * @param name the name of the configuration value.
-	 * @return the boolean value, or {@code null}, if neither
-	 *         {@link System#getenv(String)} nor
-	 *         {@link System#getProperty(String)} returns a value.
+	 * @return the boolean value.
 	 * @see #getConfiguration(String)
 	 * @since 2.4
 	 */
-	public static Boolean getConfigurationBoolean(String name) {
+	public static boolean getConfigurationBoolean(String name) {
 		String value = getConfiguration(name);
-		if (value != null && !value.isEmpty()) {
-			return Boolean.valueOf(value);
-		}
-		return null;
+		return Boolean.parseBoolean(value);
 	}
 }

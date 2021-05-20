@@ -88,7 +88,7 @@ public final class DebugConnectionStore extends InMemoryConnectionStore {
 	 * @param connection connection to dump
 	 */
 	private void dump(Connection connection) {
-		if (connection.hasEstablishedDtlsContext()) {
+		if (connection.hasEstablishedSession()) {
 			LOG.info("  {}connection: {} - {} : {}", tag, connection.getConnectionId(),
 					connection.getPeerAddress(), connection.getEstablishedSession().getSessionIdentifier());
 		} else {

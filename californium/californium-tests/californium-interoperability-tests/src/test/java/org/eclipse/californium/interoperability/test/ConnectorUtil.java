@@ -25,11 +25,9 @@ import java.util.List;
 import org.eclipse.californium.elements.Connector;
 import org.eclipse.californium.elements.util.SslContextUtil;
 import org.eclipse.californium.elements.util.SslContextUtil.Credentials;
-import org.eclipse.californium.scandium.ConnectorHelper;
 import org.eclipse.californium.scandium.DTLSConnector;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.CertificateType;
-import org.eclipse.californium.scandium.dtls.SingleNodeConnectionIdGenerator;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
 import org.eclipse.californium.scandium.dtls.pskstore.AdvancedSinglePskStore;
 import org.eclipse.californium.scandium.dtls.x509.StaticNewAdvancedCertificateVerifier;
@@ -54,10 +52,6 @@ public class ConnectorUtil {
 	public static final String TRUST_CA = "ca";
 	public static final String TRUST_ROOT = "root";
 
-	/**
-	 * Alert catcher.
-	 */
-	private ConnectorHelper.AlertCatcher alertCatcher = new ConnectorHelper.AlertCatcher();
 	/**
 	 * DTLS connector.
 	 */
@@ -123,7 +117,7 @@ public class ConnectorUtil {
 	 * Build connector.
 	 * 
 	 * @param bind address to bind connector to
-	 * @param rsa use mixed certificate path (includes RSA certificate). Server
+	 * @param rsa use mixed certifcate path (includes RSA certificate). Server
 	 *            only!
 	 * @param dtlsBuilder preconfigured dtls builder. Maybe {@link null}.
 	 * @param trust alias of trusted certificate, or {@code null} to trust all
@@ -140,7 +134,6 @@ public class ConnectorUtil {
 		dtlsBuilder.setRecommendedCipherSuitesOnly(false);
 		dtlsBuilder.setConnectionThreadCount(2);
 		dtlsBuilder.setReceiverThreadCount(2);
-		dtlsBuilder.setConnectionIdGenerator(new SingleNodeConnectionIdGenerator(6));
 		if (CipherSuite.containsPskBasedCipherSuite(suites)) {
 			dtlsBuilder.setAdvancedPskStore(
 					new AdvancedSinglePskStore(OpenSslUtil.OPENSSL_PSK_IDENTITY, OpenSslUtil.OPENSSL_PSK_SECRET));
@@ -158,14 +151,11 @@ public class ConnectorUtil {
 				} else {
 					builder.setTrustAllCertificates();
 				}
-				builder.setTrustAllRPKs();
 				dtlsBuilder.setAdvancedCertificateVerifier(builder.build());
 			}
 		}
 		dtlsBuilder.setSupportedCipherSuites(suites);
 		connector = new DTLSConnector(dtlsBuilder.build());
-		alertCatcher.resetAlert();
-		connector.setAlertHandler(alertCatcher);
 	}
 
 	/**
@@ -177,13 +167,4 @@ public class ConnectorUtil {
 		return connector;
 	}
 
-	/**
-	 * Get alert catcher for connector.
-	 * 
-	 * @return alert catcher
-	 * @since 3.0
-	 */
-	public ConnectorHelper.AlertCatcher getAlertCatcher() {
-		return alertCatcher;
-	}
 }

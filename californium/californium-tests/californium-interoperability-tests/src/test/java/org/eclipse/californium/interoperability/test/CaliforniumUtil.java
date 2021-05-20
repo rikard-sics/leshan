@@ -15,18 +15,15 @@
  ******************************************************************************/
 package org.eclipse.californium.interoperability.test;
 
-import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.CoreMatchers.notNullValue;
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThat;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.security.Principal;
 import java.util.Arrays;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.californium.core.CoapClient;
 import org.eclipse.californium.core.CoapResource;
@@ -42,8 +39,6 @@ import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.elements.exception.ConnectorException;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
-import org.eclipse.californium.scandium.dtls.AlertMessage;
-import org.eclipse.californium.scandium.dtls.AlertMessage.AlertDescription;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
 
 /**
@@ -66,10 +61,6 @@ public class CaliforniumUtil extends ConnectorUtil {
 	 */
 	private CoapClient client;
 
-	/**
-	 * Last principal.
-	 */
-	private final AtomicReference<Principal> principal = new AtomicReference<>();
 	/**
 	 * Queue of incoming message for the coap-server.
 	 */
@@ -101,12 +92,6 @@ public class CaliforniumUtil extends ConnectorUtil {
 		}
 		super.shutdown();
 		incoming.clear();
-		AlertMessage alert = getAlertCatcher().getAlert();
-		if (alert != null) {
-			getAlertCatcher().resetAlert();
-			assertThat(alert.getDescription(), is(AlertDescription.CLOSE_NOTIFY));
-//			assertThat(alert, is(new AlertMessage(AlertLevel.WARNING, AlertDescription.CLOSE_NOTIFY)));
-		}
 	}
 
 	/**
@@ -128,7 +113,7 @@ public class CaliforniumUtil extends ConnectorUtil {
 	 * Start coap-server or -client.
 	 * 
 	 * @param bind address to bind connector to
-	 * @param rsa use mixed certificate path (includes RSA certificate). Server
+	 * @param rsa use mixed certifcate path (includes RSA certificate). Server
 	 *            only!
 	 * @param dtlsBuilder preconfigured dtls builder. Maybe {@link null}.
 	 * @param trust alias of trusted certificate, or {@code null} to trust all
@@ -159,7 +144,7 @@ public class CaliforniumUtil extends ConnectorUtil {
 
 				@Override
 				public void handlePOST(CoapExchange exchange) {
-					addReceivedExchange(exchange);
+					addReceivedMessage(exchange.getRequestText());
 					exchange.respond(ResponseCode.CHANGED, "Greetings!");
 				}
 			});
@@ -167,7 +152,7 @@ public class CaliforniumUtil extends ConnectorUtil {
 
 				@Override
 				public void handlePOST(CoapExchange exchange) {
-					addReceivedExchange(exchange);
+					addReceivedMessage(exchange.getRequestText());
 					int size = 1024;
 					String sizeParam = exchange.getQueryParameter("size");
 					if (sizeParam != null && !sizeParam.isEmpty()) {
@@ -188,7 +173,7 @@ public class CaliforniumUtil extends ConnectorUtil {
 
 				@Override
 				public void handlePOST(CoapExchange exchange) {
-					addReceivedExchange(exchange);
+					addReceivedMessage(exchange.getRequestText());
 					Response response = new Response(ResponseCode.CHANGED);
 					response.setPayload("Custom Greetings!");
 					response.getOptions().setContentFormat(MediaTypeRegistry.MAX_TYPE - 10);
@@ -204,7 +189,7 @@ public class CaliforniumUtil extends ConnectorUtil {
 
 				@Override
 				public void handlePOST(CoapExchange exchange) {
-					addReceivedExchange(exchange);
+					addReceivedMessage(exchange.getRequestText());
 					Response response = new Response(ResponseCode.CHANGED);
 					response.getOptions().setLocationPath("/command/1234-abcde");
 					response.getOptions().setLocationQuery("hono-command=blink");
@@ -224,23 +209,15 @@ public class CaliforniumUtil extends ConnectorUtil {
 	 * 
 	 * @param request request to send
 	 * @return response, or {@code null}, if no response was received.
+	 * @throws ConnectorException if the connector reports an error
+	 * @throws IOException if the io reports an error.
 	 * @throws IllegalStateException if it is not a client
 	 */
-	public CoapResponse send(Request request) {
+	public CoapResponse send(Request request) throws ConnectorException, IOException {
 		if (!asClient) {
 			throw new IllegalStateException("Only available for clients!");
 		}
-		try {
-			CoapResponse response = client.advanced(request);
-			if (response != null) {
-				principal.set(response.advanced().getSourceContext().getPeerIdentity());
-			}
-			return response;
-		} catch (ConnectorException ex) {
-			return null;
-		} catch (IOException ex) {
-			return null;
-		}
+		return client.advanced(request);
 	}
 
 	/**
@@ -248,20 +225,10 @@ public class CaliforniumUtil extends ConnectorUtil {
 	 * 
 	 * Only available for servers
 	 * 
-	 * @param exchange exchange with received request
+	 * @param message received message
 	 */
-	private void addReceivedExchange(CoapExchange exchange) {
-		principal.set(exchange.advanced().getRequest().getSourceContext().getPeerIdentity());
-		incoming.add(exchange.getRequestText());
-	}
-
-	/**
-	 * Get principal.
-	 * 
-	 * @return principal. Maybe {@code null}.
-	 */
-	public Principal getPrincipal() {
-		return principal.get();
+	private void addReceivedMessage(String message) {
+		incoming.add(message);
 	}
 
 	/**
@@ -272,7 +239,7 @@ public class CaliforniumUtil extends ConnectorUtil {
 	 * @return received message. Maybe {@code null}.
 	 * @throws IllegalStateException if it is not a server
 	 */
-	public String getReceivedMessage() {
+	public synchronized String getReceivedMessage() {
 		if (asClient) {
 			throw new IllegalStateException("Only available for servers!");
 		}
@@ -288,7 +255,7 @@ public class CaliforniumUtil extends ConnectorUtil {
 	 * @throws InterruptedException if interrupted during wait
 	 * @throws IllegalStateException if it is not a server
 	 */
-	public String waitForReceivedMessage(long timeoutMillis) throws InterruptedException {
+	public synchronized String waitForReceivedMessage(long timeoutMillis) throws InterruptedException {
 		if (asClient) {
 			throw new IllegalStateException("Only available for servers!");
 		}
@@ -301,36 +268,10 @@ public class CaliforniumUtil extends ConnectorUtil {
 	 * @param message message the receiving is to be asserted
 	 * @param timeoutMillis timeout of message
 	 * @throws InterruptedException if interrupted during wait
-	 * @throws IllegalStateException if it is not a server
 	 */
 	public void assertReceivedData(String message, long timeoutMillis) throws InterruptedException {
 		String received = waitForReceivedMessage(timeoutMillis);
-		assertThat("Californium server missing message '" + message + "'!", received, is(notNullValue()));
+		assertNotNull("Californium server missing message '" + message + "'!", received);
 		assertThat(received, is(message));
 	}
-
-	/**
-	 * Assert, that the peer's principal is of expected type.
-	 * 
-	 * @param expectedPrincipalType expected principal type
-	 * @since 3.0
-	 */
-	public void assertPrincipalType(final Class<?> expectedPrincipalType) {
-		// assert that peer identity is of given type
-		assertThat(principal.get(), instanceOf(expectedPrincipalType));
-	}
-
-	/**
-	 * Assert, that the alert is exchanged.
-	 * 
-	 * @param expected expected alert
-	 * @throws InterruptedException if waiting for the alert is interrupted.
-	 * @since 3.0
-	 */
-	public void assertAlert(AlertMessage expected) throws InterruptedException {
-		AlertMessage alert = getAlertCatcher().waitForAlert(2000, TimeUnit.MILLISECONDS);
-		assertThat("received alert", alert, is(expected));
-		getAlertCatcher().resetAlert();
-	}
-
 }

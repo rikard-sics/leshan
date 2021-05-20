@@ -17,6 +17,7 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
+import java.net.InetSocketAddress;
 import java.util.Arrays;
 
 import org.eclipse.californium.elements.util.StringUtil;
@@ -60,9 +61,12 @@ public final class FragmentedHandshakeMessage extends HandshakeMessage {
 	 *            the message's fragment_offset.
 	 * @param fragmentedBytes
 	 *            the fragment's byte representation.
+	 * @param peerAddress the IP address and port of the peer this
+	 *            message has been received from or should be sent to
 	 */
 	public FragmentedHandshakeMessage(HandshakeType type, int messageLength, int messageSeq, int fragmentOffset,
-			byte[] fragmentedBytes) {
+			byte[] fragmentedBytes, InetSocketAddress peerAddress) {
+		super(peerAddress);
 		this.type = type;
 		this.messageLength = messageLength;
 		this.fragmentedBytes = Arrays.copyOf(fragmentedBytes, fragmentedBytes.length);
@@ -97,6 +101,7 @@ public final class FragmentedHandshakeMessage extends HandshakeMessage {
 		StringBuilder sb = new StringBuilder();
 		sb.append("\tFragmented Handshake Protocol");
 		sb.append(StringUtil.lineSeparator()).append("\tType: ").append(getMessageType());
+		sb.append(StringUtil.lineSeparator()).append("\tPeer: ").append(getPeer());
 		sb.append(StringUtil.lineSeparator()).append("\tMessage Sequence No: ").append(getMessageSeq());
 		sb.append(StringUtil.lineSeparator()).append("\tFragment Offset: ").append(getFragmentOffset());
 		sb.append(StringUtil.lineSeparator()).append("\tFragment Length: ").append(getFragmentLength());

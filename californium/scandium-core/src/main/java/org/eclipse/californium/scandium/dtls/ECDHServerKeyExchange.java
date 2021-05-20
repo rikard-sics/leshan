@@ -19,6 +19,7 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
+import java.net.InetSocketAddress;
 import java.security.Signature;
 import java.security.SignatureException;
 import java.util.Arrays;
@@ -74,8 +75,11 @@ public abstract class ECDHServerKeyExchange extends ServerKeyExchange {
 	 *            supported group (named curve)
 	 * @param encodedPoint
 	 *            the encoded point on the curve (public key). 
+	 * @param peerAddress the IP address and port of the peer this
+	 *            message has been received from or should be sent to
 	 */
-	protected ECDHServerKeyExchange(SupportedGroup supportedGroup, byte[] encodedPoint) {
+	protected ECDHServerKeyExchange(SupportedGroup supportedGroup, byte[] encodedPoint, InetSocketAddress peerAddress) {
+		super(peerAddress);
 		if (encodedPoint == null) {
 			throw new NullPointerException("encoded point cannot be null!");
 		}
@@ -93,26 +97,28 @@ public abstract class ECDHServerKeyExchange extends ServerKeyExchange {
 		// http://tools.ietf.org/html/rfc4492#section-5.4
 		writer.write(NAMED_CURVE, CURVE_TYPE_BITS);
 		writer.write(supportedGroup.getId(), NAMED_CURVE_BITS);
-		writer.writeVarBytes(encodedPoint, PUBLIC_LENGTH_BITS);
+		writer.write(encodedPoint.length, PUBLIC_LENGTH_BITS);
+		writer.writeBytes(encodedPoint);
 	}
 
-	protected static EcdhData readNamedCurve(final DatagramReader reader) throws HandshakeException {
+	protected static EcdhData readNamedCurve(final DatagramReader reader, final InetSocketAddress peerAddress) throws HandshakeException {
 		int curveType = reader.read(CURVE_TYPE_BITS);
 		if (curveType != NAMED_CURVE) {
 		throw new HandshakeException(
 				String.format(
-						"Curve type [%s] received in ServerKeyExchange message is unsupported",
-						curveType),
-				new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE));
+						"Curve type [%s] received in ServerKeyExchange message from peer [%s] is unsupported",
+						curveType, peerAddress),
+				new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE, peerAddress));
 		}
 		int curveId = reader.read(NAMED_CURVE_BITS);
 		SupportedGroup group = SupportedGroup.fromId(curveId);
 		if (group == null || !group.isUsable()) {
 			throw new HandshakeException(
 				String.format("Server used unsupported elliptic curve (%d) for ECDH", curveId),
-				new AlertMessage(AlertLevel.FATAL, AlertDescription.ILLEGAL_PARAMETER));
+				new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE, peerAddress));
 		}
-		byte[] encodedPoint = reader.readVarBytes(PUBLIC_LENGTH_BITS);
+		int length = reader.read(PUBLIC_LENGTH_BITS);
+		byte[] encodedPoint = reader.readBytes(length);
 		return new EcdhData(group, encodedPoint);
 	}
 

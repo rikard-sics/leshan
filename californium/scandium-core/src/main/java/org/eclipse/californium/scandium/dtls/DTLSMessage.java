@@ -18,6 +18,8 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
+import java.net.InetSocketAddress;
+
 import org.eclipse.californium.elements.util.NoPublicAPI;
 
 /**
@@ -50,4 +52,11 @@ public interface DTLSMessage {
 	 */
 	ContentType getContentType();
 
+	/**
+	 * Gets the IP address and port of the peer this message
+	 * has been received from or is to be sent to.
+	 * 
+	 * @return the address
+	 */
+	InetSocketAddress getPeer();
 }

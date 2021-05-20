@@ -17,8 +17,8 @@ package org.eclipse.californium.core.network;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
 
 import java.net.InetAddress;
@@ -125,12 +125,14 @@ public class InMemoryMessageExchangeStoreTest {
 	public void testShouldNotCreateInMemoryMessageExchangeStoreWithoutTokenProvider() {
 		// WHEN trying to create new InMemoryMessageExchangeStore without TokenProvider
 		store = new InMemoryMessageExchangeStore(config, null, null);
+		fail("should have thrown NullPointerException");
 	}
 
 	@Test(expected = NullPointerException.class)
 	public void testShouldNotCreateInMemoryMessageExchangeStoreWithoutResolver() {
 		// WHEN trying to create new InMemoryMessageExchangeStore without TokenProvider
 		store = new InMemoryMessageExchangeStore(config, new RandomTokenGenerator(config), null);
+		fail("should have thrown NullPointerException");
 	}
 
 	public void testRegisterOutboundRequestAcceptsRetransmittedRequest() {

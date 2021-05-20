@@ -54,7 +54,8 @@ import javax.security.auth.Destroyable;
 
 /**
  * A helper class to execute the XDH and ECDHE key agreement and key generation.
- * Support X25519 and X448 with java 11.
+ * Support X25519 and X448 with java 11. The API is simplified compared to the
+ * previous API of the deprecated {@link ECDHECryptography}.
  * 
  * A ECDHE key exchange starts with negotiating a curve. The possible curves are
  * listed at <a href=
@@ -215,9 +216,9 @@ public final class XECDHECryptography implements Destroyable {
 	private PrivateKey privateKey;
 
 	/** The ephemeral public key. */
-	private final PublicKey publicKey;
+	private PublicKey publicKey;
 
-	private final byte[] encodedPoint;
+	private byte[] encodedPoint;
 
 	// Constructors ///////////////////////////////////////////////////
 
@@ -296,6 +297,9 @@ public final class XECDHECryptography implements Destroyable {
 		if (encodedPoint == null) {
 			throw new NullPointerException("encoded point must not be null!");
 		}
+		if (privateKey == null) {
+			throw new IllegalStateException("private key must not be destroyed");
+		}
 		PublicKey peerPublicKey;
 		int keySize = supportedGroup.getKeySizeInBytes();
 		// extract public key
@@ -323,30 +327,21 @@ public final class XECDHECryptography implements Destroyable {
 			peerPublicKey = keyFactory.generatePublic(spec);
 		}
 		check("IN: ", peerPublicKey, encodedPoint);
-		return generateSecret(peerPublicKey);
-	}
 
-	/**
-	 * Runs the specified key agreement algorithm (ECDH) to generate the
-	 * premaster secret.
-	 * 
-	 * @param peerPublicKey
-	 *            the other peer's ephemeral public key.
-	 * @return the premaster secret.
-	 * @throws GeneralSecurityException if a crypt error occurred.
-	 */
-	private SecretKey generateSecret(PublicKey peerPublicKey) throws GeneralSecurityException {
+		SecretKey secretKey = null;
 		KeyAgreement keyAgreement = null;
 		if (supportedGroup.getAlgorithmName().equals(EC_KEYPAIR_GENERATOR_ALGORITHM)) {
 			keyAgreement = ECDH_KEY_AGREEMENT.currentWithCause();
 		} else if (supportedGroup.getAlgorithmName().equals(XDH_KEYPAIR_GENERATOR_ALGORITHM)) {
 			keyAgreement = XDH_KEY_AGREEMENT.currentWithCause();
 		}
-		keyAgreement.init(privateKey);
-		keyAgreement.doPhase(peerPublicKey, true);
-		byte[] secret = keyAgreement.generateSecret();
-		SecretKey secretKey = SecretUtil.create(secret, "TlsPremasterSecret");
-		Bytes.clear(secret);
+		if (keyAgreement != null) {
+			keyAgreement.init(privateKey);
+			keyAgreement.doPhase(peerPublicKey, true);
+			byte[] secret = keyAgreement.generateSecret();
+			secretKey = SecretUtil.create(secret, "TlsPremasterSecret");
+			Bytes.clear(secret);
+		}
 		return secretKey;
 	}
 

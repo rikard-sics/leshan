@@ -18,9 +18,10 @@ package org.eclipse.californium.scandium.dtls;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
 
+import java.net.InetSocketAddress;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 
@@ -175,7 +176,7 @@ public class ServerNameExtensionTest {
 	}
 
 	private void whenParsingTheExtensionStruct() throws HandshakeException {
-		HelloExtensions helloExtensions = HelloExtensions.fromReader(new DatagramReader(serverNameStructure));
+		HelloExtensions helloExtensions = HelloExtensions.fromReader(new DatagramReader(serverNameStructure), new InetSocketAddress(0));
 		extension = (ServerNameExtension) helloExtensions.getExtension(ExtensionType.SERVER_NAME);
 	}
 

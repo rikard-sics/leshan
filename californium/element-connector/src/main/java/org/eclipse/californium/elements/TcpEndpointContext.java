@@ -30,29 +30,21 @@ import org.eclipse.californium.elements.util.StringUtil;
 public class TcpEndpointContext extends MapBasedEndpointContext {
 
 	/**
-	 * Key for TCP connection ID as {@link String}.
+	 * Key for TCP connection ID.
+	 * 
 	 */
 	public static final String KEY_CONNECTION_ID = "CONNECTION_ID";
-	/**
-	 * Key for TCP connection timestamp as {@link String}.
-	 * 
-	 * In milliseconds since midnight, January 1, 1970 UTC.
-	 * 
-	 * @since 3.0
-	 */
-	public static final String KEY_CONNECTION_TIMESTAMP = "CONNECTION_TIMESTAMP";
 
 	/**
 	 * Creates a new endpoint context from TCP connection ID.
 	 * 
 	 * @param peerAddress peer address of endpoint context
 	 * @param connectionId the connectionn's ID.
-	 * @param timestamp the timestamp in milliseconds of the last connect. 
 	 * @throws NullPointerException if connectionId or peer address is
-	 *             {@code null}.
+	 *             <code>null</code>.
 	 */
-	public TcpEndpointContext(InetSocketAddress peerAddress, String connectionId, long timestamp) {
-		this(peerAddress, null, new Attributes().add(KEY_CONNECTION_ID, connectionId).add(KEY_CONNECTION_TIMESTAMP, timestamp));
+	public TcpEndpointContext(InetSocketAddress peerAddress, String connectionId) {
+		this(peerAddress, null, KEY_CONNECTION_ID, connectionId);
 	}
 
 	/**
@@ -60,43 +52,24 @@ public class TcpEndpointContext extends MapBasedEndpointContext {
 	 * 
 	 * Intended to be used by subclasses, which provides a principal and
 	 * additional attributes. The {@link #KEY_CONNECTION_ID} attribute MUST be
-	 * included in the attributes.
+	 * included in the attributes list.
 	 * 
 	 * @param peerAddress peer address of endpoint context
 	 * @param peerIdentity peer identity of endpoint context
-	 * @param attributes map of attributes, must contain
-	 *            {@link #KEY_CONNECTION_ID}.
-	 * @throws NullPointerException if peer address is {@code null}.
-	 * @throws IllegalArgumentException attributes not contain
-	 *             {@link #KEY_CONNECTION_ID}
-	 * @since 3.0 (changed to use Attributes)
+	 * @param attributes list of attributes (name-value pairs, e.g. key_1,
+	 *            value_1, key_2, value_2 ...), the pair
+	 *            {@link #KEY_CONNECTION_ID}, "id" must be contained in the
+	 *            attributes.
 	 */
-	protected TcpEndpointContext(InetSocketAddress peerAddress, Principal peerIdentity, Attributes attributes) {
+	protected TcpEndpointContext(InetSocketAddress peerAddress, Principal peerIdentity, String... attributes) {
 		super(peerAddress, peerIdentity, attributes);
 		if (null == getConnectionId()) {
-			throw new IllegalArgumentException("Missing " + KEY_CONNECTION_ID + " attribute!");
+			throw new IllegalArgumentException("Missing attribute ");
 		}
 	}
 
-	/**
-	 * Get TCP connection id.
-	 * 
-	 * @return TCP connection id
-	 */
 	public String getConnectionId() {
-		return getString(KEY_CONNECTION_ID);
-	}
-
-	/**
-	 * Gets the timestamp in milliseconds of the last connect.
-	 * 
-	 * @return The timestamp in milliseconds of the last connect.
-	 * 
-	 * @see System#currentTimeMillis()
-	 * @since 3.0
-	 */
-	public final Number getConnectionTimestamp() {
-		return getNumber(KEY_CONNECTION_TIMESTAMP);
+		return get(KEY_CONNECTION_ID);
 	}
 
 	@Override

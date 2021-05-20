@@ -25,13 +25,10 @@ package org.eclipse.californium.core.network.serialization;
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.CoAPMessageFormatException;
 import org.eclipse.californium.core.coap.MessageFormatException;
-import org.eclipse.californium.core.coap.OptionSet;
 import org.eclipse.californium.core.coap.Token;
 import org.eclipse.californium.elements.util.DatagramReader;
 
 import static org.eclipse.californium.core.coap.CoAP.MessageFormat.*;
-
-import org.eclipse.californium.core.coap.BlockOption;
 
 /**
  * A parser for messages encoded following the standard CoAP encoding.
@@ -48,11 +45,7 @@ public final class UdpDataParser extends DataParser {
 		assertCorrectVersion(version);
 		int type = reader.read(TYPE_BITS);
 		int tokenLength = reader.read(TOKEN_LENGTH_BITS);
-		if (tokenLength > 8) {
-			// must be treated as a message format error according to CoAP spec
-			// https://tools.ietf.org/html/rfc7252#section-3
-			throw new MessageFormatException("UDP Message has invalid token length (> 8) " + tokenLength);
-		}
+		assertValidTokenLength(tokenLength);
 		int code = reader.read(CODE_BITS);
 		int mid = reader.read(MESSAGE_ID_BITS);
 		if (!reader.bytesAvailable(tokenLength)) {
@@ -64,32 +57,9 @@ public final class UdpDataParser extends DataParser {
 		return new MessageHeader(version, CoAP.Type.valueOf(type), token, code, mid, 0);
 	}
 
-	@Override
-	protected void assertValidOptions(OptionSet options) {
-		assertValidUdpOptions(options);
-	}
-
 	private void assertCorrectVersion(int version) {
 		if (version != CoAP.VERSION) {
-			throw new MessageFormatException("UDP Message has invalid version: " + version);
-		}
-	}
-
-	/**
-	 * Assert, if options are supported for the UDP protocol flavor.
-	 * 
-	 * @param options option set to validate.
-	 * @throws IllegalArgumentException if one block option uses BERT.
-	 * @since 3.0
-	 */
-	public static void assertValidUdpOptions(OptionSet options) {
-		BlockOption block = options.getBlock1();
-		if (block != null && block.isBERT()) {
-			throw new IllegalArgumentException("Block1 BERT used for UDP!");
-		}
-		block = options.getBlock2();
-		if (block != null && block.isBERT()) {
-			throw new IllegalArgumentException("Block2 BERT used for UDP!");
+			throw new MessageFormatException("Message has invalid version: " + version);
 		}
 	}
 }

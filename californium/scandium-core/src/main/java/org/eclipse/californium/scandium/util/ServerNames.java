@@ -139,7 +139,8 @@ public final class ServerNames implements Iterable<ServerName> {
 
 		for (ServerName serverName : names) {
 			writer.writeByte(serverName.getType().getCode()); // name type
-			writer.writeVarBytes(serverName.getName(), HelloExtensions.LENGTH_BITS); // name length
+			writer.write(serverName.getName().length, HelloExtensions.LENGTH_BITS); // name length
+			writer.writeBytes(serverName.getName()); // name
 		}
 	}
 
@@ -150,13 +151,24 @@ public final class ServerNames implements Iterable<ServerName> {
 			NameType nameType = NameType.fromCode(rangeReader.readNextByte());
 			switch (nameType) {
 			case HOST_NAME:
-				byte[] hostname = rangeReader.readVarBytes(HelloExtensions.LENGTH_BITS);
+				byte[] hostname = readHostName(rangeReader);
 				add(ServerName.from(nameType, hostname));
 				break;
 			default:
 				throw new IllegalArgumentException("ServerNames: unknown name_type!", new IllegalArgumentException(nameType.name()));
 			}
 		}
+	}
+
+	private static byte[] readHostName(final DatagramReader reader) {
+
+		if (reader.bitsLeft() >= HelloExtensions.LENGTH_BITS) {
+			int length = reader.read(HelloExtensions.LENGTH_BITS);
+			if (reader.bytesAvailable(length)) {
+				return reader.readBytes(length);
+			}
+		}
+		throw new IllegalArgumentException("ServerNames: no hostname found!");
 	}
 
 	/**
@@ -215,6 +227,9 @@ public final class ServerNames implements Iterable<ServerName> {
 		if (names.size() != other.names.size()) {
 			return false;
 		}
-		return names.containsAll(other.names);
+		if (!names.containsAll(other.names)) {
+			return false;
+		}
+		return true;
 	}
 }

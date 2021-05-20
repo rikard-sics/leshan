@@ -17,6 +17,9 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
+import java.net.InetSocketAddress;
+
+
 /**
  * This message will be sent immediately after the server
  * {@link CertificateMessage} (or the {@link ServerHello} message, if this is an
@@ -26,7 +29,8 @@ package org.eclipse.californium.scandium.dtls;
  */
 public abstract class ServerKeyExchange extends HandshakeMessage {
 
-	protected ServerKeyExchange() {
+	protected ServerKeyExchange(InetSocketAddress peerAddress) {
+		super(peerAddress);
 	}
 
 	@Override

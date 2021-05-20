@@ -83,10 +83,9 @@ public class CoapUriTranslator {
 	 * returns {@code null} and so requires, that the requests contains the
 	 * uri-host and uri-port option.
 	 * 
-	 * @param incomingRequest the received request. The request's local address
+	 * @param incomingRequest the received request. The request's destination
 	 *            contains the address of the local receiving interface.
 	 * @return exposed interface. {@code null}, if not available.
-	 * @since 3.0 use local address instead of destination context
 	 */
 	public InetSocketAddress getExposedInterface(Request incomingRequest) {
 		return null;

@@ -32,37 +32,35 @@ package org.eclipse.californium.scandium.dtls;
 public interface SessionListener {
 
 	/**
-	 * Indicates that a handshake for establishing a DTLS context with a peer
-	 * has been started.
+	 * Indicates that a handshake for establishing a session with a peer has been started.
 	 * 
-	 * @param handshaker the handshaker used to establish the DTLS context
-	 * @throws HandshakeException if the handshake cannot proceed due to e.g.
-	 *             system resource limitations
+	 * @param handshaker the handshaker used to establish the session
+	 * @throws HandshakeException if the handshake cannot proceed due to e.g. system resource
+	 *              limitations
 	 */
 	void handshakeStarted(Handshaker handshaker) throws HandshakeException;
 
 	/**
-	 * Indicates that a DTLS context has successfully been established.
+	 * Indicates that a session has successfully been established.
 	 * 
-	 * In particular this means that the session negotiated by the handshaker
-	 * can now be used to exchange application layer data.
+	 * In particular this means that the session negotiated by the
+	 * handshaker can now be used to exchange application layer data.
 	 * 
-	 * @param handshaker the handshaker used to establish the DTLS context
-	 * @param establishedContext the DTLS context that has been negotiated by
-	 *            the handshaker
+	 * @param handshaker the handshaker used to establish the session
+	 * @param establishedSession the session that has been negotiated by
+	 *          the handshaker
+	 * @throws NullPointerException if any of the parameters is <code>null</code>
 	 * @throws HandshakeException if the listener cannot process the newly
-	 *             established context
-	 * @since 3.0 (was sessionEstablished)
+	 *          established session
 	 */
-	void contextEstablished(Handshaker handshaker, DTLSContext establishedContext) throws HandshakeException;
-
+	void sessionEstablished(Handshaker handshaker, DTLSSession establishedSession)
+		throws HandshakeException;
+	
 	/**
 	 * Indicates that a handshake with a given peer has been completed.
 	 * 
-	 * In particular, this means that both peers have received the other peer's
-	 * <em>FINISHED</em> messages. For the side, which sends the last
-	 * <em>FINISHED</em> message, this means, the first APPLICATION_DATA message
-	 * have been received
+	 * In particular, this means that both peers have received the other
+	 * peer's <em>FINISHED</em> messages.
 	 * 
 	 * @param handshaker the handshaker that has been completed
 	 */

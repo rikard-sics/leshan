@@ -108,14 +108,6 @@ public class Response extends Message {
 	}
 
 	@Override
-	public void assertPayloadMatchsBlocksize() {
-		BlockOption block2 = getOptions().getBlock2();
-		if (block2 != null) {
-			block2.assertPayloadSize(getPayloadSize());
-		}
-	}
-
-	@Override
 	public String toString() {
 		return toTracingString(code.toString());
 	}
@@ -171,11 +163,6 @@ public class Response extends Message {
 	 */
 	public boolean hasBlockOption() {
 		return getOptions().hasBlock1() || getOptions().hasBlock2();
-	}
-
-	@Override
-	public boolean hasBlock(final BlockOption block) {
-		return hasBlock(block, getOptions().getBlock2());
 	}
 
 	/**

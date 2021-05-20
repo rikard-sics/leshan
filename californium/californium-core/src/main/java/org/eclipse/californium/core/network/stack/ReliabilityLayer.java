@@ -45,7 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.core.coap.EmptyMessage;
-import org.eclipse.californium.core.coap.MessageObserverAdapter;
+import org.eclipse.californium.core.coap.InternalMessageObserverAdapter;
 import org.eclipse.californium.core.coap.Message;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
@@ -100,9 +100,6 @@ public class ReliabilityLayer extends AbstractLayer {
 			prepareRetransmission(exchange, new RetransmissionTask(exchange, request) {
 
 				public void retransmit() {
-					if (request.getEffectiveDestinationContext() != request.getDestinationContext()) {
-						exchange.resetEndpointContext();
-					}
 					sendRequest(exchange, request);
 				}
 			});
@@ -174,7 +171,7 @@ public class ReliabilityLayer extends AbstractLayer {
 		exchange.setRetransmissionHandle(null); // cancel before reschedule
 		updateRetransmissionTimeout(exchange, task.getReliabilityLayerParameters());
 
-		task.message.addMessageObserver(new MessageObserverAdapter(true) {
+		task.message.addMessageObserver(new InternalMessageObserverAdapter() {
 
 			@Override
 			public void onSent(boolean retransmission) {
@@ -206,7 +203,8 @@ public class ReliabilityLayer extends AbstractLayer {
 	public void receiveRequest(final Exchange exchange, final Request request) {
 
 		if (request.isDuplicate()) {
-			if (exchange.getSendNanoTimestamp() > request.getNanoTimestamp()) {
+			long send = exchange.getSendNanoTimestamp();
+			if (send == 0 || (send - request.getNanoTimestamp()) > 0) {
 				// received before response was sent
 				int count = counter.incrementAndGet();
 				LOGGER.debug("{}: {} duplicate request {}, server sent response delayed, ignore request", count,
@@ -293,7 +291,8 @@ public class ReliabilityLayer extends AbstractLayer {
 		if (response.getType() == Type.CON) {
 			boolean ack = true;
 			if (response.isDuplicate()) {
-				if (response.getNanoTimestamp() < exchange.getSendNanoTimestamp()) {
+				long send = exchange.getSendNanoTimestamp();
+				if (send == 0 || (send - response.getNanoTimestamp()) > 0) {
 					// received response duplicate before ACK/RST
 					// or last request retransmission was sent
 					// => drop response
@@ -368,7 +367,7 @@ public class ReliabilityLayer extends AbstractLayer {
 		if (message.getType() == Type.ACK) {
 			LOGGER.debug("{} acknowledge {} for {} {} ({} msg observer)", exchange, message, type, currentMessage,
 					observer);
-			currentMessage.acknowledge();
+			currentMessage.setAcknowledged(true);
 		} else if (message.getType() == Type.RST) {
 			LOGGER.debug("{} reject {} for {} {} ({} msg observer)", exchange, message, type, currentMessage, observer);
 			currentMessage.setRejected(true);
@@ -515,9 +514,13 @@ public class ReliabilityLayer extends AbstractLayer {
 					// Trigger MessageObservers
 					message.retransmitting();
 
-					// MessageObserver might have canceled
+					// MessageObserver might have canceled or completed
 					if (message.isCanceled()) {
 						LOGGER.trace("Timeout: for {}, {} got canceled, do not retransmit", exchange, message);
+						return;
+					}
+					if (exchange.isComplete()) {
+						LOGGER.debug("Timeout: for {}, {} got completed, do not retransmit", exchange, message);
 						return;
 					}
 					retransmit();

@@ -16,6 +16,7 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
+import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -83,13 +84,15 @@ public final class EcdhEcdsaServerKeyExchange extends ECDHServerKeyExchange {
 	 *            the client's random (used for signature)
 	 * @param serverRandom
 	 *            the server's random (used for signature)
-	 * @throws HandshakeException if generating the signature providing prove of
+	 * @param peerAddress the IP address and port of the peer this
+	 *            message has been received from or should be sent to
+	 * @throws GeneralSecurityException if generating the signature providing prove of
 	 *            possession of the private key fails, e.g. due to an unsupported
 	 *            signature or hash algorithm or an invalid key
 	 */
 	public EcdhEcdsaServerKeyExchange(SignatureAndHashAlgorithm signatureAndHashAlgorithm, XECDHECryptography ecdhe,
-			PrivateKey serverPrivateKey, Random clientRandom, Random serverRandom) throws HandshakeException {
-		super(ecdhe.getSupportedGroup(), ecdhe.getEncodedPoint());
+			PrivateKey serverPrivateKey, Random clientRandom, Random serverRandom, InetSocketAddress peerAddress) throws GeneralSecurityException {
+		super(ecdhe.getSupportedGroup(), ecdhe.getEncodedPoint(), peerAddress);
 		if (signatureAndHashAlgorithm == null) {
 			throw new NullPointerException("signature and hash algorithm cannot be null");
 		}
@@ -100,16 +103,12 @@ public final class EcdhEcdsaServerKeyExchange extends ECDHServerKeyExchange {
 		// These parameters MUST be signed with ECDSA using the private key
 		// corresponding to the public key in the server's Certificate.
 		ThreadLocalSignature localSignature = signatureAndHashAlgorithm.getThreadLocalSignature();
-		try {
-			Signature signature = localSignature.currentWithCause();
-			signature.initSign(serverPrivateKey, RandomManager.currentSecureRandom());
-			updateSignature(signature, clientRandom, serverRandom);
-			signatureEncoded = signature.sign();
-		} catch (GeneralSecurityException e) {
-			throw new HandshakeException(
-					String.format("Server failed to sign key exchange: %s", e.getMessage()),
-					new AlertMessage(AlertLevel.FATAL, AlertDescription.ILLEGAL_PARAMETER));
-		}
+		Signature signature = localSignature.currentWithCause();
+		signature.initSign(serverPrivateKey, RandomManager.currentSecureRandom());
+
+		updateSignature(signature, clientRandom, serverRandom);
+
+		signatureEncoded = signature.sign();
 	}
 
 	/**
@@ -123,12 +122,14 @@ public final class EcdhEcdsaServerKeyExchange extends ECDHServerKeyExchange {
 	 *            the encoded point of the other peeer (public key)
 	 * @param signatureEncoded
 	 *            the signature (encoded)
+	 * @param peerAddress the IP address and port of the peer this
+	 *            message has been received from or should be sent to
 	 * @throws HandshakeException if the server's public key could not be re-constructed
 	 *            from the parameters contained in the message
 	 */
 	private EcdhEcdsaServerKeyExchange(SignatureAndHashAlgorithm signatureAndHashAlgorithm, SupportedGroup supportedGroup, byte[] encodedPoint,
-			byte[] signatureEncoded) {
-		super(supportedGroup, encodedPoint);
+			byte[] signatureEncoded, InetSocketAddress peerAddress) {
+		super(supportedGroup, encodedPoint, peerAddress);
 		if (signatureAndHashAlgorithm == null) {
 			throw new NullPointerException("signature and hash algorithm cannot be null");
 		}
@@ -156,14 +157,15 @@ public final class EcdhEcdsaServerKeyExchange extends ECDHServerKeyExchange {
 			// signature algorithm must also be included
 			writer.write(signatureAndHashAlgorithm.getHash().getCode(), HASH_ALGORITHM_BITS);
 			writer.write(signatureAndHashAlgorithm.getSignature().getCode(), SIGNATURE_ALGORITHM_BITS);
-
-			writer.writeVarBytes(signatureEncoded, SIGNATURE_LENGTH_BITS);
+			
+			writer.write(signatureEncoded.length, SIGNATURE_LENGTH_BITS);
+			writer.writeBytes(signatureEncoded);
 		}
 		return writer.toByteArray();
 	}
 
-	public static HandshakeMessage fromReader(DatagramReader reader) throws HandshakeException {
-		EcdhData ecdhData = readNamedCurve(reader);
+	public static HandshakeMessage fromReader(DatagramReader reader, InetSocketAddress peerAddress) throws HandshakeException {
+		EcdhData ecdhData = readNamedCurve(reader, peerAddress);
 		// default is SHA256withECDSA
 		SignatureAndHashAlgorithm signAndHash = new SignatureAndHashAlgorithm(SignatureAndHashAlgorithm.HashAlgorithm.SHA256, SignatureAndHashAlgorithm.SignatureAlgorithm.ECDSA);
 
@@ -172,9 +174,10 @@ public final class EcdhEcdsaServerKeyExchange extends ECDHServerKeyExchange {
 			int hashAlgorithm = reader.read(HASH_ALGORITHM_BITS);
 			int signatureAlgorithm = reader.read(SIGNATURE_ALGORITHM_BITS);
 			signAndHash = new SignatureAndHashAlgorithm(hashAlgorithm, signatureAlgorithm);
-			signatureEncoded = reader.readVarBytes(SIGNATURE_LENGTH_BITS);
+			int length = reader.read(SIGNATURE_LENGTH_BITS);
+			signatureEncoded = reader.readBytes(length);
 		}
-		return new EcdhEcdsaServerKeyExchange(signAndHash, ecdhData.supportedGroup, ecdhData.encodedPoint, signatureEncoded);
+		return new EcdhEcdsaServerKeyExchange(signAndHash, ecdhData.supportedGroup, ecdhData.encodedPoint, signatureEncoded, peerAddress);
 	}
 
 	// Methods ////////////////////////////////////////////////////////
@@ -213,7 +216,7 @@ public final class EcdhEcdsaServerKeyExchange extends ECDHServerKeyExchange {
 
 		if (!verified) {
 			String message = "The server's ECDHE key exchange message's signature could not be verified.";
-			AlertMessage alert = new AlertMessage(AlertLevel.FATAL, AlertDescription.DECRYPT_ERROR);
+			AlertMessage alert = new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE, getPeer());
 			throw new HandshakeException(message, alert);
 		}
 	}

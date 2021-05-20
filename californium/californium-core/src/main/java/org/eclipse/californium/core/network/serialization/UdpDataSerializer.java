@@ -26,17 +26,12 @@ import static org.eclipse.californium.core.coap.CoAP.MessageFormat.*;
 
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.Message;
-import org.eclipse.californium.core.coap.OptionSet;
 import org.eclipse.californium.elements.util.DatagramWriter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * The DataSerialized serializes outgoing messages to byte arrays.
  */
 public final class UdpDataSerializer extends DataSerializer {
-	/** the logger. */
-	private static final Logger LOGGER = LoggerFactory.getLogger(UdpDataSerializer.class);
 
 	/**
 	 * {@inheritDoc}
@@ -48,14 +43,8 @@ public final class UdpDataSerializer extends DataSerializer {
 	 */
 	@Override
 	protected void serializeMessage(DatagramWriter writer, Message message) {
-		int mid = message.getMID();
-		if (mid == Message.NONE) {
-			IllegalArgumentException ex = new IllegalArgumentException("MID required for UDP serialization!");
-			LOGGER.warn("UDP, {}:", message, ex);
-			throw ex;
-		}
 		MessageHeader header = new MessageHeader(CoAP.VERSION, message.getType(), message.getToken(),
-				message.getRawCode(), mid, -1);
+				message.getRawCode(), message.getMID(), -1);
 		serializeHeader(writer, header);
 		writer.writeCurrentByte();
 		serializeOptionsAndPayload(writer, message.getOptions(), message.getPayload());
@@ -69,10 +58,5 @@ public final class UdpDataSerializer extends DataSerializer {
 		writer.write(header.getCode(), CODE_BITS);
 		writer.write(header.getMID(), MESSAGE_ID_BITS);
 		writer.writeBytes(header.getToken().getBytes());
-	}
-
-	@Override
-	protected void assertValidOptions(OptionSet options) {
-		UdpDataParser.assertValidUdpOptions(options);
 	}
 }

@@ -27,9 +27,10 @@ import org.eclipse.californium.elements.auth.PreSharedKeyIdentity;
 import org.eclipse.californium.elements.auth.RawPublicKeyIdentity;
 import org.eclipse.californium.elements.auth.X509CertPath;
 import org.eclipse.californium.elements.util.Asn1DerDecoder;
+import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.DatagramReader;
 import org.eclipse.californium.elements.util.DatagramWriter;
-import org.eclipse.californium.elements.util.SerializationUtil;
+import org.eclipse.californium.elements.util.StandardCharsets;
 
 /**
  * A helper for serializing and deserializing principals supported by Scandium.
@@ -101,11 +102,13 @@ public final class PrincipalSerializer {
 		writer.writeByte(ClientAuthenticationType.PSK.code);
 		if (principal.isScopedIdentity()) {
 			writer.writeByte((byte) 1); // scoped
-			SerializationUtil.write(writer, principal.getVirtualHost(), PSK_HOSTNAME_LENGTH_BITS);
-			SerializationUtil.write(writer, principal.getIdentity(), PSK_IDENTITY_LENGTH_BITS);
+			byte[] virtualHost = principal.getVirtualHost() == null ? Bytes.EMPTY
+					: principal.getVirtualHost().getBytes(StandardCharsets.UTF_8);
+			writeBytesWithLength(PSK_HOSTNAME_LENGTH_BITS, virtualHost, writer);
+			writeBytesWithLength(PSK_IDENTITY_LENGTH_BITS, principal.getIdentity().getBytes(StandardCharsets.UTF_8), writer);
 		} else {
 			writer.writeByte((byte) 0); // plain
-			SerializationUtil.write(writer, principal.getIdentity(), PSK_IDENTITY_LENGTH_BITS);
+			writeBytesWithLength(PSK_IDENTITY_LENGTH_BITS, principal.getIdentity().getBytes(StandardCharsets.UTF_8), writer);
 		}
 	}
 
@@ -117,6 +120,11 @@ public final class PrincipalSerializer {
 	private static void serializeCertChain(final X509CertPath principal, final DatagramWriter writer) {
 		writer.writeByte(ClientAuthenticationType.CERT.code);
 		writer.writeBytes(principal.toByteArray());
+	}
+
+	private static void writeBytesWithLength(final int lengthBits, final byte[] bytesToWrite, final DatagramWriter writer) {
+		writer.write(bytesToWrite.length, lengthBits);
+		writer.writeBytes(bytesToWrite);
 	}
 
 	/**
@@ -131,8 +139,8 @@ public final class PrincipalSerializer {
 		if (reader == null) {
 			throw new NullPointerException("reader must not be null");
 		}
-		byte code = reader.readNextByte();
-		ClientAuthenticationType type = ClientAuthenticationType.fromCode(code);
+		int code = reader.read(8);
+		ClientAuthenticationType type = ClientAuthenticationType.fromCode((byte) code);
 		switch(type) {
 		case CERT:
 			return deserializeCertChain(reader);
@@ -154,12 +162,13 @@ public final class PrincipalSerializer {
 	private static PreSharedKeyIdentity deserializeIdentity(final DatagramReader reader) {
 		byte scoped = reader.readNextByte();
 		if (scoped == 1) {
-			String virtualHost = SerializationUtil.readString(reader, PSK_HOSTNAME_LENGTH_BITS);
-			String pskIdentity = SerializationUtil.readString(reader, PSK_IDENTITY_LENGTH_BITS);
-			return new PreSharedKeyIdentity(virtualHost, pskIdentity);
+			byte[] bytes = readBytesWithLength(PSK_HOSTNAME_LENGTH_BITS, reader);
+			String virtualHost = bytes.length == 0 ? null : new String(bytes, StandardCharsets.UTF_8);
+			bytes = readBytesWithLength(PSK_IDENTITY_LENGTH_BITS, reader);
+			return new PreSharedKeyIdentity(virtualHost, new String(bytes, StandardCharsets.UTF_8));
 		} else {
-			String pskIdentity = SerializationUtil.readString(reader, PSK_IDENTITY_LENGTH_BITS);
-			return new PreSharedKeyIdentity(pskIdentity);
+			byte[] bytes = readBytesWithLength(PSK_IDENTITY_LENGTH_BITS, reader);
+			return new PreSharedKeyIdentity(new String(bytes, StandardCharsets.UTF_8));
 		}
 	}
 
@@ -167,6 +176,15 @@ public final class PrincipalSerializer {
 			throws GeneralSecurityException {
 		byte[] subjectInfo = Asn1DerDecoder.readSequenceEntity(reader);
 		return new RawPublicKeyIdentity(subjectInfo);
+	}
+
+	private static byte[] readBytesWithLength(final int lengthBits, final DatagramReader reader) {
+		int length = reader.read(lengthBits);
+		int available = reader.bitsLeft() / Byte.SIZE;
+		if (available < length) {
+			throw new IllegalArgumentException(length + " exceeds available " + available + " bytes!");
+		}
+		return reader.readBytes(length);
 	}
 
 	private enum ClientAuthenticationType {

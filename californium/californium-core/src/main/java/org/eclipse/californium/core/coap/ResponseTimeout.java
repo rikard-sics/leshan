@@ -87,8 +87,7 @@ public class ResponseTimeout extends MessageObserverAdapter implements Runnable 
 	 */
 	@Override
 	public void onSent(boolean retransmission) {
-		if (!retransmission && (!request.isConfirmable() || !request.hasMID())) {
-			// either NON or TCP (no MID)
+		if (!retransmission && !request.isConfirmable()) {
 			LOGGER.trace("start non-response timeout {}", timeout);
 			scheduleTimeout();
 		}

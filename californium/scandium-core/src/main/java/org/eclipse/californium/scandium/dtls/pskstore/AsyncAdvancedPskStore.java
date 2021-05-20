@@ -26,9 +26,9 @@ import org.eclipse.californium.elements.util.DaemonThreadFactory;
 import org.eclipse.californium.elements.util.ExecutorsUtil;
 import org.eclipse.californium.elements.util.NamedThreadFactory;
 import org.eclipse.californium.scandium.dtls.ConnectionId;
-import org.eclipse.californium.scandium.dtls.HandshakeResultHandler;
 import org.eclipse.californium.scandium.dtls.PskPublicInformation;
 import org.eclipse.californium.scandium.dtls.PskSecretResult;
+import org.eclipse.californium.scandium.dtls.PskSecretResultHandler;
 import org.eclipse.californium.scandium.dtls.cipher.PseudoRandomFunction;
 import org.eclipse.californium.scandium.dtls.cipher.ThreadLocalCryptoMap;
 import org.eclipse.californium.scandium.dtls.cipher.ThreadLocalCryptoMap.Factory;
@@ -42,11 +42,12 @@ import org.slf4j.LoggerFactory;
  * Asynchronous test implementation using a provided {@link AdvancedPskStore}.
  * 
  * Use {@code 0} or negative delays for test with synchronous blocking
- * behavior. And positive delays for test with asynchronous none-blocking
- * behavior.
+ * behaviour. And positive delays for test with asynchronous none-blocking
+ * behaviour.
  * 
  * @since 2.5
  */
+@SuppressWarnings("deprecation")
 public class AsyncAdvancedPskStore implements AdvancedPskStore {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(AsyncAdvancedPskStore.class);
@@ -86,12 +87,12 @@ public class AsyncAdvancedPskStore implements AdvancedPskStore {
 	/**
 	 * Result handler set during initialization.
 	 * 
-	 * @see #setResultHandler(HandshakeResultHandler)
+	 * @see #setResultHandler(PskSecretResultHandler)
 	 */
-	private volatile HandshakeResultHandler resultHandler;
+	private volatile PskSecretResultHandler resultHandler;
 
 	/**
-	 * Create an asynchronous advanced pskstore from {@link AdvancedPskStore}.
+	 * Create an asynchronous advanced pskstore from {@link PskStore}.
 	 * 
 	 * A call to {@link #shutdown()} is required to cleanup the used resources
 	 * (executor).
@@ -111,7 +112,7 @@ public class AsyncAdvancedPskStore implements AdvancedPskStore {
 	 * @return this psk store for command chaining
 	 */
 	public AsyncAdvancedPskStore setSecretMode(boolean enableGenerateMasterSecret) {
-		this.generateMasterSecret = generateMasterSecret;
+		this.generateMasterSecret = enableGenerateMasterSecret;
 		return this;
 	}
 
@@ -155,7 +156,7 @@ public class AsyncAdvancedPskStore implements AdvancedPskStore {
 
 	@Override
 	public PskSecretResult requestPskSecretResult(final ConnectionId cid, final ServerNames serverNames,
-			final PskPublicInformation identity, final String hmacAlgorithm, SecretKey otherSecret, byte[] seed, final boolean useExtendedMasterSecret) {
+			final PskPublicInformation identity, final String hmacAlgorithm, SecretKey otherSecret, byte[] seed) {
 		if (delayMillis <= 0) {
 			if (delayMillis < 0) {
 				try {
@@ -163,7 +164,7 @@ public class AsyncAdvancedPskStore implements AdvancedPskStore {
 				} catch (InterruptedException e) {
 				}
 			}
-			return getPskSecretResult(cid, serverNames, identity, hmacAlgorithm, otherSecret, seed, useExtendedMasterSecret);
+			return getPskSecretResult(cid, serverNames, identity, hmacAlgorithm, otherSecret, seed);
 		} else {
 			final byte[] randomSeed = Arrays.copyOf(seed, seed.length);
 			final SecretKey other = SecretUtil.create(otherSecret);
@@ -171,7 +172,7 @@ public class AsyncAdvancedPskStore implements AdvancedPskStore {
 
 				@Override
 				public void run() {
-					getSecretAsynchronous(cid, serverNames, identity, hmacAlgorithm, other, randomSeed, useExtendedMasterSecret);
+					getSecretAsynchronous(cid, serverNames, identity, hmacAlgorithm, other, randomSeed);
 				}
 			}, delayMillis, TimeUnit.MILLISECONDS);
 			return null;
@@ -189,11 +190,10 @@ public class AsyncAdvancedPskStore implements AdvancedPskStore {
 	 * @param otherSecret other secret from ECDHE, or {@code null}. Must be
 	 *            cloned for asynchronous use.
 	 * @param seed seed for PRF.
-	 * @param useExtendedMasterSecret  {@code true}, if the extended master secret (RFC 7627) is to be used, {@code false}, if the master secret (RFC 5246) is to be used.
 	 */
 	private void getSecretAsynchronous(ConnectionId cid, ServerNames serverNames, PskPublicInformation identity,
-			String hmacAlgorithm, SecretKey otherSecret, byte[] seed, boolean useExtendedMasterSecret) {
-		PskSecretResult result = getPskSecretResult(cid, serverNames, identity, hmacAlgorithm, otherSecret, seed, useExtendedMasterSecret);
+			String hmacAlgorithm, SecretKey otherSecret, byte[] seed) {
+		PskSecretResult result = getPskSecretResult(cid, serverNames, identity, hmacAlgorithm, otherSecret, seed);
 		resultHandler.apply(result);
 	}
 
@@ -211,16 +211,15 @@ public class AsyncAdvancedPskStore implements AdvancedPskStore {
 	 * @param hmacAlgorithm HMAC algorithm name for PRF.
 	 * @param otherSecret other secret from ECDHE, or {@code null}.
 	 * @param seed seed for PRF.
-	 * @param useExtendedMasterSecret  {@code true}, if the extended master secret (RFC 7627) is to be used, {@code false}, if the master secret (RFC 5246) is to be used.
 	 * @return psk secret result
 	 */
 	private PskSecretResult getPskSecretResult(ConnectionId cid, ServerNames serverNames, PskPublicInformation identity,
-			String hmacAlgorithm, SecretKey otherSecret, byte[] seed, boolean useExtendedMasterSecret) {
+			String hmacAlgorithm, SecretKey otherSecret, byte[] seed) {
 		PskSecretResult result = pskStore.requestPskSecretResult(cid, serverNames, identity, hmacAlgorithm, otherSecret,
-				seed, useExtendedMasterSecret);
+				seed);
 		if (generateMasterSecret && result.getSecret() != null
 				&& PskSecretResult.ALGORITHM_PSK.equals(result.getSecret().getAlgorithm())) {
-			SecretKey masterSecret = generateMasterSecret(hmacAlgorithm, result.getSecret(), otherSecret, seed, useExtendedMasterSecret);
+			SecretKey masterSecret = generateMasterSecret(hmacAlgorithm, result.getSecret(), otherSecret, seed);
 			SecretUtil.destroy(result.getSecret());
 			return new PskSecretResult(cid, result.getPskPublicInformation(), masterSecret);
 		}
@@ -228,16 +227,16 @@ public class AsyncAdvancedPskStore implements AdvancedPskStore {
 	}
 
 	protected SecretKey generateMasterSecret(String hmacAlgorithm, SecretKey pskSecret, SecretKey otherSecret,
-			byte[] seed, boolean useExtendedMasterSecret) {
+			byte[] seed) {
 		ThreadLocalMac hmac = MAC.get(hmacAlgorithm);
 		SecretKey premasterSecret = PseudoRandomFunction.generatePremasterSecretFromPSK(otherSecret, pskSecret);
-		SecretKey masterSecret = PseudoRandomFunction.generateMasterSecret(hmac.current(), premasterSecret, seed, useExtendedMasterSecret);
+		SecretKey masterSecret = PseudoRandomFunction.generateMasterSecret(hmac.current(), premasterSecret, seed);
 		SecretUtil.destroy(premasterSecret);
 		return masterSecret;
 	}
 
 	@Override
-	public void setResultHandler(HandshakeResultHandler resultHandler) {
+	public void setResultHandler(PskSecretResultHandler resultHandler) {
 		if (this.resultHandler != null && resultHandler != null && this.resultHandler != resultHandler) {
 			throw new IllegalStateException("handshake result handler already set!");
 		}

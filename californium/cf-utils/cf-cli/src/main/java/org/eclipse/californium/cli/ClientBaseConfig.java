@@ -73,14 +73,6 @@ public class ClientBaseConfig extends ConnectorConfig {
 	public Integer localPort;
 
 	/**
-	 * DTLS auto-resumption timeout in milliseconds.
-	 * 
-	 * @since 3.0
-	 */
-	@Option(names = "--dtls-auto-resumption", description = "enable dtls auto-resumption. Value in milliseconds. Default disabled. Recommended value to use 30000 (30s).")
-	public Long dtlsAutoResumption;
-
-	/**
 	 * Destination URI.
 	 */
 	@Parameters(index = "0", paramLabel = LABELT_URI, arity = "0..1", description = "destination URI. Default ${DEFAULT-VALUE}")
@@ -132,11 +124,11 @@ public class ClientBaseConfig extends ConnectorConfig {
 		// allow quick hostname as argument
 		String scheme = CoAP.getSchemeFromUri(uri);
 		if (scheme == null) {
-			if (authenticationModes != null && !authenticationModes.isEmpty()) {
+			if (authenticationModes.isEmpty()) {
+				uri = CoAP.COAP_URI_SCHEME + "://" + uri;
+			} else {
 				uri = CoAP.COAP_SECURE_URI_SCHEME + "://" + uri;
 				secure = true;
-			} else {
-				uri = CoAP.COAP_URI_SCHEME + "://" + uri;
 			}
 		} else {
 			secure = CoAP.isSecureScheme(scheme);

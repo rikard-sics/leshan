@@ -22,7 +22,6 @@ import java.util.Random;
  * Byte array as key.
  */
 public class Bytes {
-
 	/**
 	 * Empty byte array.
 	 */
@@ -37,9 +36,6 @@ public class Bytes {
 	 * @see #hashCode()
 	 */
 	private final int hash;
-
-	private final boolean useClassInEquals;
-
 	/**
 	 * Bytes as String.
 	 * 
@@ -65,36 +61,17 @@ public class Bytes {
 	 * 
 	 * @param bytes bytes
 	 * @param maxLength maximum length of bytes
-	 * @param copy {@code true} to copy bytes, {@code false} to use the provided
-	 *            bytes
+	 * @param copy {@code true} to copy bytes, {@code false} to use the provided bytes
 	 * @throws NullPointerException if bytes is {@code null}
 	 * @throws IllegalArgumentException if bytes length is larger than maxLength
 	 */
 	public Bytes(byte[] bytes, int maxLength, boolean copy) {
-		this(bytes, maxLength, copy, false);
-	}
-
-	/**
-	 * Create bytes array.
-	 * 
-	 * @param bytes bytes
-	 * @param maxLength maximum length of bytes
-	 * @param copy {@code true} to copy bytes, {@code false} to use the provided
-	 *            bytes
-	 * @param useClassInEquals {@code true} to check the class, {@code false},
-	 *            if equals checks only for {@link Bytes}
-	 * @throws NullPointerException if bytes is {@code null}
-	 * @throws IllegalArgumentException if bytes length is larger than maxLength
-	 * @since 3.0
-	 */
-	public Bytes(byte[] bytes, int maxLength, boolean copy, boolean useClassInEquals) {
 		if (bytes == null) {
 			throw new NullPointerException("bytes must not be null");
 		} else if (bytes.length > maxLength) {
 			throw new IllegalArgumentException("bytes length must be between 0 and " + maxLength + " inclusive");
 		}
-		this.useClassInEquals = useClassInEquals;
-		this.bytes = copy ? Arrays.copyOf(bytes, bytes.length) : bytes;
+		this.bytes = copy ? Arrays.copyOf(bytes,  bytes.length) : bytes;
 		this.hash = Arrays.hashCode(bytes);
 	}
 
@@ -108,33 +85,18 @@ public class Bytes {
 		return hash;
 	}
 
-	/**
-	 * {@inheritDoc}
-	 * 
-	 * Note: since 3.0 the sub-class may be ignored. This depends on the
-	 * provided value of the {@code useClassInEquals} parameter in
-	 * {@link Bytes#Bytes(byte[], int, boolean, boolean)} for {@code this}, or
-	 * the {@code other} object. The default behavior is changed to ignore the
-	 * sub-class.
-	 */
 	@Override
 	public final boolean equals(Object obj) {
-		if (this == obj) {
+		if (this == obj)
 			return true;
-		} else if (obj == null) {
+		if (obj == null)
 			return false;
-		}
-		if (obj instanceof Bytes) {
-			Bytes other = (Bytes) obj;
-			if ((useClassInEquals || other.useClassInEquals) && getClass() != obj.getClass()) {
-				return false;
-			}
-			if (hash != other.hash) {
-				return false;
-			}
-			return Arrays.equals(bytes, other.bytes);
-		}
-		return false;
+		if (getClass() != obj.getClass())
+			return false;
+		Bytes other = (Bytes) obj;
+		if (hash != other.hash)
+			return false;
+		return Arrays.equals(bytes, other.bytes);
 	}
 
 	/**
@@ -193,8 +155,10 @@ public class Bytes {
 	/**
 	 * Concatenates two Bytes.
 	 * 
-	 * @param a the first Bytes.
-	 * @param b the second Bytes.
+	 * @param a
+	 *            the first Bytes.
+	 * @param b
+	 *            the second Bytes.
 	 * @return the concatenated array.
 	 * @see #concatenate(byte[], byte[])
 	 */
@@ -205,8 +169,10 @@ public class Bytes {
 	/**
 	 * Concatenates two byte arrays.
 	 * 
-	 * @param a the first array.
-	 * @param b the second array.
+	 * @param a
+	 *            the first array.
+	 * @param b
+	 *            the second array.
 	 * @return the concatenated array.
 	 * @see #concatenate(Bytes, Bytes)
 	 */
@@ -231,22 +197,5 @@ public class Bytes {
 	 */
 	public static void clear(byte[] data) {
 		Arrays.fill(data, (byte) 0);
-	}
-
-	/**
-	 * Indicates whether some bytes are "equal to" each other.
-	 * 
-	 * @param a first bytes to check
-	 * @param b second bytes to check
-	 * @return {@code true}, if the bytes are equal, {@code false}, otherwise.
-	 * @since 3.0
-	 */
-	public static boolean equals(Bytes a, Bytes b) {
-		if (a == b) {
-			return true;
-		} else if (a == null || b == null) {
-			return false;
-		}
-		return a.equals(b);
 	}
 }

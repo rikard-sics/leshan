@@ -25,7 +25,6 @@
  *                                                    to 8192.
  *    Achim Kraus (Bosch Software Innovations GmbH) - replace USE_STRICT_RESPONSE_MATCHING
  *                                                    by DTLS_RESPONSE_MATCHING
- *    Pratheek Rai - Added TCP_NUMBER_OF_BULK_BLOCKS for BERT option.
  ******************************************************************************/
 package org.eclipse.californium.core.network.config;
 
@@ -65,14 +64,7 @@ public class NetworkConfigDefaults {
 	 * EXCHANGE_LIFETIME of 247s.
 	 */
 	public static final int DEFAULT_BLOCKWISE_STATUS_LIFETIME = 5 * 60 * 1000; // 5 mins [ms]
-
-	/**
-	 * The default interval for removing expired/stale blockwise entries.
-	 * 
-	 * @since 3.0
-	 */
-	public static final int DEFAULT_BLOCKWISE_STATUS_INTERVAL = 5 * 1000; // 5s [ms]
-
+	
 	/**
 	 * The default mode used to respond for early blockwise negotiation when response can be sent on one packet.
 	 * <p>
@@ -229,7 +221,6 @@ public class NetworkConfigDefaults {
 		config.setInt(Keys.MAX_MESSAGE_SIZE, DEFAULT_MAX_MESSAGE_SIZE);
 		config.setInt(Keys.MAX_RESOURCE_BODY_SIZE, DEFAULT_MAX_RESOURCE_BODY_SIZE);
 		config.setInt(Keys.BLOCKWISE_STATUS_LIFETIME, DEFAULT_BLOCKWISE_STATUS_LIFETIME); // [ms]
-		config.setInt(Keys.BLOCKWISE_STATUS_INTERVAL, DEFAULT_BLOCKWISE_STATUS_INTERVAL); // [ms]
 		config.setBoolean(Keys.BLOCKWISE_STRICT_BLOCK2_OPTION, DEFAULT_BLOCKWISE_STRICT_BLOCK2_OPTION);
 		config.setBoolean(Keys.BLOCKWISE_ENTITY_TOO_LARGE_AUTO_FAILOVER, DEFAULT_BLOCKWISE_ENTITY_TOO_LARGE_AUTO_FAILOVER);
 
@@ -268,7 +259,6 @@ public class NetworkConfigDefaults {
 		config.setInt(Keys.TCP_CONNECTION_IDLE_TIMEOUT, DEFAULT_TCP_CONNECTION_IDLE_TIMEOUT); // s
 		config.setInt(Keys.TCP_WORKER_THREADS, 1);
 		config.setInt(Keys.TCP_CONNECT_TIMEOUT, DEFAULT_TCP_CONNECT_TIMEOUT); // ms
-		config.setInt(Keys.TCP_NUMBER_OF_BULK_BLOCKS, 2);// BERT enabled when > 1.
 		config.setInt(Keys.TLS_HANDSHAKE_TIMEOUT, DEFAULT_TLS_HANDSHAKE_TIMEOUT); // ms
 
 		config.setLong(Keys.SECURE_SESSION_TIMEOUT, DEFAULT_SECURE_SESSION_TIMEOUT);

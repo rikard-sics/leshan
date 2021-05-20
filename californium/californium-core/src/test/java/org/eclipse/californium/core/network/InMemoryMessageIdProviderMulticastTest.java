@@ -18,10 +18,12 @@ package org.eclipse.californium.core.network;
 import static org.eclipse.californium.elements.util.TestConditionTools.inRange;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThat;
 
 import java.net.InetSocketAddress;
 
+import org.eclipse.californium.core.coap.Message;
 import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.elements.category.Small;
 import org.eclipse.californium.rule.CoapNetworkRule;
@@ -46,15 +48,15 @@ public class InMemoryMessageIdProviderMulticastTest {
 	private static final int PORT = 5683;
 
 	/**
-	 * this test verifies the miss configured network config file and throws a 
-	 * IllegalArgumentException.
+	 * this test verifies the miss configured network config file and returns no
+	 * Message Id
 	 */
-	@Test(expected = IllegalStateException.class)
+	@Test
 	public void testMulticastWithMissConfiguredNetworkConfig() {
 		NetworkConfig config = network.createStandardTestConfig();
 		config.setInt(NetworkConfig.Keys.MULTICAST_BASE_MID, 0);
 		InMemoryMessageIdProvider midProvider = new InMemoryMessageIdProvider(config);
-		midProvider.getNextMessageId(new InetSocketAddress(GROUP, PORT));
+		assertEquals(midProvider.getNextMessageId(new InetSocketAddress(GROUP, PORT)), Message.NONE);
 	}
 
 	@Test

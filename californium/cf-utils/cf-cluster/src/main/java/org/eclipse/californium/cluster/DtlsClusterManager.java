@@ -26,10 +26,10 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.eclipse.californium.elements.AddressEndpointContext;
-import org.eclipse.californium.elements.Connector;
 import org.eclipse.californium.elements.DtlsEndpointContext;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.EndpointContextMatcher;
+import org.eclipse.californium.elements.ExtendedConnector;
 import org.eclipse.californium.elements.MapBasedEndpointContext;
 import org.eclipse.californium.elements.MessageCallback;
 import org.eclipse.californium.elements.PrincipalEndpointContextMatcher;
@@ -379,7 +379,7 @@ public class DtlsClusterManager {
 		 * 
 		 * @param clusterManagementConnector connector for cluster management
 		 */
-		public void process(Connector clusterManagementConnector) {
+		public void process(ExtendedConnector clusterManagementConnector) {
 			synchronized (rand) {
 				if (clusterManagementConnector != null && clusterManagementConnector.isRunning()) {
 					long now = ClockUtil.nanoRealtime();
@@ -402,7 +402,7 @@ public class DtlsClusterManager {
 		 * @param clusterManagementConnector connector for cluster management
 		 * @return {@code true}, if nodes are expired, {@code false}, otherwise.
 		 */
-		private boolean refresh(long now, Connector clusterManagementConnector) {
+		private boolean refresh(long now, ExtendedConnector clusterManagementConnector) {
 			boolean expired = false;
 			long freshTimeNanos = now - TimeUnit.MILLISECONDS.toNanos(configuration.getRefreshIntervalMillis());
 			long expireTimeNanos = freshTimeNanos
@@ -437,7 +437,7 @@ public class DtlsClusterManager {
 		 * 
 		 * @param clusterManagementConnector connector for cluster management
 		 */
-		private void discover(Connector clusterManagementConnector) {
+		private void discover(ExtendedConnector clusterManagementConnector) {
 			List<InetSocketAddress> scope = discoverScope.getClusterNodesDiscoverScope();
 			List<InetSocketAddress> nodes = new ArrayList<>();
 			for (InetSocketAddress node : scope) {

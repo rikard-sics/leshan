@@ -17,6 +17,9 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
+import java.net.InetSocketAddress;
+
+
 /**
  * This message is always sent by the client. It MUST immediately follow the
  * client certificate message, if it is sent. Otherwise, it MUST be the first
@@ -27,9 +30,10 @@ package org.eclipse.californium.scandium.dtls;
  */
 public abstract class ClientKeyExchange extends HandshakeMessage {
 
-	protected ClientKeyExchange() {
+	protected ClientKeyExchange(InetSocketAddress peerAddress) {
+		super(peerAddress);
 	}
-
+	
 	@Override
 	public final HandshakeType getMessageType() {
 		return HandshakeType.CLIENT_KEY_EXCHANGE;

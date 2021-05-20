@@ -26,7 +26,7 @@ echo "Please check the available RAM (e.g.: on linux use \"free -m\") and"
 echo "adjust the \"-Xmx6g\" argument in \"CF_OPT\" to about 30% of the available RAM"
 echo
 echo "The required server may be started using:"
-echo "java -Xmx6g -XX:+UseG1GC -jar cf-extplugtest-server-3.0.0-SNAPSHOT.jar -onlyLoopback -noPlugtest"
+echo "java -d64 -Xmx6g -XX:+UseG1GC -jar cf-extplugtest-server-2.2.0-SNAPSHOT.jar -onlyLoopback -noPlugtest"
 echo "Adjust the \"-Xmx6g\" argument also to about 30% of the available RAM."
 echo "The benchmark is mainly used with the loopback interface (localhost), therefore -onlyLoopback is provided."
 echo "To use client and server on different hosts, provide -noLoopback."
@@ -55,18 +55,16 @@ echo "Variables:"
 echo "   USE_TCP, USE_UDP, USE_PLAIN, USE_SECURE, USE_CON, USE_NON"
 echo "   UDP_CLIENTS, TCP_CLIENTS, OBS_CLIENTS"
 echo "   PLAIN_PORT, SECURE_PORT"
-echo "   USE_REVERSE, USE_OBSERVE"
 echo "   REQS, NOTIFIES"
 echo "   PAYLOAD, PAYLOAD_LARGE, CALI_AUTH"
-echo "   USE_HTTP (coap2http proxy only!)"
 echo
 echo "These variables maybe override in the calling shell by"
 echo
 echo "export USE_TCP=0"
 echo "export REQS=10"
 echo
-echo "Note: sometimes the recommended default configuration is changed."
-echo "      Please delete therefore the \"Californium???.properties\" to apply the changes."
+echo "Note: sometimes the recommended default configuration is changed." 
+echo "      Please delete therefore the \"Californium???.properties\" to apply the changes." 
 echo
 
 # commands to check several limits
@@ -75,30 +73,30 @@ echo
 # cat /proc/sys/vm/max_map_count
 # prlimit
 
-CF_JAR=cf-extplugtest-client-3.0.0-SNAPSHOT.jar
+CF_JAR=cf-extplugtest-client-2.6.3-SNAPSHOT.jar
 CF_JAR_FIND='cf-extplugtest-client-*.jar'
 CF_EXEC="org.eclipse.californium.extplugtests.BenchmarkClient"
 CF_OPT="-XX:+UseG1GC -Xmx6g -Xverify:none"
 
-export CALIFORNIUM_STATISTIC="3.0.0"
+export CALIFORNIUM_STATISTIC="2.6.3"
 
 if [ -z "$1" ]  ; then
      CF_HOST=localhost
-else
+else 
     CF_HOST=$1
     shift
 fi
 
 if [ -z "$1" ]  ; then
      CLIENTS_MULTIPLIER=10
-else
+else 
     CLIENTS_MULTIPLIER=$1
     shift
 fi
 
 if [ -z "$1" ]  ; then
      CF_SEC=
-else
+else 
     CF_SEC=$1
     shift
 fi
@@ -111,37 +109,29 @@ fi
 : "${USE_UDP:=1}"
 : "${USE_PLAIN:=1}"
 : "${USE_SECURE:=1}"
-: "${USE_CON:=2}"                         # 0:= not used, 1 := used, 2 := also with separate response  
+: "${USE_CON:=1}"
 : "${USE_NON:=1}"
-: "${USE_LARGE_BLOCK1:=1}"
 
-: "${USE_HTTP:=0}"
-: "${USE_REQUEST:=1}"
-: "${USE_REVERSE:=1}"
-: "${USE_OBSERVE:=1}"
-: "${USE_HANDSHAKES:=1}"
-
-: "${USE_NONESTOP:=--no-stop}"
-
-# export EXECUTER_REMOVE_ON_CANCEL=true
-# export EXECUTER_LOGGING_QUEUE_SIZE_DIFF=1000
+USE_HTTP=0
+USE_REVERSE=1
+USE_OBSERVE=1
+USE_NONESTOP=--no-stop
 
 MULTIPLIER=10
-: "${REQS:=$((500 * $MULTIPLIER))}"
+: "${REQS:=$((300 * $MULTIPLIER))}"
 REQS_EXTRA=$(($REQS + ($REQS/10)))
 REV_REQS=$((2 * $REQS))
 : "${NOTIFIES:=$((100 * $MULTIPLIER))}"
 
 : "${PAYLOAD:=40}"
-: "${PAYLOAD_MEDIUM:=400}"
-: "${PAYLOAD_LARGE:=5000}"
-: "${REQS_LARGE:=$(($PAYLOAD * $REQS / $PAYLOAD_LARGE))}"
+: "${PAYLOAD_LARGE:=400}"
 
 : "${UDP_CLIENTS:=$((200 * $CLIENTS_MULTIPLIER))}"
 : "${TCP_CLIENTS:=$((50 * $CLIENTS_MULTIPLIER))}"
 : "${OBS_CLIENTS:=$((50 * $CLIENTS_MULTIPLIER))}"
 
 : "${CALI_AUTH:=--psk-store cali.psk}"
+
 
 if [ ! -s ${CF_JAR} ] ; then
 # search for given version
@@ -178,27 +168,27 @@ echo ${CF_JAR}
 benchmark_udp()
 {
    if [ ${USE_UDP} -eq 0 ] ; then return; fi
-   if [ ${USE_PLAIN} -ne 0 ] ; then
+   if [ ${USE_PLAIN} -ne 0 ] ; then 
       java ${CF_OPT} -cp ${CF_JAR} ${CF_EXEC} coap://${CF_HOST}:${PLAIN_PORT}/$@
       if [ ! $? -eq 0 ] ; then exit $?; fi
       sleep 5
-   fi
-   if [ ${USE_SECURE} -ne 0 ] ; then
+   fi   
+   if [ ${USE_SECURE} -ne 0 ] ; then 
       java ${CF_OPT} -cp ${CF_JAR} ${CF_EXEC} ${CF_SEC} ${CALI_AUTH} coaps://${CF_HOST}:${SECURE_PORT}/$@
       if [ ! $? -eq 0 ] ; then exit $?; fi
       sleep 5
-   fi
+   fi   
  }
 
 benchmark_tcp()
 {
    if [ ${USE_TCP} -eq 0 ] ; then return; fi
-   if [ ${USE_PLAIN} -ne 0 ] ; then
+   if [ ${USE_PLAIN} -ne 0 ] ; then 
       java ${CF_OPT} -cp ${CF_JAR} ${CF_EXEC} coap+tcp://${CF_HOST}:${PLAIN_PORT}/$@
       if [ ! $? -eq 0 ] ; then exit $?; fi
       sleep 5
    fi
-   if [ ${USE_SECURE} -ne 0 ] ; then
+   if [ ${USE_SECURE} -ne 0 ] ; then 
       java ${CF_OPT} -cp ${CF_JAR} ${CF_EXEC} coaps+tcp://${CF_HOST}:${SECURE_PORT}/$@
       if [ ! $? -eq 0 ] ; then exit $?; fi
       sleep 5
@@ -213,66 +203,56 @@ benchmark()
 
 benchmark_all()
 {
-   if [ ${USE_REQUEST} -eq 1 ] ; then
-# POST
-      if [ ${USE_CON} -ne 0 ] ; then
-         if [ ${USE_LARGE_BLOCK1} -ne 0 ] ; then
-            benchmark_udp "benchmark?rlen=${PAYLOAD}" --clients ${UDP_CLIENTS} --requests ${REQS_LARGE} ${USE_NONESTOP} --payload-random ${PAYLOAD_LARGE} --blocksize 64
-         fi
-         benchmark_udp "benchmark?rlen=${PAYLOAD}" --clients ${UDP_CLIENTS} --requests ${REQS} ${USE_NONESTOP}
-      fi
+# GET
+   if [ ${USE_CON} -ne 0 ] ; then 
+      benchmark_udp "benchmark?rlen=${PAYLOAD}" --clients ${UDP_CLIENTS} --requests ${REQS} ${USE_NONESTOP}
+   fi
 
-      if [ ${USE_NON} -ne 0 ] ; then
-         if [ ${USE_LARGE_BLOCK1} -ne 0 ] ; then
-            benchmark_udp "benchmark?rlen=${PAYLOAD}" --clients ${UDP_CLIENTS} --non --requests ${REQS_LARGE} ${USE_NONESTOP} --payload-random ${PAYLOAD_LARGE} --blocksize 64
-         fi
-         benchmark_udp "benchmark?rlen=${PAYLOAD}" --clients ${UDP_CLIENTS} --non --requests ${REQS} ${USE_NONESTOP}
-      fi
+   if [ ${USE_NON} -ne 0 ] ; then 
+      benchmark_udp "benchmark?rlen=${PAYLOAD}" --clients ${UDP_CLIENTS} --non --requests ${REQS} ${USE_NONESTOP}
+   fi
 
-      if [ ${USE_LARGE_BLOCK1} -ne 0 ] ; then
-         benchmark_tcp "benchmark?rlen=${PAYLOAD}" --clients ${TCP_CLIENTS} --requests ${REQS_LARGE} ${USE_NONESTOP} --payload-random ${PAYLOAD_LARGE} --bertblocks 4
-      fi
-      benchmark_tcp "benchmark?rlen=${PAYLOAD}" --clients ${TCP_CLIENTS} --requests ${REQS} ${USE_NONESTOP}
-
-      if [ ${USE_CON} -eq 2 ] ; then
-# POST separate response
-         benchmark_udp "benchmark?rlen=${PAYLOAD}&ack" --clients ${UDP_CLIENTS} --requests ${REQS} ${USE_NONESTOP}
-      fi
+   benchmark_tcp "benchmark?rlen=${PAYLOAD}" --clients ${TCP_CLIENTS} --requests ${REQS} ${USE_NONESTOP}
+   
+   if [ ${USE_CON} -ne 0 ] ; then 
+# GET with separate response
+      benchmark_udp "benchmark?rlen=${PAYLOAD}&ack" --clients ${UDP_CLIENTS} --requests ${REQS} ${USE_NONESTOP}
    fi
 
    if [ ${USE_REVERSE} -eq 1 ] ; then
 # reverse GET
-      if [ ${USE_CON} -ne 0 ] ; then
+      if [ ${USE_CON} -ne 0 ] ; then 
          benchmark_udp "reverse-request?req=${REQS_EXTRA}&res=feed-CON&rlen=${PAYLOAD}" --clients ${UDP_CLIENTS} --requests 2 ${USE_NONESTOP} --reverse ${REV_REQS}
       fi
-      if [ ${USE_NON} -ne 0 ] ; then
+      if [ ${USE_NON} -ne 0 ] ; then 
          benchmark_udp "reverse-request?req=${REQS_EXTRA}&res=feed-CON&rlen=${PAYLOAD}" --clients ${UDP_CLIENTS} --non --requests 2 ${USE_NONESTOP} --reverse ${REV_REQS}
       fi
       benchmark_tcp "reverse-request?req=${REQS_EXTRA}&res=feed-CON&rlen=${PAYLOAD}" --clients ${TCP_CLIENTS} --requests 2 ${USE_NONESTOP} --reverse ${REV_REQS}
    fi
-
+   
    if [ ${USE_OBSERVE} -eq 1 ] ; then
-# observe CON
-      if [ ${USE_CON} -ne 0 ] ; then
-          benchmark_udp "reverse-observe?obs=25000&res=feed-CON&rlen=${PAYLOAD_MEDIUM}" --clients ${OBS_CLIENTS} --requests 1 ${USE_NONESTOP} --reverse ${NOTIFIES} --min -200 --max 200 --blocksize 64
-      fi
+   
+# observe CON 
+      if [ ${USE_CON} -ne 0 ] ; then 
+          benchmark_udp "reverse-observe?obs=25000&res=feed-CON&rlen=${PAYLOAD_LARGE}" --clients ${OBS_CLIENTS} --requests 1 ${USE_NONESTOP} --reverse ${NOTIFIES} --min 20 --max 100
+      fi      
 # observe NON
-      if [ ${USE_CON} -ne 0 ] ; then
-         benchmark_udp "reverse-observe?obs=25000&res=feed-NON&rlen=${PAYLOAD_MEDIUM}" --clients ${OBS_CLIENTS} --requests 1 ${USE_NONESTOP} --reverse ${NOTIFIES} --min -200 --max 200 --blocksize 64
+      if [ ${USE_CON} -ne 0 ] ; then 
+         benchmark_udp "reverse-observe?obs=25000&res=feed-NON&rlen=${PAYLOAD_LARGE}" --clients ${OBS_CLIENTS} --requests 1 ${USE_NONESTOP} --reverse ${NOTIFIES} --min 20 --max 100
       fi
-      benchmark_tcp "reverse-observe?obs=25000&res=feed-CON&rlen=${PAYLOAD_MEDIUM}" --clients ${OBS_CLIENTS} --requests 1 ${USE_NONESTOP} --reverse ${NOTIFIES} --min -200 --max 200 --blocksize 64
+      benchmark_tcp "reverse-observe?obs=25000&res=feed-CON&rlen=${PAYLOAD_LARGE}" --clients ${OBS_CLIENTS} --requests 1 ${USE_NONESTOP} --reverse ${NOTIFIES} --min 20 --max 100
    fi
 }
 
 benchmark_dtls_handshake()
 {
    if [ ${USE_UDP} -eq 0 ] ; then return; fi
-   if [ ${USE_SECURE} -ne 0 ] ; then
+   if [ ${USE_SECURE} -ne 0 ] ; then 
       START_HS=`date +%s`
       i=0
 
       while [ $i -lt $1 ] ; do
-         java ${CF_OPT} -cp ${CF_JAR} ${CF_EXEC} $2 "coaps://${CF_HOST}:${SECURE_PORT}/benchmark?rlen=${PAYLOAD}" --clients ${UDP_CLIENTS} --requests 10 ${USE_NONESTOP}
+         java ${CF_OPT} -cp ${CF_JAR} ${CF_EXEC} $2 "coaps://${CF_HOST}:${SECURE_PORT}/benchmark?rlen=${PAYLOAD}" --clients ${UDP_CLIENTS} --requests 10 ${USE_NONESTOP} 
          if [ ! $? -eq 0 ] ; then exit $?; fi
          sleep 2
          i=$(($i + 1))
@@ -280,20 +260,16 @@ benchmark_dtls_handshake()
       END_HS=`date +%s`
       TIME=$((${END_HS} - ${START_HS}))
       return $TIME
-   fi
+   fi 
 }
 
 benchmark_dtls_handshakes()
 {
-   if [ ${USE_HANDSHAKES} -eq 0 ] ; then return; fi
-   if [ ${USE_UDP} -eq 0 ] ; then return; fi
-   if [ ${USE_SECURE} -eq 0 ] ; then return; fi
-
    old=$CALIFORNIUM_STATISTIC
    export CALIFORNIUM_STATISTIC=
    LOOPS=10
 
-   benchmark_dtls_handshake $LOOPS
+   benchmark_dtls_handshake $LOOPS 
    TIME1=$?
    benchmark_dtls_handshake $LOOPS --auth=ECDHE_PSK
    TIME2=$?
@@ -341,12 +317,12 @@ proxy()
    fi 
 }
 
-START_BENCHMARK=$(date +%s)
+START_BENCHMARK=`date +%s`
 
 #proxy
 benchmark_all
 benchmark_dtls_handshakes
 
-END_BENCHMARK=$(date +%s)
+END_BENCHMARK=`date +%s`
 
 echo "ALL:" $((${END_BENCHMARK} - ${START_BENCHMARK}))

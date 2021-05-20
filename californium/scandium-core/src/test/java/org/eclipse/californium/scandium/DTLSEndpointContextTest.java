@@ -22,9 +22,9 @@ import static org.eclipse.californium.scandium.ConnectorHelper.MAX_TIME_TO_WAIT_
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
@@ -42,12 +42,10 @@ import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.category.Medium;
 import org.eclipse.californium.elements.rule.TestNameLoggerRule;
 import org.eclipse.californium.elements.rule.ThreadsRule;
-import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.SimpleMessageCallback;
 import org.eclipse.californium.scandium.ConnectorHelper.LatchDecrementingRawDataChannel;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.Connection;
-import org.eclipse.californium.scandium.dtls.DTLSContext;
 import org.eclipse.californium.scandium.dtls.DTLSSession;
 import org.eclipse.californium.scandium.dtls.InMemoryConnectionStore;
 import org.eclipse.californium.scandium.rule.DtlsNetworkRule;
@@ -86,7 +84,6 @@ public class DTLSEndpointContextTest {
 
 	DTLSConnector client;
 	DtlsConnectorConfig clientConfig;
-	DTLSContext establishedClientContext;
 	DTLSSession establishedClientSession;
 	InMemoryConnectionStore clientConnectionStore;
 
@@ -260,9 +257,9 @@ public class DTLSEndpointContextTest {
 		DtlsEndpointContext context = (DtlsEndpointContext) serverHelper.serverRawDataProcessor
 				.getLatestInboundMessage().getEndpointContext();
 		assertThat(context, is(notNullValue()));
-		assertThat(context.getSessionId(), is((Bytes)establishedClientSession.getSessionIdentifier()));
-		assertThat(context.getEpoch().intValue(), is(establishedClientContext.getReadEpoch()));
-		assertThat(context.getCipher(), is(establishedClientContext.getReadStateCipher()));
+		assertThat(context.getSessionId(), is(establishedClientSession.getSessionIdentifier().toString()));
+		assertThat(context.getEpoch(), is(Integer.toString(establishedClientSession.getReadEpoch())));
+		assertThat(context.getCipher(), is(establishedClientSession.getReadStateCipher()));
 	}
 
 	private LatchDecrementingRawDataChannel givenAStartedSession(RawData msgToSend) throws Exception {
@@ -277,8 +274,6 @@ public class DTLSEndpointContextTest {
 	private void assertEstablishedClientSession() {
 		Connection con = clientConnectionStore.get(serverHelper.serverEndpoint);
 		assertNotNull(con);
-		establishedClientContext = con.getEstablishedDtlsContext();
-		assertNotNull(establishedClientContext);
 		establishedClientSession = con.getEstablishedSession();
 		assertNotNull(establishedClientSession);
 	}

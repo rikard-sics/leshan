@@ -18,23 +18,22 @@ package org.eclipse.californium.core.test;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.eclipse.californium.core.coap.TestOption.newOption;
+import static org.junit.Assert.assertThat;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import org.eclipse.californium.TestTools;
 import org.eclipse.californium.core.CoapServer;
-import org.eclipse.californium.core.coap.BlockOption;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
 import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.core.coap.Message;
+import org.eclipse.californium.core.coap.Option;
 import org.eclipse.californium.core.coap.OptionNumberRegistry;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
-import org.eclipse.californium.core.coap.TestOption;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.Endpoint;
 import org.eclipse.californium.core.network.config.NetworkConfig;
@@ -119,21 +118,6 @@ public class MaliciousClientTest {
 	}
 
 	@Test
-	public void testBertRequest() throws Exception {
-		BlockOption block = new BlockOption(BlockOption.BERT_SZX, false, 0);
-		Request get = newGet();
-		get.setConfirmable(true);
-		get.getOptions().setBlock2(block);
-		DataSerializer serializer = new TestOption.TestDataSerializer();
-		RawData rawData = serializer.serializeRequest(get);
-		clientConnector.send(rawData);
-
-		Response response = waitForResponse(1000);
-		assertThat("Response missing", response, is(notNullValue()));
-		assertThat("No BAD_REREQUEST response", response.getCode(), is(ResponseCode.BAD_REQUEST));
-	}
-
-	@Test
 	public void testConResponseWithTooLongLocation() throws Exception {
 		Response response = newResponse(ResponseCode.CONTENT);
 		response.setConfirmable(true);
@@ -174,6 +158,12 @@ public class MaliciousClientTest {
 
 		Message reject = waitForMessage(1000);
 		assertThat("malicous piggybacked response not ignored", reject, is(nullValue()));
+	}
+
+	private static Option newOption(int number, int length) {
+		byte[] value = new byte[length];
+		Arrays.fill(value, (byte) 'p');
+		return new Option(number, value);
 	}
 
 	private static Response newResponse(ResponseCode code) {
@@ -236,5 +226,4 @@ public class MaliciousClientTest {
 
 		return server;
 	}
-
 }

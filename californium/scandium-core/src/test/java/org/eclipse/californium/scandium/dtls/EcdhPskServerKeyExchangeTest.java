@@ -19,6 +19,8 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+import java.net.InetSocketAddress;
+
 import org.eclipse.californium.elements.category.Small;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite.KeyExchangeAlgorithm;
 import org.eclipse.californium.scandium.dtls.cipher.XECDHECryptography;
@@ -31,6 +33,7 @@ import org.junit.experimental.categories.Category;
 public class EcdhPskServerKeyExchangeTest {
 
 	EcdhPskServerKeyExchange msg;
+	InetSocketAddress peerAddress = new InetSocketAddress(5000);
 	byte[] ephemeralPubKey;
 
 	@Before
@@ -38,7 +41,8 @@ public class EcdhPskServerKeyExchangeTest {
 
 		SupportedGroup usableGroup = SupportedGroup.secp256r1;
 		msg = new EcdhPskServerKeyExchange(PskPublicInformation.EMPTY,
-				new XECDHECryptography(usableGroup));
+				new XECDHECryptography(usableGroup),
+				peerAddress);
 		ephemeralPubKey = msg.getEncodedPoint();
 	}
 
@@ -52,7 +56,7 @@ public class EcdhPskServerKeyExchangeTest {
 	public void testDeserializedMsg() throws HandshakeException {
 		byte[] serializedMsg = msg.toByteArray();
 		HandshakeParameter parameter = new HandshakeParameter(KeyExchangeAlgorithm.ECDHE_PSK, CertificateType.X_509);
-		EcdhPskServerKeyExchange handshakeMsg = DtlsTestTools.fromByteArray(serializedMsg, parameter);
+		EcdhPskServerKeyExchange handshakeMsg = DtlsTestTools.fromByteArray(serializedMsg, parameter, peerAddress);
 		assertEquals(handshakeMsg.getSupportedGroup().getId(), SupportedGroup.secp256r1.getId());
 		assertNotNull(ephemeralPubKey);
 		assertArrayEquals(handshakeMsg.getEncodedPoint(), ephemeralPubKey);

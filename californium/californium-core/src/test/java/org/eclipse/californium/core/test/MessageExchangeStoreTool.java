@@ -120,7 +120,7 @@ public class MessageExchangeStoreTool {
 		int exchangeLifetime = (int) config.getLong(NetworkConfig.Keys.EXCHANGE_LIFETIME);
 		int sweepInterval = config.getInt(NetworkConfig.Keys.MARK_AND_SWEEP_INTERVAL);
 		if (time != null) {
-			time.addTestTimeShift(exchangeLifetime + 1000, TimeUnit.MILLISECONDS);
+			time.setTestTimeShift(exchangeLifetime + 1000, TimeUnit.MILLISECONDS);
 		}
 		waitUntilDeduplicatorShouldBeEmpty(exchangeLifetime, sweepInterval, new TestCondition() {
 
@@ -163,12 +163,11 @@ public class MessageExchangeStoreTool {
 
 	private static final CoapStackFactory COAP_STACK_TEST_FACTORY = new CoapStackFactory() {
 
-		@Override
-		public CoapStack createCoapStack(String protocol, String tag, NetworkConfig config, Outbox outbox, Object customStackArgument) {
+		public CoapStack createCoapStack(String protocol, NetworkConfig config, Outbox outbox, Object customStackArgument) {
 			if (CoAP.isTcpProtocol(protocol)) {
 				throw new IllegalArgumentException("protocol \"" + protocol + "\" is not supported!");
 			}
-			return new CoapUdpTestStack(tag, config, outbox);
+			return new CoapUdpTestStack(config, outbox);
 		}
 	};
 
@@ -176,13 +175,13 @@ public class MessageExchangeStoreTool {
 
 		private BlockwiseLayer blockwiseLayer;
 
-		public CoapUdpTestStack(String tag, NetworkConfig config, Outbox outbox) {
-			super(tag, config, outbox);
+		public CoapUdpTestStack(NetworkConfig config, Outbox outbox) {
+			super(config, outbox);
 		}
 
 		@Override
-		protected Layer createBlockwiseLayer(String tag, NetworkConfig config) {
-			blockwiseLayer = (BlockwiseLayer) super.createBlockwiseLayer(tag, config);
+		protected Layer createBlockwiseLayer(NetworkConfig config) {
+			blockwiseLayer = (BlockwiseLayer) super.createBlockwiseLayer(config);
 			return blockwiseLayer;
 		}
 

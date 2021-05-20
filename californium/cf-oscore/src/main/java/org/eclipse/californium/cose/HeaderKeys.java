@@ -48,7 +48,6 @@ public enum HeaderKeys {
     CriticalHeaders(2),
     CounterSignature(7),
     PARTIAL_IV(6),
-    CounterSignature0(9),    
     
     ECDH_EPK(-1),
     ECDH_SPK(-2),

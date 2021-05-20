@@ -51,7 +51,7 @@ public class TcpExchangeCleanupLayer extends AbstractLayer {
 	@Override
 	public void receiveResponse(final Exchange exchange, final Response response) {
 		exchange.setComplete();
-		exchange.getRequest().onTransferComplete();
+		exchange.getRequest().onComplete();
 		super.receiveResponse(exchange, response);
 	}
 }

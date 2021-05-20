@@ -18,6 +18,7 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
+import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -76,9 +77,12 @@ public final class CertificateVerify extends HandshakeMessage {
 	 *            the client's private key to sign the signature.
 	 * @param handshakeMessages
 	 *            the handshake messages which are signed.
+	 * @param peerAddress the IP address and port of the peer this
+	 *            message has been received from or should be sent to
 	 */
 	public CertificateVerify(SignatureAndHashAlgorithm signatureAndHashAlgorithm, PrivateKey clientPrivateKey,
-			List<HandshakeMessage> handshakeMessages) {
+			List<HandshakeMessage> handshakeMessages, InetSocketAddress peerAddress) {
+		super(peerAddress);
 		this.signatureAndHashAlgorithm = signatureAndHashAlgorithm;
 		this.signatureBytes = sign(signatureAndHashAlgorithm, clientPrivateKey, handshakeMessages);
 	}
@@ -91,8 +95,11 @@ public final class CertificateVerify extends HandshakeMessage {
 	 *            the signature and hash algorithm used to verify the signature.
 	 * @param signatureBytes
 	 *            the signature.
+	 * @param peerAddress the IP address and port of the peer this
+	 *            message has been received from or should be sent to
 	 */
-	private CertificateVerify(SignatureAndHashAlgorithm signatureAndHashAlgorithm, byte[] signatureBytes) {
+	private CertificateVerify(SignatureAndHashAlgorithm signatureAndHashAlgorithm, byte[] signatureBytes, InetSocketAddress peerAddress) {
+		super(peerAddress);
 		this.signatureAndHashAlgorithm = signatureAndHashAlgorithm;
 		this.signatureBytes = signatureBytes;
 	}
@@ -117,19 +124,20 @@ public final class CertificateVerify extends HandshakeMessage {
 
 	@Override
 	public byte[] fragmentToByteArray() {
-		DatagramWriter writer = new DatagramWriter(signatureBytes.length + 4);
+		DatagramWriter writer = new DatagramWriter();
 
 		// according to http://tools.ietf.org/html/rfc5246#section-4.7 the
 		// signature algorithm must also be included
 		writer.write(signatureAndHashAlgorithm.getHash().getCode(), HASH_ALGORITHM_BITS);
 		writer.write(signatureAndHashAlgorithm.getSignature().getCode(), SIGNATURE_ALGORITHM_BITS);
 
-		writer.writeVarBytes(signatureBytes, SIGNATURE_LENGTH_BITS);
+		writer.write(signatureBytes.length, SIGNATURE_LENGTH_BITS);
+		writer.writeBytes(signatureBytes);
 
 		return writer.toByteArray();
 	}
 
-	public static HandshakeMessage fromReader(DatagramReader reader) {
+	public static HandshakeMessage fromReader(DatagramReader reader, InetSocketAddress peerAddress) {
 
 		// according to http://tools.ietf.org/html/rfc5246#section-4.7 the
 		// signature algorithm must also be included
@@ -137,9 +145,10 @@ public final class CertificateVerify extends HandshakeMessage {
 		int signatureAlgorithm = reader.read(SIGNATURE_ALGORITHM_BITS);
 		SignatureAndHashAlgorithm signAndHash = new SignatureAndHashAlgorithm(hashAlgorithm, signatureAlgorithm);
 
-		byte[] signature = reader.readVarBytes(SIGNATURE_LENGTH_BITS);
+		int length = reader.read(SIGNATURE_LENGTH_BITS);
+		byte[] signature = reader.readBytes(length);
 
-		return new CertificateVerify(signAndHash, signature);
+		return new CertificateVerify(signAndHash, signature, peerAddress);
 	}
 
 	// Methods ////////////////////////////////////////////////////////
@@ -174,7 +183,7 @@ public final class CertificateVerify extends HandshakeMessage {
 
 		return signatureBytes;
 	}
-
+	
 	/**
 	 * Tries to verify the client's signature contained in the CertificateVerify
 	 * message.
@@ -204,7 +213,7 @@ public final class CertificateVerify extends HandshakeMessage {
 			LOGGER.error("Could not verify the client's signature.", e);
 		}
 		String message = "The client's CertificateVerify message could not be verified.";
-		AlertMessage alert = new AlertMessage(AlertLevel.FATAL, AlertDescription.DECRYPT_ERROR);
+		AlertMessage alert = new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE, getPeer());
 		throw new HandshakeException(message, alert);
 	}
 }

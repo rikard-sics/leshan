@@ -18,30 +18,24 @@
 package org.eclipse.californium.core.network;
 
 import static org.eclipse.californium.core.network.MessageIdTracker.TOTAL_NO_OF_MIDS;
-import static org.eclipse.californium.elements.util.TestConditionTools.inRange;
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertThat;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
-import java.util.concurrent.TimeUnit;
 
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.Message;
 import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.elements.category.Small;
-import org.eclipse.californium.elements.rule.TestTimeRule;
-import org.eclipse.californium.elements.util.ExpectedExceptionWrapper;
 import org.eclipse.californium.rule.CoapNetworkRule;
 import org.eclipse.californium.rule.CoapThreadsRule;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
-import org.junit.rules.ExpectedException;
 
 /**
  * Verifies behavior of {@code InMemoryMessageIdProvider}.
@@ -54,12 +48,6 @@ public class InMemoryMessageIdProviderTest {
 
 	@Rule
 	public CoapThreadsRule cleanup = new CoapThreadsRule();
-
-	@Rule
-	public ExpectedException exception = ExpectedExceptionWrapper.none();
-
-	@Rule
-	public TestTimeRule time = new TestTimeRule();
 
 	private NetworkConfig config = network.createStandardTestConfig();
 
@@ -75,7 +63,7 @@ public class InMemoryMessageIdProviderTest {
 		assertThat(mid1, is(not(mid2)));
 		for (int index = 0; index < TOTAL_NO_OF_MIDS * 2; ++index) {
 			int mid = provider.getNextMessageId(peerAddress);
-			assertThat(mid, is(inRange(0, TOTAL_NO_OF_MIDS)));
+			assertThat(mid, is(not(Message.NONE)));
 		}
 	}
 
@@ -100,19 +88,14 @@ public class InMemoryMessageIdProviderTest {
 		assertThat(mid1, is(not(Message.NONE)));
 		assertThat(mid2, is(not(Message.NONE)));
 		assertThat(mid1, is(not(mid2)));
-
-		exception.expect(IllegalStateException.class);
-		exception.expectMessage(containsString("No MID available, all"));
-
-		provider.getNextMessageId(peerAddress);
+		int mid = provider.getNextMessageId(peerAddress);
 		for (int index = 0; index < TOTAL_NO_OF_MIDS * 2; ++index) {
-			try {
-				provider.getNextMessageId(peerAddress);
-			} catch (IllegalStateException ex) {
-				System.out.println(ex.getMessage());
-				throw ex;
+			mid = provider.getNextMessageId(peerAddress);
+			if (Message.NONE == mid) {
+				break;
 			}
 		}
+		assertThat(mid, is(Message.NONE));
 	}
 
 	@Test(expected = IllegalArgumentException.class)
@@ -142,15 +125,10 @@ public class InMemoryMessageIdProviderTest {
 		InMemoryMessageIdProvider provider = new InMemoryMessageIdProvider(config);
 		addPeers(provider, MAX_PEERS);
 
-		exception.expect(IllegalStateException.class);
-		exception.expectMessage(containsString("No MID available, max."));
-
-		try {
-			provider.getNextMessageId(getPeerAddress(MAX_PEERS + 1));
-		} catch (IllegalStateException ex) {
-			System.out.println(ex.getMessage());
-			throw ex;
-		}
+		assertThat(
+				"Should not have been able to add more peers",
+				provider.getNextMessageId(getPeerAddress(MAX_PEERS + 1)),
+				is(-1));
 	}
 
 	@Test
@@ -163,7 +141,7 @@ public class InMemoryMessageIdProviderTest {
 		InMemoryMessageIdProvider provider = new InMemoryMessageIdProvider(config);
 		addPeers(provider, MAX_PEERS);
 
-		time.addTestTimeShift(MAX_PEER_INACTIVITY_PERIOD * 1200, TimeUnit.MILLISECONDS);
+		Thread.sleep(MAX_PEER_INACTIVITY_PERIOD * 1200);
 
 		assertThat(provider.getNextMessageId(getPeerAddress(MAX_PEERS + 1)), is(not(-1)));
 	}

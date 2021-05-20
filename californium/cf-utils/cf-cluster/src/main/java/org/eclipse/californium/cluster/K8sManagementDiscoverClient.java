@@ -252,7 +252,8 @@ public abstract class K8sManagementDiscoverClient implements ClusterNodesDiscove
 			try {
 				// Get the response
 				Reader reader = new InputStreamReader(inputStream);
-				JsonElement element = JsonParser.parseReader(reader);
+				JsonParser parser = new JsonParser();
+				JsonElement element = parser.parse(reader);
 
 				Set<Pod> pods = new HashSet<>();
 

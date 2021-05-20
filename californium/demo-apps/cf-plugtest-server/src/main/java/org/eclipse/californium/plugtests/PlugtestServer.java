@@ -21,52 +21,26 @@
  ******************************************************************************/
 package org.eclipse.californium.plugtests;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.net.SocketException;
 import java.net.URI;
-import java.security.GeneralSecurityException;
-import java.security.spec.AlgorithmParameterSpec;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
-import javax.crypto.Cipher;
-import javax.crypto.CipherInputStream;
-import javax.crypto.CipherOutputStream;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.IvParameterSpec;
-
-import org.eclipse.californium.core.CoapServer;
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.core.network.Endpoint;
 import org.eclipse.californium.core.network.EndpointObserver;
+import org.eclipse.californium.core.network.MessagePostProcessInterceptors;
 import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.network.config.NetworkConfig.Keys;
 import org.eclipse.californium.core.network.config.NetworkConfigDefaultHandler;
 import org.eclipse.californium.core.network.interceptors.AnonymizedOriginTracer;
 import org.eclipse.californium.core.network.interceptors.HealthStatisticLogger;
 import org.eclipse.californium.core.network.interceptors.MessageTracer;
-import org.eclipse.californium.core.server.ServersSerializationUtil;
 import org.eclipse.californium.elements.tcp.netty.TlsServerConnector.ClientAuthMode;
-import org.eclipse.californium.elements.util.Bytes;
-import org.eclipse.californium.elements.util.DataStreamReader;
-import org.eclipse.californium.elements.util.DatagramWriter;
 import org.eclipse.californium.elements.util.ExecutorsUtil;
-import org.eclipse.californium.elements.util.NamedThreadFactory;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.plugtests.resources.Context;
 import org.eclipse.californium.plugtests.resources.Create;
@@ -94,14 +68,8 @@ import org.eclipse.californium.plugtests.resources.Query;
 import org.eclipse.californium.plugtests.resources.Separate;
 import org.eclipse.californium.plugtests.resources.Shutdown;
 import org.eclipse.californium.plugtests.resources.Validate;
-import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
-import org.eclipse.californium.scandium.dtls.cipher.PseudoRandomFunction;
-import org.eclipse.californium.scandium.dtls.cipher.PseudoRandomFunction.Label;
-import org.eclipse.californium.scandium.dtls.cipher.RandomManager;
-import org.eclipse.californium.scandium.util.SecretUtil;
 
 import picocli.CommandLine;
-import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ParameterException;
@@ -116,7 +84,6 @@ import picocli.CommandLine.ParseResult;
  * CoAP Plugtests, London, UK, 7--9 Mar 2014.
  */
 public class PlugtestServer extends AbstractTestServer {
-
 	private static final File CONFIG_FILE = new File("CaliforniumPlugtest.properties");
 	private static final String CONFIG_HEADER = "Californium CoAP Properties file for Plugtest Server";
 	private static final int DEFAULT_MAX_RESOURCE_SIZE = 8192;
@@ -171,23 +138,8 @@ public class PlugtestServer extends AbstractTestServer {
 		@Option(names = "--client-auth", defaultValue = "NEEDED", description = "client authentication. Values ${COMPLETION-CANDIDATES}, default ${DEFAULT-VALUE}.")
 		public ClientAuthMode clientAuth;
 
-		@ArgGroup(exclusive = false)
-		public Store store;
-
 		@Option(names = "--interfaces-pattern", split = ",", description = "interface regex patterns for endpoints.")
 		public List<String> interfacePatterns;
-
-		public static class Store {
-
-			@Option(names = "--store-file", required = true, description = "file store dtls state.")
-			public String file;
-
-			@Option(names = "--store-password64", required = false, description = "password to store dtls state. base 64 encoded.")
-			public String password64;
-
-			@Option(names = "--store-max-age", required = true, description = "maximum age of connections in hours.")
-			public Integer maxAge;
-		}
 
 		public List<Protocol> getProtocols() {
 			List<Protocol> protocols = new ArrayList<>();
@@ -237,12 +189,6 @@ public class PlugtestServer extends AbstractTestServer {
 
 	private static final Config config = new Config();
 
-	private static PlugtestServer server;
-	private static List<CoapServer> servers = new CopyOnWriteArrayList<>();
-	private static BaseConfig.Store storeConfig;
-	private static File store;
-	private static byte[] state;
-
 	public static void main(String[] args) {
 		CommandLine cmd = new CommandLine(config);
 		try {
@@ -263,50 +209,10 @@ public class PlugtestServer extends AbstractTestServer {
 			cmd.usage(System.err);
 			System.exit(-1);
 		}
-		init(config);
-		load(config);
-		NetworkConfig netConfig = NetworkConfig.createWithFile(CONFIG_FILE, CONFIG_HEADER, DEFAULTS);
-		ScheduledExecutorService executor = ExecutorsUtil.newScheduledThreadPool(//
-				netConfig.getInt(NetworkConfig.Keys.PROTOCOL_STAGE_THREAD_COUNT), //
-				new NamedThreadFactory("CoapServer(main)#")); //$NON-NLS-1$
-		ScheduledExecutorService secondaryExecutor = ExecutorsUtil
-				.newDefaultSecondaryScheduler("CoapServer(secondary)#");
-		start(executor, secondaryExecutor, config, new ActiveInputReader());
-		LOGGER.info("Executor shutdown ...");
-		ExecutorsUtil.shutdownExecutorGracefully(500, executor, secondaryExecutor);
-		exit();
-		LOGGER.info("Exit ...");
+		start(config);
 	}
 
-	public static void exit() {
-		int count = Thread.activeCount();
-		while (count > 0) {
-			int size = Thread.activeCount();
-			Thread[] all = new Thread[size];
-			int available = Thread.enumerate(all);
-			if (available < size) {
-				size = available;
-			}
-			count = 0;
-			for (int index = 0; index < size; ++index) {
-				Thread thread = all[index];
-				if (!thread.isDaemon() && thread.isAlive()) {
-					++count;
-					LOGGER.info("Thread [{}] {}", thread.getId(), thread.getName());
-				}
-			}
-			if (count == 1) {
-				break;
-			}
-			try {
-				Thread.sleep(500);
-			} catch (InterruptedException e) {
-				break;
-			}
-		}
-	}
-
-	public static void init(BaseConfig config) {
+	public static void start(BaseConfig config) {
 
 		NetworkConfig netconfig = NetworkConfig.createWithFile(CONFIG_FILE, CONFIG_HEADER, DEFAULTS);
 
@@ -316,9 +222,7 @@ public class PlugtestServer extends AbstractTestServer {
 
 			List<InterfaceType> types = config.getInterfaceTypes();
 
-			server = new PlugtestServer(netconfig);
-			server.setTag("PLUG-TEST");
-			add(server);
+			PlugtestServer server = new PlugtestServer(netconfig);
 			// ETSI Plugtest environment
 //			server.addEndpoint(new CoAPEndpoint(new InetSocketAddress("::1", port)));
 //			server.addEndpoint(new CoAPEndpoint(new InetSocketAddress("127.0.0.1", port)));
@@ -329,6 +233,46 @@ public class PlugtestServer extends AbstractTestServer {
 				System.err.println("no endpoint available!");
 				System.exit(ERR_INIT_FAILED);
 			}
+			server.start();
+
+			ScheduledThreadPoolExecutor executor = ExecutorsUtil.newDefaultSecondaryScheduler("Health#");
+
+			// add special interceptor for message traces
+			for (Endpoint ep : server.getEndpoints()) {
+				URI uri = ep.getUri();
+				ep.addInterceptor(new MessageTracer());
+				// Anonymized IoT metrics for validation. On success, remove the OriginTracer.
+				ep.addInterceptor(new AnonymizedOriginTracer(uri.getPort() + "-" + uri.getScheme()));
+				if (ep instanceof MessagePostProcessInterceptors) {
+					int interval = ep.getConfig().getInt(NetworkConfig.Keys.HEALTH_STATUS_INTERVAL);
+					final HealthStatisticLogger healthLogger = new HealthStatisticLogger(uri.toASCIIString(),
+							!CoAP.isTcpScheme(uri.getScheme()), interval, executor);
+					if (healthLogger.isEnabled()) {
+						((MessagePostProcessInterceptors) ep).addPostProcessInterceptor(healthLogger);
+						ep.addObserver(new EndpointObserver() {
+
+							@Override
+							public void stopped(Endpoint endpoint) {
+								healthLogger.stop();
+							}
+
+							@Override
+							public void started(Endpoint endpoint) {
+								healthLogger.start();
+							}
+
+							@Override
+							public void destroyed(Endpoint endpoint) {
+								healthLogger.stop();
+							}
+						});
+						healthLogger.start();
+					}
+				}
+			}
+
+			System.out.println(PlugtestServer.class.getSimpleName() + " started ...");
+
 		} catch (Exception e) {
 
 			System.err.printf("Failed to create " + PlugtestServer.class.getSimpleName() + ": %s\n", e.getMessage());
@@ -337,307 +281,6 @@ public class PlugtestServer extends AbstractTestServer {
 			System.exit(ERR_INIT_FAILED);
 		}
 
-	}
-
-	public static void add(CoapServer server) {
-		servers.add(server);
-	}
-
-	private static Cipher init(int mode, SecretKey password, byte[] seed) {
-		try {
-			CipherSuite cipherSuite = CipherSuite.TLS_PSK_WITH_AES_128_CBC_SHA256;
-			byte[] data = PseudoRandomFunction.doPRF(cipherSuite.getThreadLocalPseudoRandomFunctionMac(), password,
-					Label.KEY_EXPANSION_LABEL, seed, 32);
-			SecretKey key = SecretUtil.create(data, 0, 16, "AES");
-			AlgorithmParameterSpec parameterSpec = new IvParameterSpec(data, 16, 16);
-			Bytes.clear(data);
-			Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-			cipher.init(mode, key, parameterSpec);
-			SecretUtil.destroy(key);
-			return cipher;
-		} catch (GeneralSecurityException ex) {
-			LOGGER.warn("encryption error:", ex);
-			return null;
-		}
-	}
-
-	public static void loadServers(InputStream in, SecretKey key) {
-		DataStreamReader reader = new DataStreamReader(in);
-		byte[] seed = reader.readVarBytes(Byte.SIZE);
-		if (seed != null && seed.length > 0) {
-			if (key == null) {
-				LOGGER.warn("missing key!");
-				return;
-			}
-			Cipher cipher = init(Cipher.DECRYPT_MODE, key, seed);
-			if (cipher == null) {
-				LOGGER.warn("crypto error!");
-				return;
-			}
-			in = new CipherInputStream(in, cipher);
-		}
-		ServersSerializationUtil.loadServers(in, servers);
-	}
-
-	public static void load(BaseConfig config) {
-
-		if (config.store != null) {
-			storeConfig = config.store;
-			store = new File(config.store.file);
-			if (store.exists()) {
-				SecretKey key = null;
-				if (config.store.password64 != null) {
-					byte[] secret = StringUtil.base64ToByteArray(config.store.password64);
-					key = SecretUtil.create(secret, "PW");
-					Bytes.clear(secret);
-				}
-				try {
-					FileInputStream in = new FileInputStream(store);
-					try {
-						loadServers(in, key);
-					} finally {
-						in.close();
-					}
-					LOGGER.info("Server state read.");
-					store.delete();
-				} catch (IOException ex) {
-					LOGGER.warn("Reading server state failed!", ex);
-				} catch (IllegalArgumentException ex) {
-					LOGGER.warn("Reading server state failed!", ex);
-				} finally {
-					SecretUtil.destroy(key);
-				}
-			}
-		}
-	}
-
-	public static void load(String password) {
-		if (state != null) {
-			SecretKey key = toKey(password);
-			ByteArrayInputStream in = new ByteArrayInputStream(state);
-			loadServers(in, key);
-			LOGGER.info("Loaded: {} Bytes ({})", state.length, password);
-			state = null;
-			for (CoapServer server : servers) {
-				server.start();
-			}
-			SecretUtil.destroy(key);
-			try {
-				in.close();
-			} catch (IOException e) {
-			}
-		} else {
-			LOGGER.info("no data to load!");
-		}
-	}
-
-	public static void start(ScheduledExecutorService mainExecutor, ScheduledExecutorService secondaryExecutor,
-			BaseConfig config, ActiveInputReader inputReader) {
-		registerShutdown();
-
-		if (server != null) {
-			server.setExecutors(mainExecutor, secondaryExecutor, true);
-			server.start();
-
-			// add special interceptor for message traces
-			for (Endpoint ep : server.getEndpoints()) {
-				URI uri = ep.getUri();
-				ep.addInterceptor(new MessageTracer());
-				// Anonymized IoT metrics for validation. On success, remove the OriginTracer.
-				ep.addInterceptor(new AnonymizedOriginTracer(uri.getPort() + "-" + uri.getScheme()));
-				int interval = ep.getConfig().getInt(NetworkConfig.Keys.HEALTH_STATUS_INTERVAL);
-				final HealthStatisticLogger healthLogger = new HealthStatisticLogger(uri.toASCIIString(),
-						!CoAP.isTcpScheme(uri.getScheme()), interval, secondaryExecutor);
-				if (healthLogger.isEnabled()) {
-					ep.addPostProcessInterceptor(healthLogger);
-					ep.addObserver(new EndpointObserver() {
-
-						@Override
-						public void stopped(Endpoint endpoint) {
-							healthLogger.stop();
-						}
-
-						@Override
-						public void started(Endpoint endpoint) {
-							healthLogger.start();
-						}
-
-						@Override
-						public void destroyed(Endpoint endpoint) {
-							healthLogger.stop();
-						}
-					});
-					healthLogger.start();
-				}
-			}
-
-			LOGGER.info("{} started ...", PlugtestServer.class.getSimpleName());
-
-			if (inputReader != null) {
-				for (;;) {
-					if (console(inputReader, 15000)) {
-						break;
-					}
-				}
-				LOGGER.info("{} stopping ...", PlugtestServer.class.getSimpleName());
-				shutdown();
-			}
-		}
-	}
-
-	public static void shutdown() {
-		if (server != null) {
-			server.stop();
-		}
-	}
-
-	public static void saveServers(OutputStream out, SecretKey key, long maxAgeInSeconds) throws IOException {
-		DatagramWriter writer = new DatagramWriter();
-		if (key != null) {
-			byte[] seed = new byte[16];
-			RandomManager.currentSecureRandom().nextBytes(seed);
-			Cipher cipher = init(Cipher.ENCRYPT_MODE, key, seed);
-			if (cipher != null) {
-				writer.writeVarBytes(seed, Byte.SIZE);
-				writer.writeTo(out);
-				out = new CipherOutputStream(out, cipher);
-			} else {
-				LOGGER.warn("crypto error!");
-				writer.reset();
-				key = null;
-			}
-		}
-		if (key == null) {
-			writer.writeVarBytes(Bytes.EMPTY, Byte.SIZE);
-			writer.writeTo(out);
-		}
-		ServersSerializationUtil.saveServers(out, maxAgeInSeconds, servers);
-		out.close();
-	}
-
-	public static void save(String password) {
-		SecretKey key = toKey(password);
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		if (state != null) {
-			Bytes.clear(state);
-		}
-		try {
-			// max age 10 minutes
-			saveServers(out, key, 60 * 10);
-			state = out.toByteArray();
-			out.close();
-		} catch (IOException ex) {
-			LOGGER.warn("saving failed:", ex);
-		} finally {
-			SecretUtil.destroy(key);
-		}
-		LOGGER.info("Saved: {} Bytes ({})", state.length, password);
-	}
-
-	public static SecretKey toKey(String password) {
-		SecretKey key = null;
-		if (password != null && !password.isEmpty()) {
-			key = SecretUtil.create(password.getBytes(), "PW");
-		}
-		return key;
-	}
-
-	public static boolean console(ActiveInputReader reader, long timeout) {
-		try {
-			String line = reader.getLine(timeout);
-			if (line != null) {
-				System.out.println("> " + line);
-				if (line.startsWith("save")) {
-					save(line.substring(4));
-				} else if (line.startsWith("load")) {
-					load(line.substring(4));
-				} else if (line.equals("exit")) {
-					return true;
-				}
-			}
-		} catch (RuntimeException e) {
-			e.printStackTrace();
-		} catch (InterruptedException e) {
-			return true;
-		}
-		return false;
-	}
-
-	private static void registerShutdown() {
-		LOGGER.info("register shutdown hook.");
-		Runtime.getRuntime().addShutdownHook(new Thread("SHUTDOWN") {
-
-			@Override
-			public void run() {
-				LOGGER.info("Shutdown ...");
-				if (store != null) {
-					store.delete();
-					SecretKey key = null;
-					if (storeConfig.password64 != null) {
-						byte[] secret = StringUtil.base64ToByteArray(storeConfig.password64);
-						key = SecretUtil.create(secret, "PW");
-						Bytes.clear(secret);
-					}
-					try {
-						FileOutputStream out = new FileOutputStream(store);
-						try {
-							saveServers(out, key, TimeUnit.HOURS.toSeconds(storeConfig.maxAge));
-						} finally {
-							out.close();
-						}
-					} catch (IOException ex) {
-						LOGGER.warn("Saving server state failed!", ex);
-						store.delete();
-					} finally {
-						SecretUtil.destroy(key);
-					}
-				}
-				LOGGER.info("Shutdown.");
-			}
-		});
-	}
-
-	public static class ActiveInputReader {
-
-		BufferedReader in;
-		Queue<String> buffer;
-		Thread thread;
-
-		public ActiveInputReader() {
-			in = new BufferedReader(new InputStreamReader(System.in));
-			buffer = new ConcurrentLinkedQueue<>();
-			thread = new Thread(new Runnable() {
-
-				@Override
-				public void run() {
-					read();
-				}
-			}, "INPUT");
-			thread.setDaemon(true);
-			thread.start();
-		}
-
-		public void read() {
-			String line = null;
-			try {
-				while ((line = in.readLine()) != null) {
-					buffer.add(line);
-					synchronized (buffer) {
-						buffer.notify();
-					}
-				}
-			} catch (IOException e) {
-			}
-		}
-
-		public String getLine(long timeout) throws InterruptedException {
-			if (timeout >= 0) {
-				synchronized (buffer) {
-					buffer.wait(timeout);
-				}
-			}
-			return buffer.poll();
-		}
 	}
 
 	public PlugtestServer(NetworkConfig config) throws SocketException {

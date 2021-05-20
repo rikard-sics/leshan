@@ -24,14 +24,14 @@ import java.util.Arrays;
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 
-import org.eclipse.californium.elements.Connector;
+import org.eclipse.californium.elements.ExtendedConnector;
 import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.RawDataChannel;
 import org.eclipse.californium.elements.UDPConnector;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.scandium.config.DtlsClusterConnectorConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
-import org.eclipse.californium.scandium.dtls.DTLSContext;
+import org.eclipse.californium.scandium.dtls.DTLSSession;
 import org.eclipse.californium.scandium.dtls.Handshaker;
 import org.eclipse.californium.scandium.dtls.NodeConnectionIdGenerator;
 import org.eclipse.californium.scandium.dtls.ResumptionSupportingConnectionStore;
@@ -96,7 +96,7 @@ public class DtlsManagedClusterConnector extends DtlsClusterConnector {
 	 * Connector for cluster management. Also used to forward and backward
 	 * tls_cid records.
 	 */
-	private final Connector clusterManagementConnector;
+	private final ExtendedConnector clusterManagementConnector;
 
 	/**
 	 * Create dtls connector with cluster management communication.
@@ -227,7 +227,7 @@ public class DtlsManagedClusterConnector extends DtlsClusterConnector {
 	 * 
 	 * @return cluster management connector
 	 */
-	public Connector getClusterManagementConnector() {
+	public ExtendedConnector getClusterManagementConnector() {
 		return clusterManagementConnector;
 	}
 
@@ -241,12 +241,12 @@ public class DtlsManagedClusterConnector extends DtlsClusterConnector {
 	protected void processDatagramFromClusterNetwork(Byte type, DatagramPacket clusterPacket) throws IOException {
 		if (useClusterMac) {
 			try {
-				DTLSContext context = ((DTLSConnector) clusterManagementConnector)
-						.getDtlsContextByAddress((InetSocketAddress) clusterPacket.getSocketAddress());
-				if (context == null) {
-					throw new IOException("Cluster MAC could not be validated! Missing DTLS context.");
+				DTLSSession session = ((DTLSConnector) clusterManagementConnector)
+						.getSessionByAddress((InetSocketAddress) clusterPacket.getSocketAddress());
+				if (session == null) {
+					throw new IOException("Cluster MAC could not be validated! Missing session.");
 				}
-				Mac mac = context.getThreadLocalClusterReadMac();
+				Mac mac = session.getThreadLocalClusterReadMac();
 				if (mac == null) {
 					throw new IOException("Cluster MAC could not be validated! Missing keys.");
 				}
@@ -288,12 +288,12 @@ public class DtlsManagedClusterConnector extends DtlsClusterConnector {
 	protected void sendDatagramToClusterNetwork(DatagramPacket clusterPacket) throws IOException {
 		if (useClusterMac) {
 			try {
-				DTLSContext context = ((DTLSConnector) clusterManagementConnector)
-						.getDtlsContextByAddress((InetSocketAddress) clusterPacket.getSocketAddress());
-				if (context == null) {
+				DTLSSession session = ((DTLSConnector) clusterManagementConnector)
+						.getSessionByAddress((InetSocketAddress) clusterPacket.getSocketAddress());
+				if (session == null) {
 					throw new IOException("Cluster MAC could not be generated! Missing session.");
 				}
-				Mac mac = context.getThreadLocalClusterWriteMac();
+				Mac mac = session.getThreadLocalClusterWriteMac();
 				if (mac == null) {
 					throw new IOException("Cluster MAC could not be generated! Missing keys.");
 				}
@@ -401,7 +401,7 @@ public class DtlsManagedClusterConnector extends DtlsClusterConnector {
 	/**
 	 * Cluster management connector using UDP.
 	 */
-	private class ClusterManagementUdpConnector extends UDPConnector {
+	private class ClusterManagementUdpConnector extends UDPConnector implements ExtendedConnector {
 
 		public ClusterManagementUdpConnector(InetSocketAddress bindAddress) {
 			super(bindAddress);
@@ -412,6 +412,11 @@ public class DtlsManagedClusterConnector extends DtlsClusterConnector {
 			if (isRunning())
 				return;
 			init(clusterInternalSocket);
+		}
+
+		@Override
+		public boolean isRunning() {
+			return running;
 		}
 
 		@Override
@@ -435,7 +440,7 @@ public class DtlsManagedClusterConnector extends DtlsClusterConnector {
 	/**
 	 * Cluster management connector using DTLS.
 	 */
-	private class ClusterManagementDtlsConnector extends DTLSConnector  {
+	private class ClusterManagementDtlsConnector extends DTLSConnector implements ExtendedConnector {
 
 		public ClusterManagementDtlsConnector(DtlsConnectorConfig configuration) {
 			super(configuration);
@@ -468,6 +473,11 @@ public class DtlsManagedClusterConnector extends DtlsClusterConnector {
 					}
 				}
 			});
+		}
+
+		@Override
+		public void processDatagram(DatagramPacket datagram) {
+			super.processDatagram(datagram, null);
 		}
 
 		@Override

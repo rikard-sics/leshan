@@ -19,8 +19,8 @@ import static org.eclipse.californium.elements.util.TestCertificatesTools.*;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsNull.notNullValue;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assume.assumeTrue;
 
 import java.io.IOException;

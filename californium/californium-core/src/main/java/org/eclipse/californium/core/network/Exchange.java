@@ -61,6 +61,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.californium.core.coap.BlockOption;
@@ -75,7 +76,6 @@ import org.eclipse.californium.core.network.stack.CoapStack;
 import org.eclipse.californium.core.observe.ObserveRelation;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.elements.EndpointContext;
-import org.eclipse.californium.elements.UdpMulticastConnector;
 import org.eclipse.californium.elements.util.ClockUtil;
 import org.eclipse.californium.elements.util.SerialExecutor;
 import org.slf4j.Logger;
@@ -216,9 +216,11 @@ public class Exchange {
 
 	/**
 	 * The realtime in nanoseconds, just before the last message of this
-	 * exchange was sent.
+	 * exchange was sent. {@code 0}, if no message was sent until now. In the
+	 * extremely rare cases, that the realtime in nanosecond is actually
+	 * {@code 0}, the value is adapted to {@code -1}.
 	 */
-	private volatile long sendNanoTimestamp;
+	private final AtomicLong sendNanoTimestamp = new AtomicLong();
 
 	/**
 	 * The actual request that caused this exchange. Layers below the
@@ -372,7 +374,8 @@ public class Exchange {
 	 * endpoint context of the current request to send the RST.
 	 * 
 	 * Note: since 2.3, rejects for multicast requests are not sent. (See
-	 * {@link UdpMulticastConnector} for receiving multicast requests).
+	 * {@link MulticastReceivers#addMulticastReceiver(org.eclipse.californium.elements.Connector)
+	 * for receiving multicast requests}.
 	 * 
 	 * @see #sendReject(EndpointContext)
 	 * @since 2.3 rejects for multicast requests are not sent
@@ -387,7 +390,8 @@ public class Exchange {
 	 * client, if the request has not been already rejected.
 	 * 
 	 * Note: since 2.3, rejects for multicast requests are not sent. (See
-	 * {@link UdpMulticastConnector} for receiving multicast requests).
+	 * {@link MulticastReceivers#addMulticastReceiver(org.eclipse.californium.elements.Connector)
+	 * for receiving multicast requests}.
 	 * 
 	 * @param context endpoint context to send RST
 	 * 
@@ -414,7 +418,8 @@ public class Exchange {
 	 * request.
 	 * 
 	 * Note: since 2.3, error responses for multicast requests are not sent. (See
-	 * {@link UdpMulticastConnector} for receiving multicast requests).
+	 * {@link MulticastReceivers#addMulticastReceiver(org.eclipse.californium.elements.Connector)
+	 * for receiving multicast requests}.
 	 * 
 	 * @param response the response
 	 * @since 2.3 error responses for multicast requests are not sent
@@ -732,7 +737,7 @@ public class Exchange {
 	/**
 	 * Set retransmission handle.
 	 * 
-	 * @param newRetransmissionHandle new retransmission handle
+	 * @param newRetransmissionHandle
 	 * @throws ConcurrentModificationException if not executed within
 	 *             {@link #execute(Runnable)}.
 	 */
@@ -950,23 +955,29 @@ public class Exchange {
 	 * Get the realtime of the last sending of a message in nanoseconds.
 	 * 
 	 * The realtime is just before sending this message to ensure, that the
-	 * message wasn't sent up to this time. This will also contain the realtime
+	 * message wasn't sent up to this time. This will alos contain the realtime
 	 * for ACK or RST messages.
 	 * 
-	 * @return nano-time of last message sending.
+	 * @return nano-time of last message sending. {@code 0}, if no message was
+	 *         sent until now. In the extremely rare cases, that the realtime in
+	 *         nanosecond is actually {@code 0}, the value is adapted to
+	 *         {@code -1}.
 	 * @see ClockUtil#nanoRealtime()
 	 */
 	public long getSendNanoTimestamp() {
-		return sendNanoTimestamp;
+		return sendNanoTimestamp.get();
 	}
 
 	/**
 	 * Set the realtime of the last sending of a message in nanoseconds.
 	 * 
-	 * @param nanoTimestamp realtime in nanoseconds
+	 * @param nanoTimestamp realtime in nanoseconds.{@code 0}, if no message was
+	 *            sent until now. In the extremely rare cases, that the realtime
+	 *            in nanosecond is actually {@code 0}, the value must be adapted
+	 *            to {@code -1}.
 	 */
 	public void setSendNanoTimestamp(long nanoTimestamp) {
-		sendNanoTimestamp = nanoTimestamp;
+		sendNanoTimestamp.set(nanoTimestamp);
 	}
 
 	/**
@@ -1062,10 +1073,6 @@ public class Exchange {
 		} else {
 			endpointContext.set(ctx);
 		}
-	}
-
-	public void resetEndpointContext() {
-		endpointContext.set(null);
 	}
 
 	/**

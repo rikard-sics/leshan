@@ -20,9 +20,12 @@ package org.eclipse.californium.scandium.dtls;
  * 
  * The implementation must take care, that the calling thread is undefined.
  * 
+ * Note: the PskSecretResultHandler will be removed with 3.0
+ * 
  * @since 2.5
  */
-public interface HandshakeResultHandler {
+@SuppressWarnings("deprecation")
+public interface HandshakeResultHandler extends PskSecretResultHandler {
 
 	/**
 	 * Apply handshake result.

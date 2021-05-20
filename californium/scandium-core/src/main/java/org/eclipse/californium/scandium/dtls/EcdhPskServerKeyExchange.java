@@ -15,6 +15,8 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
+import java.net.InetSocketAddress;
+
 import org.eclipse.californium.elements.util.DatagramReader;
 import org.eclipse.californium.elements.util.DatagramWriter;
 import org.eclipse.californium.elements.util.NoPublicAPI;
@@ -49,25 +51,28 @@ public final class EcdhPskServerKeyExchange extends ECDHServerKeyExchange {
 	 * @see <a href="http://tools.ietf.org/html/rfc4279#section-3">RFC 4279</a>
 	 * @param pskHint preshared key hint in clear text
 	 * @param ecdhe {@code XECDHECryptography} including the supported group and the peer's public key
+	 * @param peerAddress peer's address
 	 * @throws NullPointerException if the arguments pskHint or ecdhe are {@code null}
 	 */
-	public EcdhPskServerKeyExchange(PskPublicInformation pskHint, XECDHECryptography ecdhe) {
-		super(ecdhe.getSupportedGroup(), ecdhe.getEncodedPoint());
+	public EcdhPskServerKeyExchange(PskPublicInformation pskHint, XECDHECryptography ecdhe,
+			InetSocketAddress peerAddress) {
+		super(ecdhe.getSupportedGroup(), ecdhe.getEncodedPoint(), peerAddress);
 		if (pskHint == null) {
 			throw new NullPointerException("PSK hint must not be null");
 		}
 		this.hint = pskHint;
 	}
 
-	private EcdhPskServerKeyExchange(byte[] hintEncoded, SupportedGroup supportedGroup, byte[] encodedPoint) throws HandshakeException {		
-		super(supportedGroup, encodedPoint);
+	private EcdhPskServerKeyExchange(byte[] hintEncoded, SupportedGroup supportedGroup, byte[] encodedPoint, InetSocketAddress peerAddress) throws HandshakeException {		
+		super(supportedGroup, encodedPoint, peerAddress);
 		this.hint = PskPublicInformation.fromByteArray(hintEncoded);
 	}
 
 	@Override
 	public byte[] fragmentToByteArray() {
 		DatagramWriter writer = new DatagramWriter();
-		writer.writeVarBytes(hint, IDENTITY_HINT_LENGTH_BITS);
+		writer.write(hint.length(), IDENTITY_HINT_LENGTH_BITS);
+		writer.writeBytes(hint.getBytes());
 		writeNamedCurve(writer);
 		return writer.toByteArray();
 	}
@@ -76,14 +81,19 @@ public final class EcdhPskServerKeyExchange extends ECDHServerKeyExchange {
 	 * Creates a new server key exchange instance from its byte representation.
 	 * 
 	 * @param reader reader for the binary encoding of the message.
+	 * @param peerAddress peer address
 	 * @return {@code EcdhPskServerKeyExchange}
 	 * @throws HandshakeException if the byte array includes unsupported curve
 	 * @throws NullPointerException if either byteArray or peerAddress is {@code null}
 	 */
-	public static HandshakeMessage fromReader(DatagramReader reader) throws HandshakeException {
-		byte[] hintEncoded = reader.readVarBytes(IDENTITY_HINT_LENGTH_BITS);
-		EcdhData ecdhData = readNamedCurve(reader);
-		return new EcdhPskServerKeyExchange(hintEncoded, ecdhData.supportedGroup, ecdhData.encodedPoint);
+	public static HandshakeMessage fromReader(DatagramReader reader, InetSocketAddress peerAddress) throws HandshakeException {
+		if (peerAddress == null) {
+			throw new NullPointerException("peer address cannot be null");
+		}
+		int hintLength = reader.read(IDENTITY_HINT_LENGTH_BITS);
+		byte[] hintEncoded = reader.readBytes(hintLength);
+		EcdhData ecdhData = readNamedCurve(reader, peerAddress);
+		return new EcdhPskServerKeyExchange(hintEncoded, ecdhData.supportedGroup, ecdhData.encodedPoint, peerAddress);
 	}
 
 	@Override

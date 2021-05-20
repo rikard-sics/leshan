@@ -62,6 +62,7 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509ExtendedKeyManager;
 import javax.net.ssl.X509ExtendedTrustManager;
+import javax.net.ssl.X509TrustManager;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -208,12 +209,18 @@ public class SslContextUtil {
 	 * 
 	 * @since 2.4
 	 */
-	@NotForAndroid
-	private static final TrustManager TRUST_ALL = new SimpleX509ExtendedTrustManager(new X509Certificate[0]);
+	private static final TrustManager TRUST_ALL;
 
 	static {
 		Asn1DerDecoder.getEdDsaProvider();
 		configureDefaults();
+		TrustManager trustAll;
+		try {
+			trustAll = new X509ExtendedTrustAllManager();
+		} catch (NoClassDefFoundError ex) {
+			trustAll = new X509TrustAllManager();
+		}
+		TRUST_ALL = trustAll;
 	}
 
 	/**
@@ -1099,35 +1106,11 @@ public class SslContextUtil {
 	 * Create trust manager trusting all.
 	 * 
 	 * @return trust manager trusting all
-	 * @see #createSimpleTrustManager(Certificate[])
 	 * @since 2.4
 	 */
 	@NotForAndroid
 	public static TrustManager[] createTrustAllManager() {
 		return new TrustManager[] { TRUST_ALL };
-	}
-
-	/**
-	 * Create simple trust manager from trusted certificates.
-	 * 
-	 * Validate certificate chains, but does not validate the destination using
-	 * the subject. Use with care! This usually requires, that no public trust
-	 * root is used!
-	 * 
-	 * @param trusts trusted certificates. If an empty array is provided, the
-	 *            trust anchor is not checked.
-	 * @return trust manager
-	 * @throws NullPointerException if trusted certificates is {@code null}.
-	 * @see #createTrustAllManager()
-	 * @since 3.0
-	 */
-	@NotForAndroid
-	public static TrustManager[] createSimpleTrustManager(Certificate[] trusts) throws GeneralSecurityException {
-		if (null == trusts) {
-			throw new NullPointerException("trusted certificates must be provided!");
-		}
-		X509Certificate[] x509trusts = asX509Certificates(trusts);
-		return new TrustManager[] { new SimpleX509ExtendedTrustManager(x509trusts) };
 	}
 
 	/**
@@ -1367,29 +1350,17 @@ public class SslContextUtil {
 	}
 
 	/**
-	 * Simple trust manager.
+	 * Trust all manager.
 	 * 
-	 * Validate certificate chains, but does not validate the destination by the
-	 * subject. Use with care! This usually requires, that no public trust root
-	 * is used!
+	 * Validate certificate chain trusting all chain roots.
+	 * {@link X509ExtendedTrustAllManager#getAcceptedIssuers()} returns an empty
+	 * array.
 	 * 
-	 * @since 3.0 (was X509ExtendedTrustAllManager)
+	 * @since 2.6.3 (bugfix for older Android versions)
 	 */
-	@NotForAndroid
-	private static class SimpleX509ExtendedTrustManager extends X509ExtendedTrustManager {
+	private static class X509TrustAllManager implements X509TrustManager {
 
-		private final X509Certificate[] trusts;
-
-		/**
-		 * Create simple trust manager.
-		 * 
-		 * @param trusts trusted certificates. If an empty array is provided,
-		 *            the trust anchor is not checked.
-		 * @since 3.0
-		 */
-		private SimpleX509ExtendedTrustManager(X509Certificate[] trusts) {
-			this.trusts = trusts;
-		}
+		private static final X509Certificate[] NO_ISSUERS = new X509Certificate[0];
 
 		/**
 		 * Validate certificate chain trusting all chain roots.
@@ -1399,7 +1370,7 @@ public class SslContextUtil {
 		 *            server's chain.
 		 * @throws CertificateException if the validation fails.
 		 */
-		private void validateChain(X509Certificate[] chain, boolean client) throws CertificateException {
+		private static void validateChain(X509Certificate[] chain, boolean client) throws CertificateException {
 			if (chain != null && chain.length > 0) {
 				LOGGER.debug("check certificate {} for {}", chain[0].getSubjectDN(), client ? "client" : "server");
 				if (!CertPathUtil.canBeUsedForAuthentication(chain[0], client)) {
@@ -1412,8 +1383,8 @@ public class SslContextUtil {
 				}
 				CertPath path = CertPathUtil.generateValidatableCertPath(Arrays.asList(chain), null);
 				try {
-					CertPathUtil.validateCertificatePathWithIssuer(true, path, trusts);
-					LOGGER.trace("check certificate {} [chain.length={}] for {} validated!", chain[0].getSubjectDN(),
+					CertPathUtil.validateCertificatePathWithIssuer(false, path, NO_ISSUERS);
+					LOGGER.trace("check certificate {}[{}] for {} validated!", chain[0].getSubjectDN(),
 							chain.length,
 							client ? "client" : "server");
 				} catch (GeneralSecurityException e) {
@@ -1440,31 +1411,60 @@ public class SslContextUtil {
 
 		@Override
 		public X509Certificate[] getAcceptedIssuers() {
-			return trusts;
+			return NO_ISSUERS;
+		}
+
+	}
+
+	/**
+	 * Trust all manager.
+	 * 
+	 * Validate certificate chain trusting all chain roots.
+	 * {@link X509ExtendedTrustAllManager#getAcceptedIssuers()} returns an empty
+	 * array.
+	 * 
+	 * @since 2.4
+	 */
+	@NotForAndroid
+	private static class X509ExtendedTrustAllManager extends X509ExtendedTrustManager {
+
+		@Override
+		public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+			X509TrustAllManager.validateChain(chain, true);
+		}
+
+		@Override
+		public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+			X509TrustAllManager.validateChain(chain, false);
+		}
+
+		@Override
+		public X509Certificate[] getAcceptedIssuers() {
+			return X509TrustAllManager.NO_ISSUERS;
 		}
 
 		@Override
 		public void checkClientTrusted(X509Certificate[] chain, String authType, Socket socket)
 				throws CertificateException {
-			validateChain(chain, true);
+			X509TrustAllManager.validateChain(chain, true);
 		}
 
 		@Override
 		public void checkClientTrusted(X509Certificate[] chain, String authType, SSLEngine engine)
 				throws CertificateException {
-			validateChain(chain, true);
+			X509TrustAllManager.validateChain(chain, true);
 		}
 
 		@Override
 		public void checkServerTrusted(X509Certificate[] chain, String authType, Socket socket)
 				throws CertificateException {
-			validateChain(chain, false);
+			X509TrustAllManager.validateChain(chain, false);
 		}
 
 		@Override
 		public void checkServerTrusted(X509Certificate[] chain, String authType, SSLEngine engine)
 				throws CertificateException {
-			validateChain(chain, false);
+			X509TrustAllManager.validateChain(chain, false);
 		}
 	}
 }

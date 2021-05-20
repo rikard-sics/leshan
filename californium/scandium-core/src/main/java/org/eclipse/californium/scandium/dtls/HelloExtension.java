@@ -19,6 +19,8 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
+import java.net.InetSocketAddress;
+
 import org.eclipse.californium.elements.util.DatagramReader;
 import org.eclipse.californium.elements.util.DatagramWriter;
 
@@ -55,7 +57,7 @@ public abstract class HelloExtension {
 
 	// Members ////////////////////////////////////////////////////////
 
-	private final ExtensionType type;
+	private ExtensionType type;
 
 	// Constructors ///////////////////////////////////////////////////
 
@@ -100,9 +102,12 @@ public abstract class HelloExtension {
 	/**
 	 * Adds binary encoding of this extension's data.
 	 * <p>
-	 * <em>Note</em>: Subclasses MUST NOT write the extension's type code to the writer
+	 * This implementation does not do anything. Sub-classes should
+	 * override this method and use the passed-in writer to add their
+	 * <em>extension_data</em> bytes to the <em>Extension</em> data structure.
+	 * <p>
+	 * <em>NB</em>: Subclasses MUST NOT write the extension's type code to the writer
 	 * as this will already have been done by the {@link #toByteArray()} method.
-	 * </p>
 	 * 
 	 * @param writer the writer to use for serialization
 	 */
@@ -123,12 +128,13 @@ public abstract class HelloExtension {
 	 * 
 	 * @param typeCode the extension type code
 	 * @param extensionDataReader the serialized extension
+	 * @param peerAddress the IP address and port of the peer that sent this extension
 	 * @return the object representing the extension or <code>null</code> if the extension
 	 * type is not (yet) known to or supported by Scandium.
 	 * @throws HandshakeException if the (supported) extension could not be de-serialized, e.g. due
 	 * to erroneous encoding etc.
 	 */
-	public static HelloExtension fromExtensionDataReader(int typeCode, DatagramReader extensionDataReader)
+	public static HelloExtension fromExtensionDataReader(int typeCode, DatagramReader extensionDataReader, InetSocketAddress peerAddress)
 			throws HandshakeException {
 		ExtensionType type = ExtensionType.getExtensionTypeById(typeCode);
 		if (type != null) {
@@ -141,19 +147,17 @@ public abstract class HelloExtension {
 			case SIGNATURE_ALGORITHMS:
 				return SignatureAlgorithmsExtension.fromExtensionDataReader(extensionDataReader);
 			case CLIENT_CERT_TYPE:
-				return ClientCertificateTypeExtension.fromExtensionDataReader(extensionDataReader);
+				return ClientCertificateTypeExtension.fromExtensionDataReaader(extensionDataReader);
 			case SERVER_CERT_TYPE:
 				return ServerCertificateTypeExtension.fromExtensionDataReader(extensionDataReader);
 			case MAX_FRAGMENT_LENGTH:
-				return MaxFragmentLengthExtension.fromExtensionDataReader(extensionDataReader);
+				return MaxFragmentLengthExtension.fromExtensionDataReader(extensionDataReader, peerAddress);
 			case SERVER_NAME:
-				return ServerNameExtension.fromExtensionDataReader(extensionDataReader);
+				return ServerNameExtension.fromExtensionDataReader(extensionDataReader, peerAddress);
 			case CONNECTION_ID:
-				return ConnectionIdExtension.fromExtensionDataReader(extensionDataReader);
+				return ConnectionIdExtension.fromExtensionDataReader(extensionDataReader, peerAddress);
 			case RECORD_SIZE_LIMIT:
-				return RecordSizeLimitExtension.fromExtensionDataReader(extensionDataReader);
-			case EXTENDED_MASTER_SECRET:
-				return ExtendedMasterSecretExtension.fromExtensionDataReader(extensionDataReader);
+				return RecordSizeLimitExtension.fromExtensionDataReader(extensionDataReader, peerAddress);
 			default:
 				break;
 			}
@@ -180,7 +184,7 @@ public abstract class HelloExtension {
 	/**
 	 * The possible extension types (defined in multiple documents). See <a
 	 * href=
-	 * "https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xml"
+	 * "http://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xml"
 	 * >IANA</a> for a summary.
 	 */
 	public enum ExtensionType {
@@ -192,80 +196,71 @@ public abstract class HelloExtension {
 		TRUNCATED_HMAC(4, "truncated_hmac"),
 		STATUS_REQUEST(5, "status_request"),
 
-		/** See <a href="https://tools.ietf.org/html/rfc4681">RFC 4681</a> */
+		/** See <a href="http://tools.ietf.org/html/rfc4681">RFC 4681</a> */
 		USER_MAPPING(6, "user_mapping"),
 
-		/** See <a href="https://www.iana.org/go/rfc5878">RFC 5878</a> */
+		/** See <a href="http://www.iana.org/go/rfc5878">RFC 5878</a> */
 		CLIENT_AUTHZ(7, "client_authz"),
 		SERVER_AUTHZ(8, "server_authz"),
 
 		/**
 		 * See <a href=
-		 * "https://tools.ietf.org/html/draft-ietf-tls-oob-pubkey-03#section-3.1"
+		 * "http://tools.ietf.org/html/draft-ietf-tls-oob-pubkey-03#section-3.1"
 		 * >TLS Out-of-Band Public Key Validation</a>
 		 */
 		CERT_TYPE(9, "cert_type"),
 
 		/**
-		 * See <a href="https://tools.ietf.org/html/rfc4492#section-5.1">RFC
+		 * See <a href="http://tools.ietf.org/html/rfc4492#section-5.1">RFC
 		 * 4492</a>
 		 */
 		ELLIPTIC_CURVES(10, "elliptic_curves"),
 		EC_POINT_FORMATS(11, "ec_point_formats"),
 
-		/** See <a href="https://www.iana.org/go/rfc5054">RFC 5054</a> */
+		/** See <a href="http://www.iana.org/go/rfc5054">RFC 5054</a> */
 		SRP(12, "srp"),
 
-		/** See <a href="https://www.iana.org/go/rfc5246">RFC 5246</a> */
+		/** See <a href="http://www.iana.org/go/rfc5246">RFC 5246</a> */
 		SIGNATURE_ALGORITHMS(13, "signature_algorithms"),
 
-		/** See <a href="https://www.iana.org/go/rfc5764">RFC 5764</a> */
+		/** See <a href="http://www.iana.org/go/rfc5764">RFC 5764</a> */
 		USE_SRTP(14, "use_srtp"),
 
-		/** See <a href="https://www.iana.org/go/rfc6520">RFC 6520</a> */
+		/** See <a href="http://www.iana.org/go/rfc6520">RFC 6520</a> */
 		HEARTBEAT(15, "heartbeat"),
 
-		/** See <a href="https://www.iana.org/go/draft-friedl-tls-applayerprotoneg">draft-friedl-tls-applayerprotoneg</a> */
+		/** See <a href="http://www.iana.org/go/draft-friedl-tls-applayerprotoneg">draft-friedl-tls-applayerprotoneg</a> */
 		APPLICATION_LAYER_PROTOCOL_NEGOTIATION(16, "application_layer_protocol_negotiation"),
 
-		/** See <a href="https://www.iana.org/go/draft-ietf-tls-multiple-cert-status-extension-08">draft-ietf-tls-multiple-cert-status-extension-08</a> */
+		/** See <a href="http://www.iana.org/go/draft-ietf-tls-multiple-cert-status-extension-08">draft-ietf-tls-multiple-cert-status-extension-08</a> */
 		STATUS_REQUEST_V2(17, "status_request_v2"),
 
-		/** See <a href="https://www.iana.org/go/draft-laurie-pki-sunlight-12">draft-laurie-pki-sunlight-12</a> */
+		/** See <a href="http://www.iana.org/go/draft-laurie-pki-sunlight-12">draft-laurie-pki-sunlight-12</a> */
 		SIGNED_CERTIFICATE_TIMESTAMP(18, "signed_certificate_timestamp"),
 
-		/** See <a href="https://tools.ietf.org/html/rfc7250">RFC 7250</a> */
+		/** See <a href="http://tools.ietf.org/html/rfc7250">RFC 7250</a> */
 		CLIENT_CERT_TYPE(19, "client_certificate_type"),
 		SERVER_CERT_TYPE(20, "server_certificate_type"),
 
-		/** See <a href="https://www.iana.org/go/rfc7366">RFC 7366</a> **/
+		/** See <a href="http://www.iana.org/go/rfc7366">RFC 7366</a> **/
 		ENCRYPT_THEN_MAC(22, "encrypt_then_mac"),
 
-		/**
-		 * See <a href="https://tools.ietf.org/html/rfc7627">RFC 7627</a>
-		 * 
-		 * @since 3.0
-		 **/
-		EXTENDED_MASTER_SECRET(23, "extended_master_secret"),
+		/** See <a href="http://www.iana.org/go/rfc4507">RFC 4507</a> **/
+		SESSION_TICKET_TLS(35, "SessionTicket TLS"),
+
+		/** See <a href="https://datatracker.ietf.org/doc/draft-ietf-tls-dtls-connection-id/">Draft dtls-connection-id</a> **/
+		/** See <a href="https://mailarchive.ietf.org/arch/msg/tls/3wCyihI6Y7ZlciwcSDaQ322myYY">IANA code point assignment</a> **/
+		CONNECTION_ID(53, "Connection ID"),
+
+		/** See <a href="http://www.iana.org/go/rfc5746">RFC 5746</a> **/
+		RENEGOTIATION_INFO(65281, "renegotiation_info"),
 
 		/**
-		 * See <a href="https://tools.ietf.org/html/rfc8449">RFC 8449</a>
+		 * See <a href="http://tools.ietf.org/html/rfc8449">RFC 8449</a>
 		 * 
 		 * @since 2.4
 		 **/
-		RECORD_SIZE_LIMIT(28, "record_size_limit"),
-
-		/** See <a href="https://www.iana.org/go/rfc4507">RFC 4507</a> **/
-		SESSION_TICKET_TLS(35, "SessionTicket TLS"),
-
-		/** 
-		 * See <a href="https://datatracker.ietf.org/doc/draft-ietf-tls-dtls-connection-id/">Draft dtls-connection-id</a>
-		 * See <a href="https://mailarchive.ietf.org/arch/msg/tls/3wCyihI6Y7ZlciwcSDaQ322myYY">IANA code point assignment</a>
-		 **/
-		CONNECTION_ID(53, "Connection ID"),
-
-		/** See <a href="https://www.iana.org/go/rfc5746">RFC 5746</a> **/
-		RENEGOTIATION_INFO(65281, "renegotiation_info");
+		RECORD_SIZE_LIMIT(28, "record_size_limit");
 
 		private int id;
 		private String name;

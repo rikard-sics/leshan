@@ -131,11 +131,7 @@ public class RawPublicKeyIdentity extends AbstractExtensiblePrincipal<RawPublicK
 				throw new GeneralSecurityException("Key algorithm could not be determined!");
 			}
 			KeyFactory factory = Asn1DerDecoder.getKeyFactory(specKeyAlgorithm);
-			try {
-				this.publicKey = factory.generatePublic(spec);
-			} catch (RuntimeException ex) {
-				throw new GeneralSecurityException(ex.getMessage());
-			}
+			this.publicKey = factory.generatePublic(spec);
 			createNamedInformationUri(subjectInfo);
 		}
 	}
@@ -214,7 +210,10 @@ public class RawPublicKeyIdentity extends AbstractExtensiblePrincipal<RawPublicK
 	 */
 	@Override
 	public int hashCode() {
-		return ((publicKey == null) ? 0 : Arrays.hashCode(getSubjectInfo()));
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((publicKey == null) ? 0 : Arrays.hashCode(getSubjectInfo()));
+		return result;
 	}
 
 	/**
@@ -234,9 +233,12 @@ public class RawPublicKeyIdentity extends AbstractExtensiblePrincipal<RawPublicK
 		}
 		RawPublicKeyIdentity other = (RawPublicKeyIdentity) obj;
 		if (publicKey == null) {
-			return other.publicKey == null;
-		} else {
-			return Arrays.equals(getSubjectInfo(), other.getSubjectInfo());
+			if (other.publicKey != null) {
+				return false;
+			}
+		} else if (!Arrays.equals(getSubjectInfo(), other.getSubjectInfo())) {
+			return false;
 		}
+		return true;
 	}
 }

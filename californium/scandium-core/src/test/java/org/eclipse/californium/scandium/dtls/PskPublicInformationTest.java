@@ -22,7 +22,6 @@ import static org.junit.Assert.assertTrue;
 
 import org.eclipse.californium.elements.category.Small;
 import org.eclipse.californium.elements.util.Bytes;
-import org.eclipse.californium.elements.util.ExpectedExceptionWrapper;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -32,7 +31,7 @@ import org.junit.rules.ExpectedException;
 public class PskPublicInformationTest {
 
 	@Rule
-	public ExpectedException exception = ExpectedExceptionWrapper.none();
+	public ExpectedException exception = ExpectedException.none();
 
 	@Test
 	public void testCompliantPublicInformation() {

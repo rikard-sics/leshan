@@ -26,17 +26,18 @@
  ******************************************************************************/
 package org.eclipse.californium.core.network.stack;
 
+import java.nio.Buffer;
 import java.util.Arrays;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.eclipse.californium.core.coap.BlockOption;
+import org.eclipse.californium.core.coap.MessageObserverAdapter;
 import org.eclipse.californium.core.coap.OptionSet;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.network.Exchange;
 import org.eclipse.californium.core.observe.NotificationOrder;
-import org.eclipse.californium.elements.util.Bytes;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A tracker for the blockwise transfer of a response body.
@@ -51,95 +52,115 @@ public final class Block2BlockwiseStatus extends BlockwiseStatus {
 	 * It would be nice if we could get rid of this. Currently, the Cf client
 	 * needs it to mark a blockwise transferred notification as such. The
 	 * problem is, that the server includes the observe option only in the first
-	 * block of the notification and we still need to remember it, when the last
-	 * block arrives.
+	 * block of the notification and we still need to remember it, when the
+	 * last block arrives.
 	 */
-	private final NotificationOrder order;
+	private NotificationOrder order;
 	/**
-	 * ETag.
+	 * Starting exchange to stop deprecated transfers. 
 	 */
-	private final byte[] etag;
+	private Response response;
+	private byte[] etag;
 
-	/**
-	 * Create block1wise status.
-	 * 
-	 * @param keyUri key uri of the blockwise transfer
-	 * @param removeHandler remove handler for blockwise status
-	 * @param exchange The message exchange the blockwise transfer is part of.
-	 * @param response initial response of the blockwise transfer
-	 * @param maxSize The maximum size of the body to be buffered.
-	 * @param maxTcpBertBulkBlocks The maximum number of bulk blocks for
-	 *            TCP/BERT. {@code 1} or less, disable BERT.
-	 * @since 3.0
-	 */
-	private Block2BlockwiseStatus(KeyUri keyUri, RemoveHandler removeHandler, Exchange exchange, Response response,
-			int maxSize, int maxTcpBertBulkBlocks) {
-		super(keyUri, removeHandler, exchange, response, maxSize, maxTcpBertBulkBlocks);
-		Integer observeCount = response.getOptions().getObserve();
-		if (observeCount != null && OptionSet.isValidObserveOption(observeCount)) {
-			// mark this tracker with the observe no of the block it has been
-			// created for
-			order = new NotificationOrder(observeCount);
-			exchange.setNotificationNumber(observeCount);
-		} else {
-			order = null;
-		}
-		if (response.getOptions().getETagCount() > 0) {
-			// keep track of ETag included in response
-			etag = response.getOptions().getETags().get(0);
-		} else {
-			etag = null;
-		}
+	private Block2BlockwiseStatus(final int bufferSize, final int contentFormat) {
+		super(bufferSize, contentFormat);
 	}
 
 	/**
 	 * Creates a new tracker for sending a response.
 	 * 
-	 * @param keyUri key uri of the blockwise transfer
-	 * @param removeHandler remove handler for blockwise status
-	 * @param exchange The message exchange the blockwise transfer is part of.
-	 * @param response initial response of the blockwise transfer
-	 * @param maxTcpBertBulkBlocks The maximum number of bulk blocks for
-	 *            TCP/BERT. {@code 1} or less, disable BERT.
-	 * @return created tracker
-	 * @since 3.0
+	 * @param exchange The message exchange the transfer is part of.
+	 * @param response The CoAP response to be transferred blockwise.
+	 * @param preferredBlockSize The default size to use for individual blocks. If the exchange's request contains
+	 *                           an <em> early negotation</em> block2 option then the size indicated by that
+	 *                           option is used as the block size.
+	 * @return The tracker.
 	 */
-	public static Block2BlockwiseStatus forOutboundResponse(KeyUri keyUri, RemoveHandler removeHandler,
-			Exchange exchange, Response response, int maxTcpBertBulkBlocks) {
-		int size = response.getPayloadSize();
-		Block2BlockwiseStatus status = new Block2BlockwiseStatus(keyUri, removeHandler, exchange, response, size, maxTcpBertBulkBlocks);
-		if (size > 0) {
-			try {
-				status.addBlock(response.getPayload());
-				status.flipBlocksBuffer();
-			} catch (BlockwiseTransferException ex) {
-				LOGGER.warn("buffer overflow on start", ex);
-			}
+	public static Block2BlockwiseStatus forOutboundResponse(final Exchange exchange, final Response response, final int preferredBlockSize) {
+		Block2BlockwiseStatus status = new Block2BlockwiseStatus(response.getPayloadSize(), response.getOptions().getContentFormat());
+		status.response = response;
+		status.exchange = exchange;
+		if (response.getPayload() != null) {
+			status.buf.put(response.getPayload());
+			((Buffer)status.buf).flip();
 		}
+		status.setCurrentSzx(determineResponseBlock2Szx(exchange, preferredBlockSize));
 		return status;
 	}
 
 	/**
 	 * Creates a new tracker for receiving a response.
 	 * 
-	 * @param keyUri key uri of the blockwise transfer
-	 * @param removeHandler remove handler for blockwise status
-	 * @param exchange The message exchange the blockwise transfer is part of.
-	 * @param block initial block response of the blockwise transfer
-	 * @param maxBodySize The maximum size of the body to be buffered.
-	 * @param maxTcpBertBulkBlocks The maximum number of bulk blocks for
-	 *            TCP/BERT. {@code 1} or less, disable BERT.
-	 * @return created tracker
-	 * @since 3.0
+	 * @param exchange The message exchange the transfer is part of.
+	 * @param block The block of the response body.
+	 * @param maxBodySize The maximum body size that can be buffered.
+	 * @return The tracker.
 	 */
-	public static Block2BlockwiseStatus forInboundResponse(KeyUri keyUri, RemoveHandler removeHandler,
-			Exchange exchange, Response block, int maxBodySize, int maxTcpBertBulkBlocks) {
+	public static Block2BlockwiseStatus forInboundResponse(final Exchange exchange, final Response block, final int maxBodySize) {
+		int contentFormat = block.getOptions().getContentFormat();
 		int bufferSize = maxBodySize;
 		if (block.getOptions().hasSize2()) {
 			bufferSize = block.getOptions().getSize2();
 		}
-		Block2BlockwiseStatus status = new Block2BlockwiseStatus(keyUri, removeHandler, exchange, block, bufferSize, maxTcpBertBulkBlocks);
+		Block2BlockwiseStatus status = new Block2BlockwiseStatus(bufferSize, contentFormat);
+		status.setFirst(block);
+		status.exchange = exchange;
+		Integer observeCount = block.getOptions().getObserve();
+		if (observeCount != null && OptionSet.isValidObserveOption(observeCount)) {
+			// mark this tracker with the observe no of the block it has been created for
+			status.order = new NotificationOrder(observeCount);
+			exchange.setNotificationNumber(observeCount);
+		}
+		if (block.getOptions().getETagCount() > 0) {
+			// keep track of ETag included in response
+			status.etag = block.getOptions().getETags().get(0);
+		}
 		return status;
+	}
+
+	/**
+	 * Creates a new tracker for retrieving an arbitrary block of a resource.
+	 * 
+	 * @param exchange The message exchange the transfer is part of.
+	 * @param request The request for retrieving the block.
+	 * @return The tracker.
+	 * @throws IllegalArgumentException if the request does not contain a block2 option.
+	 */
+	public static Block2BlockwiseStatus forRandomAccessRequest(final Exchange exchange, final Request request) {
+
+		BlockOption block2 = request.getOptions().getBlock2();
+		if (block2 == null) {
+			throw new IllegalArgumentException("request must contain block2 option");
+		}
+		int contentFormat = request.getOptions().getContentFormat();
+		Block2BlockwiseStatus status = new Block2BlockwiseStatus(0, contentFormat);
+		status.randomAccess = true;
+		status.exchange = exchange;
+		status.setCurrentNum(block2.getNum());
+		status.setCurrentSzx(block2.getSzx());
+		return status;
+	}
+
+	private static int determineResponseBlock2Szx(final Exchange exchange, final int preferredBlockSize) {
+		if (exchange.getRequest() != null) {
+			BlockOption block2 = exchange.getRequest().getOptions().getBlock2();
+			if (block2 != null) {
+				LOGGER.debug("using block2 szx from early negotiation in request: {}", block2.getSize());
+				return block2.getSzx();
+			}
+		}
+		LOGGER.debug("using default preferred block size for response: {}", preferredBlockSize);
+		return BlockOption.size2Szx(preferredBlockSize);
+	}
+
+	/**
+	 * Checks if this tracker tracks a notification.
+	 * 
+	 * @return {@code true} if this tracker has been created for a transferring
+	 *                      the body of a notification.
+	 */
+	public final synchronized boolean isNotification() {
+		return order != null;
 	}
 
 	/**
@@ -147,7 +168,7 @@ public final class Block2BlockwiseStatus extends BlockwiseStatus {
 	 * 
 	 * @return The value.
 	 */
-	public final Integer getObserve() {
+	final synchronized Integer getObserve() {
 		return order == null ? null : order.getObserve();
 	}
 
@@ -160,7 +181,7 @@ public final class Block2BlockwiseStatus extends BlockwiseStatus {
 	 * @return {@code true}, if response is newer than the current transfer,
 	 *         {@code false}, otherwise.
 	 */
-	public final boolean isNew(final Response response) {
+	public final synchronized boolean isNew(final Response response) {
 		if (response == null) {
 			throw new NullPointerException("response block must not be null");
 		} else {
@@ -179,10 +200,10 @@ public final class Block2BlockwiseStatus extends BlockwiseStatus {
 	 * @return {@code true}, if exchange matches this transfer, {@code false},
 	 *         otherwise.
 	 */
-	public final boolean matchTransfer(Exchange exchange) {
+	public final synchronized boolean matchTransfer(Exchange exchange) {
 		Integer notification = exchange.getNotificationNumber();
 		if (notification != null && order != null) {
-			return order.getObserve() == notification;
+			return order.getObserve().equals(notification);
 		} else {
 			return notification == null && order == null;
 		}
@@ -192,130 +213,131 @@ public final class Block2BlockwiseStatus extends BlockwiseStatus {
 	 * Adds the payload of an incoming response to the buffer.
 	 * 
 	 * @param responseBlock The incoming response.
+	 * @return {@code true} if the payload could be added.
 	 * @throws NullPointerException if response block is {@code null}.
-	 * @throws IllegalArgumentException if the response block has no block2
-	 *             option.
-	 * @throws BlockwiseTransferException if responseBlock doesn't match the
-	 *             current transfer state.
+	 * @throws IllegalArgumentException if the response block has no block2 option.
 	 */
-	public synchronized void addBlock(Response responseBlock) throws BlockwiseTransferException {
+	public synchronized boolean addBlock(final Response responseBlock) {
 
 		if (responseBlock == null) {
 			throw new NullPointerException("response block must not be null");
-		} else if (!responseBlock.getOptions().hasBlock2()) {
-			throw new IllegalArgumentException("response block has no block2 option");
-		}
-		int currentOffset = getCurrentPosition();
-		int responseOffset = responseBlock.getOptions().getBlock2().getOffset();
-		if (currentOffset != responseOffset) {
-			String msg = String.format("response offset %d does not match the expected offset %d!", responseOffset,
-					currentOffset);
-			throw new BlockwiseTransferException(msg);
-		}
-		if (etag != null) {
-			// response must contain the same ETag
-			if (responseBlock.getOptions().getETagCount() != 1) {
-				throw new BlockwiseTransferException("response does not contain a single ETag");
-			} else if (!Arrays.equals(etag, responseBlock.getOptions().getETags().get(0))) {
-				throw new BlockwiseTransferException("response does not contain expected ETag");
+		} else {
+
+			final BlockOption block2 = responseBlock.getOptions().getBlock2();
+
+			if (block2 == null) {
+				throw new IllegalArgumentException("response block has no block2 option");
+			} else {
+				if (etag != null) {
+					// response must contain the same ETag
+					if (responseBlock.getOptions().getETagCount() != 1) {
+						LOGGER.debug("response does not contain a single ETag");
+						return false;
+					} else if (!Arrays.equals(etag, responseBlock.getOptions().getETags().get(0))) {
+						LOGGER.debug("response does not contain expected ETag");
+						return false;
+					}
+				}
+				boolean succeeded = addBlock(responseBlock.getPayload());
+				if (succeeded) {
+					setCurrentNum(block2.getNum());
+					setCurrentSzx(block2.getSzx());
+				}
+				return succeeded;
 			}
 		}
-		addBlock(responseBlock.getPayload());
-		setCurrentNum(getCurrentPosition() / getCurrentSize());
-	}
 
-	/**
-	 * Get a request to request the next block of the body.
-	 * 
-	 * @param blockSzx block szx of request
-	 * @return created request
-	 * @throws BlockwiseTransferException if the exchange has already been
-	 *             completed.
-	 * @throws IllegalArgumentException if blockSzx is not aligned with the
-	 *             already sent payload.
-	 * @since 3.0
-	 */
-	public synchronized Request getNextRequestBlock(int blockSzx) throws BlockwiseTransferException {
-		Exchange exchange = getExchange(false);
-		if (exchange == null) {
-			throw new BlockwiseTransferException("Block2 exchange already completed!", true);
-		}
-
-		setCurrentSzx(blockSzx);
-		int size = getCurrentSize();
-		int from = getCurrentPosition();
-
-		if (from % size != 0) {
-			throw new BlockwiseTransferException(
-					"Block2 buffer position " + from + " doesn't align with blocksize " + size + "!");
-		}
-
-		int num = from / size;
-		setCurrentNum(num);
-
-		Request request = exchange.getRequest();
-		Request block = new Request(request.getCode());
-		prepareOutgoingMessage(request, block, num == 0);
-		block.getOptions().removeObserve();
-		block.getOptions().setBlock2(blockSzx, false, num);
-		return block;
 	}
 
 	/**
 	 * Gets the next response block for this transfer.
+	 * <p>
+	 * This method updates the <em>currentNum</em> and <em>currentSzx</em> properties
+	 * with the given block2 option's values and then invokes {@link #getNextResponseBlock()}.
 	 * 
-	 * The returned response's payload is determined based on
-	 * {@link BlockOption#getOffset()} and {@link BlockOption#getSize()} of the
-	 * provided {@link BlockOption}, and the original response's body.
-	 * 
-	 * @param block2 The block number and size to update this transfer with
-	 *            before determining the response block.
+	 * @param block2 The block number and size to update this transfer with before
+	 *               determining the response block.
 	 * @return The response block.
-	 * @throws NullPointerException if block2 is {@code null}
+	 * @throws IllegalStateException if this tracker does not contain a response.
 	 */
 	public synchronized Response getNextResponseBlock(final BlockOption block2) {
 
-		if (block2 == null) {
-			throw new NullPointerException("block option must not be null.");
+		if (response == null) {
+			throw new IllegalStateException("no response to track");
 		}
 
-		// parameter according incoming request
-		int from = block2.getOffset();
-		int szx = block2.getSzx();
-		int size = block2.getSize();
+		setCurrentNum(block2.getNum());
+		setCurrentSzx(block2.getSzx());
+		return getNextResponseBlock();
+	}
 
-		setCurrentSzx(szx);
+	/**
+	 * Gets the next response block for this transfer.
+	 * <p>
+	 * The returned block's payload is determined based on <em>currentNum</em>,
+	 * <em>currentSzx</em> and the original response body.
+	 * 
+	 * @return The response block.
+	 * @throws IllegalStateException if this tracker does not contain a response.
+	 */
+	synchronized Response getNextResponseBlock() {
 
-		int num = from / size;
-		setCurrentNum(num);
+		if (response == null) {
+			throw new IllegalStateException("no response to track");
+		}
 
-		final Response block = new Response(((Response) firstMessage).getCode());
-		int bodySize = getBufferSize();
-
-		prepareOutgoingMessage(firstMessage, block, num == 0);
-		if (num == 0) {
-			if (!block.getOptions().hasSize2()) {
-				// indicate overall size to peer
-				block.getOptions().setSize2(bodySize);
-			}
-		} else {
+		final Response block = new Response(response.getCode());
+		block.setDestinationContext(response.getDestinationContext());
+		block.setOptions(new OptionSet(response.getOptions()));
+		block.setMaxResourceBodySize(response.getMaxResourceBodySize());
+		block.addMessageObservers(response.getMessageObservers());
+		if (getCurrentNum() != 0) {
 			// observe option must only be included in first block
 			block.getOptions().removeObserve();
-			// for notifies the response type may differ from the first
-			block.setType(null);
+		} else {
+			block.addMessageObserver(new MessageObserverAdapter() {
+
+				@Override
+				public void onReadyToSend() {
+					// when the request for transferring the first block
+					// has been sent out, we copy the token to the
+					// original request so that at the end of the
+					// blockwise transfer the Matcher can correctly
+					// close the overall exchange
+					if (response.getToken() == null) {
+						response.setToken(block.getToken());
+					}
+					if (!response.hasMID()) {
+						response.setMID(block.getMID());
+					}
+				}
+			});
+			block.setType(response.getType());
+			if (response.getOptions().getSize2() == null) {
+				// indicate overall size to peer
+				block.getOptions().setSize2(response.getPayloadSize());
+			}
 		}
 
+		int bodySize = getBufferSize();
+		int currentSize = BlockOption.szx2Size(getCurrentSzx());
+		int from = getCurrentNum() * currentSize;
 		boolean m = false;
 
 		if (0 < bodySize && from < bodySize) {
-			byte[] blockPayload = getBlock(from, getCurrentPayloadSize());
-			m = from + blockPayload.length < bodySize;
+			int to = Math.min((getCurrentNum() + 1) * currentSize, bodySize);
+			int length = to - from;
+			byte[] blockPayload = new byte[length];
+			m = to < bodySize;
+
+			// crop payload -- do after calculation of m in case block==response
+			((Buffer)buf).position(from);
+			buf.get(blockPayload, 0, length);
 			block.setPayload(blockPayload);
 		}
-		block.getOptions().setBlock2(szx, m, num);
-		if (!m) {
-			setComplete(true);
-		}
+		setComplete(!m);
+
+		block.getOptions().setBlock2(getCurrentSzx(), m, getCurrentNum());
 		return block;
 	}
 
@@ -328,7 +350,14 @@ public final class Block2BlockwiseStatus extends BlockwiseStatus {
 	 * @param newExchange new exchange
 	 */
 	public final void completeOldTransfer(Exchange newExchange) {
-		Exchange oldExchange = getExchange(true);
+		Exchange oldExchange;
+		synchronized (this) {
+			oldExchange = this.exchange;
+			// stop old cleanup task
+			setBlockCleanupHandle(null);
+			this.exchange = null;
+			this.followUpEndpointContext = null;
+		}
 		if (oldExchange != null) {
 			if (newExchange != oldExchange) {
 				// complete old exchange
@@ -353,7 +382,10 @@ public final class Block2BlockwiseStatus extends BlockwiseStatus {
 	 * @param newExchange new exchange.
 	 */
 	public final void completeNewTranfer(Exchange newExchange) {
-		Exchange oldExchange = getExchange(false);
+		Exchange oldExchange;
+		synchronized (this) {
+			oldExchange = this.exchange;
+		}
 		if (newExchange != oldExchange) {
 			if (newExchange.isNotification()) {
 				// no pending observe request to cancel
@@ -366,15 +398,14 @@ public final class Block2BlockwiseStatus extends BlockwiseStatus {
 	}
 
 	final boolean completeResponse() {
-		if (complete()) {
-			Response response;
-			synchronized (this) {
-				response = (Response) this.firstMessage;
-			}
-			if (response != null) {
-				response.onTransferComplete();
-				return true;
-			}
+		Response response;
+		synchronized (this) {
+			response = this.response;
+		}
+		if (response != null) {
+			setComplete(true);
+			response.onComplete();
+			return true;
 		}
 		return false;
 	}
@@ -382,11 +413,14 @@ public final class Block2BlockwiseStatus extends BlockwiseStatus {
 	@Override
 	public synchronized String toString() {
 		String result = super.toString();
-		if (order != null) {
+		if (order != null || response != null) {
 			StringBuilder builder = new StringBuilder(result);
 			if (order != null) {
 				builder.setLength(result.length() - 1);
 				builder.append(", observe=").append(order.getObserve()).append("]");
+			}
+			if (response != null) {
+				builder.append(", ").append(response);
 			}
 			result = builder.toString();
 		}
@@ -398,50 +432,35 @@ public final class Block2BlockwiseStatus extends BlockwiseStatus {
 	 * 
 	 * @param responseToCrop The response containing the (large) payload.
 	 * @param requestedBlock The block to crop down to.
-	 * @param maxTcpBertBulkBlocks The maximum number of bulk blocks for
-	 *            TCP/BERT. {@code 1} or less, disable BERT.
 	 * @throws NullPointerException if any of the parameters is {@code null}.
-	 * @throws IllegalArgumentException if the response does not contain the
-	 *             block. Clients can check whether a message contains a
-	 *             particular block using the
-	 *             {@link Response#hasBlock(BlockOption)} method.
+	 * @throws IllegalArgumentException if the response does not contain the block. Clients
+	 *            can check whether a message contains a particular block using the
+	 *            {@link Response#hasBlock(BlockOption)} method.
 	 */
-	public static final void crop(final Response responseToCrop, final BlockOption requestedBlock, int maxTcpBertBulkBlocks) {
+	public static final void crop(final Response responseToCrop, final BlockOption requestedBlock) {
 
 		if (responseToCrop == null) {
 			throw new NullPointerException("response message must not be null");
 		} else if (requestedBlock == null) {
 			throw new NullPointerException("block option must not be null");
 		} else if (!responseToCrop.hasBlock(requestedBlock)) {
-			throw new IllegalArgumentException("given response does not contain block ");
+			throw new IllegalArgumentException("given response does not contain block");
 		} else {
 
 			int bodySize = responseToCrop.getPayloadSize();
 			int from = requestedBlock.getOffset();
-			if (responseToCrop.getOptions().hasBlock2()) {
-				from -= responseToCrop.getOptions().getBlock2().getOffset();
-			}
-			int size = requestedBlock.getSize();
-			if (requestedBlock.isBERT()) {
-				size *= maxTcpBertBulkBlocks;
-			}
-			int to = Math.min(from + size, bodySize);
+			int to = Math.min((requestedBlock.getNum() + 1) * requestedBlock.getSize(), bodySize);
 			int length = to - from;
-			boolean m = to < bodySize;
-			responseToCrop.getOptions().setBlock2(requestedBlock.getSzx(), m, requestedBlock.getNum());
 
 			LOGGER.debug("cropping response body [size={}] to block {}", bodySize, requestedBlock);
 
-			if (length > 0) {
-				byte[] blockPayload = new byte[length];
+			byte[] blockPayload = new byte[length];
+			boolean m = to < bodySize;
+			responseToCrop.getOptions().setBlock2(requestedBlock.getSzx(), m, requestedBlock.getNum());
 
-				// crop payload -- do after calculation of m in case
-				// block==response
-				System.arraycopy(responseToCrop.getPayload(), from, blockPayload, 0, length);
-				responseToCrop.setPayload(blockPayload);
-			} else {
-				responseToCrop.setPayload(Bytes.EMPTY);
-			}
+			// crop payload -- do after calculation of m in case block==response
+			System.arraycopy(responseToCrop.getPayload(), from, blockPayload, 0, length);
+			responseToCrop.setPayload(blockPayload);
 		}
 	}
 }

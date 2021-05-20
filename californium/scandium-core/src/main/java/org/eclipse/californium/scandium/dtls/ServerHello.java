@@ -19,6 +19,8 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
+import java.net.InetSocketAddress;
+
 import org.eclipse.californium.elements.util.DatagramReader;
 import org.eclipse.californium.elements.util.DatagramWriter;
 import org.eclipse.californium.elements.util.StringUtil;
@@ -106,11 +108,15 @@ public final class ServerHello extends HandshakeMessage {
 	 * @param compressionMethod
 	 *            the negotiated compression method.
 	 * @param extensions
-	 *            a list of extensions supported by the client.
-	 * @throws NullPointerException if any of the parameters is {@code null}
+	 *            a list of extensions supported by the client (may be <code>null</code>).
+	 * @param peerAddress the IP address and port of the peer this
+	 *            message has been received from or should be sent to
+	 * @throws NullPointerException if any of the mandatory parameters is <code>null</code>
 	 */
 	public ServerHello(ProtocolVersion version, Random random, SessionId sessionId,
-			CipherSuite cipherSuite, CompressionMethod compressionMethod, HelloExtensions extensions) {
+			CipherSuite cipherSuite, CompressionMethod compressionMethod, HelloExtensions extensions,
+			InetSocketAddress peerAddress) {
+		super(peerAddress);
 		if (version == null) {
 			throw new NullPointerException("Negotiated protocol version must not be null");
 		}
@@ -125,9 +131,6 @@ public final class ServerHello extends HandshakeMessage {
 		}
 		if (compressionMethod == null) {
 			throw new NullPointerException("Negotiated compression method must not be null");
-		}
-		if (extensions == null) {
-			throw new NullPointerException("Negotiated extensions must not be null");
 		}
 		this.serverVersion = version;
 		this.random = random;
@@ -148,12 +151,15 @@ public final class ServerHello extends HandshakeMessage {
 
 		writer.writeBytes(random.getBytes());
 
-		writer.writeVarBytes(sessionId, SESSION_ID_LENGTH_BITS);
+		writer.write(sessionId.length(), SESSION_ID_LENGTH_BITS);
+		writer.writeBytes(sessionId.getBytes());
 
 		writer.write(cipherSuite.getCode(), CIPHER_SUITE_BITS);
 		writer.write(compressionMethod.getCode(), COMPRESSION_METHOD_BITS);
 
-		writer.writeBytes(extensions.toByteArray());
+		if (extensions != null) {
+			writer.writeBytes(extensions.toByteArray());
+		}
 
 		return writer.toByteArray();
 	}
@@ -163,12 +169,14 @@ public final class ServerHello extends HandshakeMessage {
 	 * the wire.
 	 * 
 	 * @param reader reader for the binary encoding of the message.
+	 * @param peerAddress the IP address and port of the peer this
+	 *           message has been received from or should be sent to
 	 * @return the object representation
 	 * @throws HandshakeException if the cipher suite code selected by the server is either
 	 *           unknown, i.e. not defined in {@link CipherSuite} at all, or
 	 *           {@link CipherSuite#TLS_NULL_WITH_NULL_NULL}
 	 */
-	public static HandshakeMessage fromReader(DatagramReader reader) throws HandshakeException {
+	public static HandshakeMessage fromReader(DatagramReader reader, InetSocketAddress peerAddress) throws HandshakeException {
 
 		int major = reader.read(VERSION_BITS);
 		int minor = reader.read(VERSION_BITS);
@@ -176,23 +184,27 @@ public final class ServerHello extends HandshakeMessage {
 
 		Random random = new Random(reader.readBytes(RANDOM_BYTES));
 
-		SessionId sessionId = new SessionId(reader.readVarBytes(SESSION_ID_LENGTH_BITS));
+		int sessionIdLength = reader.read(SESSION_ID_LENGTH_BITS);
+		SessionId sessionId = new SessionId(reader.readBytes(sessionIdLength));
 
 		int code = reader.read(CIPHER_SUITE_BITS);
 		CipherSuite cipherSuite = CipherSuite.getTypeByCode(code);
 		if (cipherSuite == null) {
 			throw new HandshakeException(
 					String.format("Server selected unknown cipher suite [%s]", Integer.toHexString(code)),
-					new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE));
+					new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE, peerAddress));
 		} else if ( cipherSuite == CipherSuite.TLS_NULL_WITH_NULL_NULL) {
 			throw new HandshakeException("Server tries to negotiate NULL cipher suite",
-					new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE));
+					new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE, peerAddress));
 		}
 		CompressionMethod compressionMethod = CompressionMethod.getMethodByCode(reader.read(COMPRESSION_METHOD_BITS));
 
-		HelloExtensions extensions = HelloExtensions.fromReader(reader);
+		HelloExtensions extensions = null;
+		if (reader.bytesAvailable()) {
+			extensions = HelloExtensions.fromReader(reader, peerAddress);
+		}
 
-		return new ServerHello(version, random, sessionId, cipherSuite, compressionMethod, extensions);
+		return new ServerHello(version, random, sessionId, cipherSuite, compressionMethod, extensions, peerAddress);
 	}
 
 	// Methods ////////////////////////////////////////////////////////
@@ -210,7 +222,8 @@ public final class ServerHello extends HandshakeMessage {
 		 * then the length of the extensions. See
 		 * http://tools.ietf.org/html/rfc5246#section-7.4.1.2
 		 */
-		int extensionsLength = extensions.isEmpty() ? 0 : (2 + extensions.getLength());
+		int extensionsLength = (extensions == null || extensions.isEmpty()) ?
+				0 : (2 + extensions.getLength());
 
 		/*
 		 * fixed sizes: version (2) + random (32) + session ID length (1) +
@@ -301,12 +314,15 @@ public final class ServerHello extends HandshakeMessage {
 	 * @param type extension type. Either {@link ExtensionType#SERVER_CERT_TYPE} or {@link ExtensionType#CLIENT_CERT_TYPE}
 	 * @return the certificate type
 	 */
-	private CertificateType getCertificateType(ExtensionType type) {
+	CertificateType getCertificateType(ExtensionType type) {
 		// default type is always X.509
 		CertificateType result = CertificateType.X_509;
-		CertificateTypeExtension certificateExtension = extensions.getExtension(type);
-		if (certificateExtension != null && !certificateExtension.getCertificateTypes().isEmpty()) {
-			result = certificateExtension.getCertificateTypes().get(0);
+		if (extensions != null) {
+			CertificateTypeExtension certificateExtension = (CertificateTypeExtension)
+					extensions.getExtension(type);
+			if (certificateExtension != null && !certificateExtension.getCertificateTypes().isEmpty()) {
+				result = certificateExtension.getCertificateTypes().get(0);
+			}
 		}
 		return result;
 	}
@@ -314,11 +330,15 @@ public final class ServerHello extends HandshakeMessage {
 	/**
 	 * Gets the <em>MaxFragmentLength</em> extension data from this message.
 	 * 
-	 * @return the extension data or {@code null}, if this message does not contain the
+	 * @return the extension data or <code>null</code> if this message does not contain the
 	 *          <em>MaxFragmentLength</em> extension.
 	 */
 	MaxFragmentLengthExtension getMaxFragmentLength() {
-		return extensions.getExtension(ExtensionType.MAX_FRAGMENT_LENGTH);
+		if (extensions != null) {
+			return (MaxFragmentLengthExtension) extensions.getExtension(ExtensionType.MAX_FRAGMENT_LENGTH);
+		} else {
+			return null;
+		}
 	}
 
 	/**
@@ -329,39 +349,39 @@ public final class ServerHello extends HandshakeMessage {
 	 * @since 2.4
 	 */
 	RecordSizeLimitExtension getRecordSizeLimit() {
-		return extensions.getExtension(ExtensionType.RECORD_SIZE_LIMIT);
-	}
-
-	/**
-	 * Checks whether <em>ExtendedMasterSecret</em> extension is present in this
-	 * message.
-	 * 
-	 * @return {@code true}, if the <em>ExtendedMasterSecret</em> extension is
-	 *         present, {@code false}, otherwise
-	 * @since 3.0
-	 */
-	boolean hasExtendedMasterSecret() {
-		return extensions.getExtension(ExtensionType.EXTENDED_MASTER_SECRET) != null;
+		if (extensions != null) {
+			return (RecordSizeLimitExtension) extensions.getExtension(ExtensionType.RECORD_SIZE_LIMIT);
+		} else {
+			return null;
+		}
 	}
 
 	/**
 	 * Gets the <em>Point Formats</em> extension data from this message.
 	 * 
-	 * @return the extension data or {@code null},  if this message does not contain the
+	 * @return the extension data or <code>null</code> if this message does not contain the
 	 *          <em>SupportedPointFormats</em> extension.
 	 */
 	SupportedPointFormatsExtension getSupportedPointFormatsExtension() {
-		return extensions.getExtension(ExtensionType.EC_POINT_FORMATS);
+		if (extensions != null) {
+			return (SupportedPointFormatsExtension) extensions.getExtension(ExtensionType.EC_POINT_FORMATS);
+		} else {
+			return null;
+		}
 	}
 
 	/**
 	 * Gets the <em>connection id</em> extension data from this message.
 	 * 
-	 * @return the extension data or {@code null},  if this message does not contain the
+	 * @return the extension data or <code>null</code> if this message does not contain the
 	 *          <em>connection id</em> extension.
 	 */
 	public ConnectionIdExtension getConnectionIdExtension() {
-		return extensions.getExtension(ExtensionType.CONNECTION_ID);
+		if (extensions != null) {
+			return (ConnectionIdExtension) extensions.getExtension(ExtensionType.CONNECTION_ID);
+		} else {
+			return null;
+		}
 	}
 
 	/**
@@ -373,7 +393,7 @@ public final class ServerHello extends HandshakeMessage {
 	 * @return {@code true} if the extension is present.
 	 */
 	boolean hasServerNameExtension() {
-		return extensions.getExtension(ExtensionType.SERVER_NAME) != null;
+		return extensions != null && extensions.getExtension(ExtensionType.SERVER_NAME) != null;
 	}
 
 	@Override
@@ -389,7 +409,9 @@ public final class ServerHello extends HandshakeMessage {
 		sb.append(StringUtil.lineSeparator()).append("\t\tCipher Suite: ").append(cipherSuite);
 		sb.append(StringUtil.lineSeparator()).append("\t\tCompression Method: ").append(compressionMethod);
 
-		sb.append(StringUtil.lineSeparator()).append(extensions);
+		if (extensions != null) {
+			sb.append(StringUtil.lineSeparator()).append(extensions);
+		}
 
 		return sb.toString();
 	}

@@ -25,9 +25,9 @@ import javax.security.auth.Destroyable;
 
 import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.scandium.dtls.ConnectionId;
-import org.eclipse.californium.scandium.dtls.HandshakeResultHandler;
 import org.eclipse.californium.scandium.dtls.PskPublicInformation;
 import org.eclipse.californium.scandium.dtls.PskSecretResult;
+import org.eclipse.californium.scandium.dtls.PskSecretResultHandler;
 import org.eclipse.californium.scandium.util.SecretUtil;
 import org.eclipse.californium.scandium.util.ServerName;
 import org.eclipse.californium.scandium.util.ServerName.NameType;
@@ -57,6 +57,7 @@ import org.eclipse.californium.scandium.util.ServerNames;
  * 
  * @since 2.5
  */
+@SuppressWarnings("deprecation")
 public class AdvancedMultiPskStore implements AdvancedPskStore, Destroyable {
 
 	@Override
@@ -66,7 +67,7 @@ public class AdvancedMultiPskStore implements AdvancedPskStore, Destroyable {
 
 	@Override
 	public PskSecretResult requestPskSecretResult(ConnectionId cid, ServerNames serverNames,
-			PskPublicInformation identity, String hmacAlgorithm, SecretKey otherSecret, byte[] seed, boolean useExtendedMasterSecret) {
+			PskPublicInformation identity, String hmacAlgorithm, SecretKey otherSecret, byte[] seed) {
 
 		PskCredentials credentials = null;
 
@@ -115,7 +116,7 @@ public class AdvancedMultiPskStore implements AdvancedPskStore, Destroyable {
 	}
 
 	@Override
-	public void setResultHandler(HandshakeResultHandler resultHandler) {
+	public void setResultHandler(PskSecretResultHandler resultHandler) {
 		// empty implementation
 	}
 

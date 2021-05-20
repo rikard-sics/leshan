@@ -32,10 +32,10 @@ import org.eclipse.californium.core.coap.MediaTypeRegistry;
 import org.eclipse.californium.core.coap.OptionSet;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.network.Exchange;
+import org.eclipse.californium.core.network.MulticastReceivers;
 import org.eclipse.californium.elements.DtlsEndpointContext;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.MapBasedEndpointContext;
-import org.eclipse.californium.elements.UdpMulticastConnector;
 
 /**
  * The Class CoapExchange represents an exchange of a CoAP request and response
@@ -169,21 +169,10 @@ public class CoapExchange {
 	/**
 	 * Gets the request payload as byte array.
 	 *
-	 * @return the request payload.
+	 * @return the request payload, or {@code null}, if no payload is available.
 	 */
 	public byte[] getRequestPayload() {
 		return exchange.getRequest().getPayload();
-	}
-
-	/**
-	 * Gets the size (amount of bytes) of the request payload. Be aware that this might
-	 * differ from the payload string length due to the UTF-8 encoding.
-	 *
-	 * @return the request payload size.
-	 * @since 3.0
-	 */
-	public int getRequestPayloadSize() {
-		return exchange.getRequest().getPayloadSize();
 	}
 
 	/**
@@ -211,7 +200,8 @@ public class CoapExchange {
 	 * respond with an error response code to bad requests though.
 	 * 
 	 * Note: since 2.3, rejects for multicast requests are not sent. (See
-	 * {@link UdpMulticastConnector} for receiving multicast requests).
+	 * {@link MulticastReceivers#addMulticastReceiver(org.eclipse.californium.elements.Connector)
+	 * for receiving multicast requests}.
 	 * 
 	 * @see Exchange#sendReject(EndpointContext)
 	 * @since 2.3 rejects for multicast requests are not sent
@@ -281,7 +271,8 @@ public class CoapExchange {
 	 * "https://draft-ietf-core-too-many-reqs" gets adopted.
 	 *
 	 * Note: since 2.3, error responses for multicast requests are not sent. (See
-	 * {@link UdpMulticastConnector} for receiving multicast requests).
+	 * {@link MulticastReceivers#addMulticastReceiver(org.eclipse.californium.elements.Connector)
+	 * for receiving multicast requests}.
 	 * 
 	 * @param seconds estimated time in seconds after which the client may retry
 	 *            to send requests.
@@ -308,7 +299,8 @@ public class CoapExchange {
 	 * and/or {@link #eTag}, if set before.
 	 *
 	 * Note: since 2.3, error responses for multicast requests are not sent. (See
-	 * {@link UdpMulticastConnector} for receiving multicast requests).
+	 * {@link MulticastReceivers#addMulticastReceiver(org.eclipse.californium.elements.Connector)
+	 * for receiving multicast requests}.
 	 * 
 	 * @param code the response code
 	 * 
@@ -344,7 +336,8 @@ public class CoapExchange {
 	 * and/or {@link #eTag}, if set before.
 	 * 
 	 * Note: since 2.3, error responses for multicast requests are not sent. (See
-	 * {@link UdpMulticastConnector} for receiving multicast requests).
+	 * {@link MulticastReceivers#addMulticastReceiver(org.eclipse.californium.elements.Connector)
+	 * for receiving multicast requests}.
 	 * 
 	 * @param code the response code
 	 * @param payload the payload
@@ -372,7 +365,8 @@ public class CoapExchange {
 	 * and/or {@link #eTag}, if set before.
 	 * 
 	 * Note: since 2.3, error responses for multicast requests are not sent. (See
-	 * {@link UdpMulticastConnector} for receiving multicast requests).
+	 * {@link MulticastReceivers#addMulticastReceiver(org.eclipse.californium.elements.Connector)
+	 * for receiving multicast requests}.
 	 *
 	 * @param code the response code
 	 * @param payload the payload
@@ -399,7 +393,8 @@ public class CoapExchange {
 	 * and/or {@link #eTag}, if set before.
 	 * 
 	 * Note: since 2.3, error responses for multicast requests are not sent. (See
-	 * {@link UdpMulticastConnector} for receiving multicast requests).
+	 * {@link MulticastReceivers#addMulticastReceiver(org.eclipse.californium.elements.Connector)
+	 * for receiving multicast requests}.
 	 * 
 	 * @param code the response code
 	 * @param payload the payload
@@ -428,7 +423,8 @@ public class CoapExchange {
 	 * and/or {@link #eTag}, if set before.
 	 *
 	 * Note: since 2.3, error responses for multicast requests are not sent. (See
-	 * {@link UdpMulticastConnector} for receiving multicast requests).
+	 * {@link MulticastReceivers#addMulticastReceiver(org.eclipse.californium.elements.Connector)
+	 * for receiving multicast requests}.
 	 *
 	 * @param code the response code
 	 * @param payload the payload
@@ -451,7 +447,8 @@ public class CoapExchange {
 	 * and/or {@link #eTag}, if set before.
 	 * 
 	 * Note: since 2.3, error responses for multicast requests are not sent. (See
-	 * {@link UdpMulticastConnector} for receiving multicast requests).
+	 * {@link MulticastReceivers#addMulticastReceiver(org.eclipse.californium.elements.Connector)
+	 * for receiving multicast requests}.
 	 * 
 	 * @param response the response
 	 * 

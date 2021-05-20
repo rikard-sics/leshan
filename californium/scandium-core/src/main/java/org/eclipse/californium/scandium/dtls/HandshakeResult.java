@@ -15,7 +15,7 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
-import org.eclipse.californium.scandium.auth.ApplicationLevelInfoSupplier;
+import org.eclipse.californium.scandium.auth.AdvancedApplicationLevelInfoSupplier;
 
 /**
  * Handshake result for optionally asynchronous functions.
@@ -31,21 +31,21 @@ public class HandshakeResult {
 	/**
 	 * Custom argument.
 	 * 
-	 * Passed to {@link ApplicationLevelInfoSupplier} by the
-	 * {@link Handshaker}, if a {@link ApplicationLevelInfoSupplier} is
+	 * Passed to {@link AdvancedApplicationLevelInfoSupplier} by the
+	 * {@link Handshaker}, if a {@link AdvancedApplicationLevelInfoSupplier} is
 	 * available.
 	 */
 	private final Object customArgument;
 
 	/**
 	 * Create handshake result with custom argument for
-	 * {@link ApplicationLevelInfoSupplier}.
+	 * {@link AdvancedApplicationLevelInfoSupplier}.
 	 * 
 	 * @param cid connection id
 	 * @param customArgument custom argument. May be {@code null}. Passed to
-	 *            {@link ApplicationLevelInfoSupplier} by the
+	 *            {@link AdvancedApplicationLevelInfoSupplier} by the
 	 *            {@link Handshaker}, if a
-	 *            {@link ApplicationLevelInfoSupplier} is available.
+	 *            {@link AdvancedApplicationLevelInfoSupplier} is available.
 	 * @throws NullPointerException if cid  is {@code null}
 	 */
 	public HandshakeResult(ConnectionId cid, Object customArgument) {
@@ -68,8 +68,8 @@ public class HandshakeResult {
 	/**
 	 * Get custom argument.
 	 * 
-	 * Passed to {@link ApplicationLevelInfoSupplier} by the
-	 * {@link Handshaker}, if a {@link ApplicationLevelInfoSupplier} is
+	 * Passed to {@link AdvancedApplicationLevelInfoSupplier} by the
+	 * {@link Handshaker}, if a {@link AdvancedApplicationLevelInfoSupplier} is
 	 * available.
 	 * 
 	 * @return custom argument.

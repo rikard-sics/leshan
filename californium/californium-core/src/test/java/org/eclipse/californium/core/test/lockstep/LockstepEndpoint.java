@@ -50,10 +50,10 @@ package org.eclipse.californium.core.test.lockstep;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -360,7 +360,7 @@ public class LockstepEndpoint {
 		while (true) {
 			Message msg = receiveNextMessage(2, TimeUnit.SECONDS);
 			assertNotNull("did not receive message within expected time frame (2 secs)", msg);
-
+			
 			if (null != midExpectation && null != lastIncomingMessage && lastIncomingMessage.getMID() == msg.getMID()
 					&& lastIncomingMessage.getType() == msg.getType() && !midExpectation.expectMID(msg)) {
 				// received message with same MID but not expected
@@ -1204,6 +1204,18 @@ public class LockstepEndpoint {
 				}
 			});
 			return this;
+		}
+
+		/**
+		 * Check, if received observe is newer than the previous stored one.
+		 * 
+		 * @param key key of previous stored one
+		 * @return expectation for
+		 * @deprecated use {@link #newerObserve(String)}
+		 */
+		@Deprecated
+		public ResponseExpectation largerObserve(final String key) {
+			return newerObserve(key);
 		}
 
 		public ResponseExpectation newerObserve(final String key) {

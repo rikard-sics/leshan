@@ -51,10 +51,7 @@ public final class PseudoRandomFunction {
 		CLIENT_FINISHED_LABEL("client finished", 12),
 		// The verify data is always 12 bytes long, see
 		// http://tools.ietf.org/html/rfc5246#section-7.4.9
-		SERVER_FINISHED_LABEL("server finished", 12),
-		// The extended master secret is always 48 bytes long, see
-		// http://tools.ietf.org/html/rfc7621#section-4
-		EXTENDED_MASTER_SECRET_LABEL("extended master secret", 48);
+		SERVER_FINISHED_LABEL("server finished", 12);
 
 		private final String value;
 		private final byte[] bytesValue;
@@ -70,7 +67,7 @@ public final class PseudoRandomFunction {
 			return value;
 		}
 
-		private byte[] getBytes() {
+		public byte[] getBytes() {
 			return bytesValue;
 		}
 
@@ -189,20 +186,15 @@ public final class PseudoRandomFunction {
 	}
 
 	/**
-	 * Generate (extended) master secret.
+	 * Generate master secret.
 	 * 
 	 * @param hmac MAC algorithm. e.g. HmacSHA256
 	 * @param premasterSecret the secret to use for the secure hash function
-	 * @param seed the seed to use for creating the master secret
-	 * @param extended {@code true}, use
-	 *            {@link Label#EXTENDED_MASTER_SECRET_LABEL}, {@code false}, use
-	 *            {@link Label#MASTER_SECRET_LABEL}
-	 * @return the (extended) master secret
-	 * @since 3.0 (added parameter extended)
+	 * @param seed the seed to use for creating the original data
+	 * @return the master secret
 	 */
-	public static SecretKey generateMasterSecret(Mac hmac, SecretKey premasterSecret, byte[] seed, boolean extended) {
-		byte[] secret = doPRF(hmac, premasterSecret,
-				extended ? Label.EXTENDED_MASTER_SECRET_LABEL : Label.MASTER_SECRET_LABEL, seed);
+	public static SecretKey generateMasterSecret(Mac hmac, SecretKey premasterSecret, byte[] seed) {
+		byte[] secret = doPRF(hmac, premasterSecret, Label.MASTER_SECRET_LABEL, seed);
 		SecretKey masterSecret = SecretUtil.create(secret, "MAC");
 		Bytes.clear(secret);
 		return masterSecret;
@@ -227,9 +219,11 @@ public final class PseudoRandomFunction {
 		byte[] pskBytes = pskSecret.getEncoded();
 		int pskLength = pskBytes.length;
 		byte[] otherBytes = otherSecret != null ? otherSecret.getEncoded() : new byte[pskLength];
-		DatagramWriter writer = new DatagramWriter(otherBytes.length + pskLength + 4, true);
-		writer.writeVarBytes(otherBytes, 16);
-		writer.writeVarBytes(pskBytes, 16);
+		DatagramWriter writer = new DatagramWriter(true);
+		writer.write(otherBytes.length, 16);
+		writer.writeBytes(otherBytes);
+		writer.write(pskLength, 16);
+		writer.writeBytes(pskBytes);
 		byte[] secret = writer.toByteArray();
 		writer.close();
 		SecretKey premaster = SecretUtil.create(secret, "MAC");

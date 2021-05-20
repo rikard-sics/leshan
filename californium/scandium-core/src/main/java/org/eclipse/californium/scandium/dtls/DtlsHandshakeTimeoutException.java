@@ -13,6 +13,8 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
+import java.net.InetSocketAddress;
+
 /**
  * Raised when an handshake flight timed-out.
  * 
@@ -24,8 +26,8 @@ public class DtlsHandshakeTimeoutException extends DtlsException {
 
 	private final int flightNumber;
 
-	public DtlsHandshakeTimeoutException(String message, int flightNumber) {
-		super(message);
+	public DtlsHandshakeTimeoutException(String message, InetSocketAddress peer, int flightNumber) {
+		super(message, peer);
 		this.flightNumber = flightNumber;
 	}
 

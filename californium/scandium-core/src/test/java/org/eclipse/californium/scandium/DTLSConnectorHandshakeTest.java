@@ -30,7 +30,7 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.CoreMatchers.startsWith;
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assume.assumeTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
@@ -69,20 +69,15 @@ import org.eclipse.californium.elements.util.SslContextUtil;
 import org.eclipse.californium.elements.util.SslContextUtil.Credentials;
 import org.eclipse.californium.elements.util.TestCertificatesTools;
 import org.eclipse.californium.elements.util.TestScope;
-import org.eclipse.californium.scandium.ConnectorHelper.AlertCatcher;
 import org.eclipse.californium.scandium.ConnectorHelper.BuilderSetup;
 import org.eclipse.californium.scandium.ConnectorHelper.BuilderSetups;
 import org.eclipse.californium.scandium.ConnectorHelper.LatchSessionListener;
 import org.eclipse.californium.scandium.auth.ApplicationLevelInfoSupplier;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig.Builder;
-import org.eclipse.californium.scandium.dtls.AlertMessage;
-import org.eclipse.californium.scandium.dtls.AlertMessage.AlertDescription;
-import org.eclipse.californium.scandium.dtls.AlertMessage.AlertLevel;
 import org.eclipse.californium.scandium.dtls.ConnectionIdGenerator;
 import org.eclipse.californium.scandium.dtls.DTLSSession;
 import org.eclipse.californium.scandium.dtls.DtlsTestTools;
-import org.eclipse.californium.scandium.dtls.ExtendedMasterSecretMode;
 import org.eclipse.californium.scandium.dtls.InMemoryConnectionStore;
 import org.eclipse.californium.scandium.dtls.SignatureAndHashAlgorithm;
 import org.eclipse.californium.scandium.dtls.SingleNodeConnectionIdGenerator;
@@ -143,7 +138,6 @@ public class DTLSConnectorHandshakeTest {
 	AsyncNewAdvancedCertificateVerifier serverVerifier;
 
 	DTLSConnector client;
-	AlertCatcher clientAlertCatcher;
 	InMemoryConnectionStore clientConnectionStore;
 	ApplicationLevelInfoSupplier clientInfoSupplier;
 	ApplicationLevelInfoSupplier serverInfoSupplier;
@@ -325,10 +319,9 @@ public class DTLSConnectorHandshakeTest {
 	public void setUp() {
 
 		serverInfoSupplier = mock(ApplicationLevelInfoSupplier.class);
-		when(serverInfoSupplier.getInfo(any(Principal.class), any())).thenReturn(additionalServerInfo);
+		when(serverInfoSupplier.getInfo(any(Principal.class))).thenReturn(additionalServerInfo);
 		clientInfoSupplier = mock(ApplicationLevelInfoSupplier.class);
-		when(clientInfoSupplier.getInfo(any(Principal.class), any())).thenReturn(additionalClientInfo);
-		clientAlertCatcher = new AlertCatcher();
+		when(clientInfoSupplier.getInfo(any(Principal.class))).thenReturn(additionalClientInfo);
 	}
 
 	/**
@@ -353,13 +346,9 @@ public class DTLSConnectorHandshakeTest {
 			serverVerifier = null;
 		}
 		if (serverHelper != null) {
-			serverHelper.server.stop();
-			ConnectorHelper.assertReloadConnections("server", serverHelper.server);
 			serverHelper.destroyServer();
 		}
 		if (client != null) {
-			client.stop();
-			ConnectorHelper.assertReloadConnections("client", client);
 			client.destroy();
 		}
 	}
@@ -482,7 +471,6 @@ public class DTLSConnectorHandshakeTest {
 		DtlsConnectorConfig clientConfig = builder.build();
 
 		client = serverHelper.createClient(clientConfig);
-		client.setAlertHandler(clientAlertCatcher);
 		RawData raw = RawData.outbound("Hello World".getBytes(),
 				new AddressEndpointContext(serverHelper.serverEndpoint, hostname, null), null, false);
 		serverHelper.givenAnEstablishedSession(client, raw, true);
@@ -500,7 +488,6 @@ public class DTLSConnectorHandshakeTest {
 		DtlsConnectorConfig clientConfig = builder.build();
 
 		client = serverHelper.createClient(clientConfig);
-		client.setAlertHandler(clientAlertCatcher);
 		client.start();
 		SimpleMessageCallback callback = new SimpleMessageCallback();
 		RawData raw = RawData.outbound("Hello World".getBytes(), destination, callback, false);
@@ -710,7 +697,7 @@ public class DTLSConnectorHandshakeTest {
 		Principal principal = endpointContext.getPeerIdentity();
 		assertThat(principal, is(nullValue()));
 		assertThat(endpointContext.getVirtualHost(), is(nullValue()));
-		verify(clientInfoSupplier, never()).getInfo(any(Principal.class), any());
+		verify(clientInfoSupplier, never()).getInfo(any(Principal.class));
 	}
 
 	@Test
@@ -721,7 +708,7 @@ public class DTLSConnectorHandshakeTest {
 		Principal principal = endpointContext.getPeerIdentity();
 		assertThat(principal, is(nullValue()));
 		assertThat(endpointContext.getVirtualHost(), is(nullValue()));
-		verify(clientInfoSupplier, never()).getInfo(any(Principal.class), any());
+		verify(clientInfoSupplier, never()).getInfo(any(Principal.class));
 	}
 
 	@Test
@@ -732,7 +719,7 @@ public class DTLSConnectorHandshakeTest {
 		Principal principal = endpointContext.getPeerIdentity();
 		assertThat(principal, is(nullValue()));
 		assertThat(endpointContext.getVirtualHost(), is(SERVERNAME));
-		verify(clientInfoSupplier, never()).getInfo(any(Principal.class), any());
+		verify(clientInfoSupplier, never()).getInfo(any(Principal.class));
 	}
 
 	@Test
@@ -743,7 +730,7 @@ public class DTLSConnectorHandshakeTest {
 		Principal principal = endpointContext.getPeerIdentity();
 		assertThat(principal, is(nullValue()));
 		assertThat(endpointContext.getVirtualHost(), is(nullValue()));
-		verify(clientInfoSupplier, never()).getInfo(any(Principal.class), any());
+		verify(clientInfoSupplier, never()).getInfo(any(Principal.class));
 	}
 
 	@Test
@@ -754,7 +741,7 @@ public class DTLSConnectorHandshakeTest {
 		Principal principal = endpointContext.getPeerIdentity();
 		assertThat(principal, is(nullValue()));
 		assertThat(endpointContext.getVirtualHost(), is(nullValue()));
-		verify(clientInfoSupplier, never()).getInfo(any(Principal.class), any());
+		verify(clientInfoSupplier, never()).getInfo(any(Principal.class));
 	}
 
 	@Test
@@ -765,7 +752,7 @@ public class DTLSConnectorHandshakeTest {
 		Principal principal = endpointContext.getPeerIdentity();
 		assertThat(principal, is(nullValue()));
 		assertThat(endpointContext.getVirtualHost(), is(nullValue()));
-		verify(clientInfoSupplier, never()).getInfo(any(Principal.class), any());
+		verify(clientInfoSupplier, never()).getInfo(any(Principal.class));
 	}
 
 	@Test
@@ -776,7 +763,7 @@ public class DTLSConnectorHandshakeTest {
 		Principal principal = endpointContext.getPeerIdentity();
 		assertThat(principal, is(nullValue()));
 		assertThat(endpointContext.getVirtualHost(), is(SERVERNAME));
-		verify(clientInfoSupplier, never()).getInfo(any(Principal.class), any());
+		verify(clientInfoSupplier, never()).getInfo(any(Principal.class));
 	}
 
 	@Test
@@ -787,7 +774,7 @@ public class DTLSConnectorHandshakeTest {
 		Principal principal = endpointContext.getPeerIdentity();
 		assertThat(principal, is(nullValue()));
 		assertThat(endpointContext.getVirtualHost(), is(nullValue()));
-		verify(clientInfoSupplier, never()).getInfo(any(Principal.class), any());
+		verify(clientInfoSupplier, never()).getInfo(any(Principal.class));
 	}
 
 	@Test
@@ -809,7 +796,7 @@ public class DTLSConnectorHandshakeTest {
 		Principal principal = endpointContext.getPeerIdentity();
 		assertThat(principal, is(nullValue()));
 		assertThat(endpointContext.getVirtualHost(), is(nullValue()));
-		verify(clientInfoSupplier, never()).getInfo(any(Principal.class), any());
+		verify(clientInfoSupplier, never()).getInfo(any(Principal.class));
 	}
 
 	@Test
@@ -831,7 +818,7 @@ public class DTLSConnectorHandshakeTest {
 		Principal principal = endpointContext.getPeerIdentity();
 		assertThat(principal, is(nullValue()));
 		assertThat(endpointContext.getVirtualHost(), is(nullValue()));
-		verify(clientInfoSupplier, never()).getInfo(any(Principal.class), any());
+		verify(clientInfoSupplier, never()).getInfo(any(Principal.class));
 	}
 
 	@Test
@@ -845,7 +832,7 @@ public class DTLSConnectorHandshakeTest {
 		Principal principal = endpointContext.getPeerIdentity();
 		assertThat(principal, is(nullValue()));
 		assertThat(endpointContext.getVirtualHost(), is(nullValue()));
-		verify(clientInfoSupplier, never()).getInfo(any(Principal.class), any());
+		verify(clientInfoSupplier, never()).getInfo(any(Principal.class));
 	}
 
 	@Test
@@ -920,134 +907,6 @@ public class DTLSConnectorHandshakeTest {
 		assertThat(principal.getName(), is(CLIENT_IDENTITY));
 		assertThat(endpointContext.getVirtualHost(), is(nullValue()));
 		assertClientPrincipalHasAdditionalInfo(principal);
-	}
-
-	@Test
-	public void testPskHandshakeWithRequiredExtendedMasterSecret() throws Exception {
-		DtlsConnectorConfig.Builder serverBuilder = DtlsConnectorConfig.builder()
-				.setExtendedMasterSecretMode(ExtendedMasterSecretMode.REQUIRED)
-				.setApplicationLevelInfoSupplier(clientInfoSupplier);
-		startServer(serverBuilder);
-		DtlsConnectorConfig.Builder builder = DtlsConnectorConfig.builder()
-				.setExtendedMasterSecretMode(ExtendedMasterSecretMode.REQUIRED)
-				.setAdvancedPskStore(PSK_STORE);
-		startClient(false, null, builder);
-		EndpointContext endpointContext = serverHelper.serverRawDataProcessor.getClientEndpointContext();
-		Principal principal = endpointContext.getPeerIdentity();
-		assertThat(principal, is(notNullValue()));
-		assertThat(principal.getName(), is(CLIENT_IDENTITY));
-		assertThat(endpointContext.getVirtualHost(), is(nullValue()));
-		assertClientPrincipalHasAdditionalInfo(principal);
-	}
-
-	@Test
-	public void testPskHandshakeWithoutExtendedMasterSecret() throws Exception {
-		DtlsConnectorConfig.Builder serverBuilder = DtlsConnectorConfig.builder()
-				.setExtendedMasterSecretMode(ExtendedMasterSecretMode.NONE)
-				.setApplicationLevelInfoSupplier(clientInfoSupplier);
-		startServer(serverBuilder);
-		DtlsConnectorConfig.Builder builder = DtlsConnectorConfig.builder()
-				.setExtendedMasterSecretMode(ExtendedMasterSecretMode.NONE)
-				.setAdvancedPskStore(PSK_STORE);
-		startClient(false, null, builder);
-		EndpointContext endpointContext = serverHelper.serverRawDataProcessor.getClientEndpointContext();
-		Principal principal = endpointContext.getPeerIdentity();
-		assertThat(principal, is(notNullValue()));
-		assertThat(principal.getName(), is(CLIENT_IDENTITY));
-		assertThat(endpointContext.getVirtualHost(), is(nullValue()));
-		assertClientPrincipalHasAdditionalInfo(principal);
-	}
-
-	@Test
-	public void testPskHandshakeWithoutExtendedMasterSecretByClient() throws Exception {
-		DtlsConnectorConfig.Builder serverBuilder = DtlsConnectorConfig.builder()
-				.setExtendedMasterSecretMode(ExtendedMasterSecretMode.ENABLED)
-				.setApplicationLevelInfoSupplier(clientInfoSupplier);
-		startServer(serverBuilder);
-		DtlsConnectorConfig.Builder builder = DtlsConnectorConfig.builder()
-				.setExtendedMasterSecretMode(ExtendedMasterSecretMode.NONE)
-				.setAdvancedPskStore(PSK_STORE);
-		startClient(false, null, builder);
-		EndpointContext endpointContext = serverHelper.serverRawDataProcessor.getClientEndpointContext();
-		Principal principal = endpointContext.getPeerIdentity();
-		assertThat(principal, is(notNullValue()));
-		assertThat(principal.getName(), is(CLIENT_IDENTITY));
-		assertThat(endpointContext.getVirtualHost(), is(nullValue()));
-		assertClientPrincipalHasAdditionalInfo(principal);
-	}
-
-	@Test
-	public void testPskHandshakeWithoutExtendedMasterSecretByServer() throws Exception {
-		DtlsConnectorConfig.Builder serverBuilder = DtlsConnectorConfig.builder()
-				.setExtendedMasterSecretMode(ExtendedMasterSecretMode.NONE)
-				.setApplicationLevelInfoSupplier(clientInfoSupplier);
-		startServer(serverBuilder);
-		DtlsConnectorConfig.Builder builder = DtlsConnectorConfig.builder()
-				.setExtendedMasterSecretMode(ExtendedMasterSecretMode.ENABLED)
-				.setAdvancedPskStore(PSK_STORE);
-		startClient(false, null, builder);
-		EndpointContext endpointContext = serverHelper.serverRawDataProcessor.getClientEndpointContext();
-		Principal principal = endpointContext.getPeerIdentity();
-		assertThat(principal, is(notNullValue()));
-		assertThat(principal.getName(), is(CLIENT_IDENTITY));
-		assertThat(endpointContext.getVirtualHost(), is(nullValue()));
-		assertClientPrincipalHasAdditionalInfo(principal);
-	}
-
-	@Test
-	public void testPskHandshakeWithoutExtendedMasterSecretByClientRequiredByServer() throws Exception {
-		DtlsConnectorConfig.Builder serverBuilder = DtlsConnectorConfig.builder()
-				.setExtendedMasterSecretMode(ExtendedMasterSecretMode.REQUIRED)
-				.setApplicationLevelInfoSupplier(clientInfoSupplier);
-		startServer(serverBuilder);
-		DtlsConnectorConfig.Builder builder = DtlsConnectorConfig.builder()
-				.setExtendedMasterSecretMode(ExtendedMasterSecretMode.NONE)
-				.setAdvancedPskStore(PSK_STORE);
-		startClientFailing(builder, new AddressEndpointContext(serverHelper.serverEndpoint));
-
-		LatchSessionListener listener = serverHelper.sessionListenerMap.get(client.getAddress());
-		assertThat("server side session listener missing", listener, is(notNullValue()));
-		Throwable cause = listener.waitForSessionFailed(4000, TimeUnit.MILLISECONDS);
-		assertThat("server side handshake failure missing", cause, is(notNullValue()));
-
-		AlertMessage alert = serverHelper.serverAlertCatcher.waitForAlert(2000, TimeUnit.MILLISECONDS);
-		assertThat("server side alert", alert, is(new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE)));
-
-		listener = serverHelper.sessionListenerMap.get(serverHelper.serverEndpoint);
-		assertThat("client side session listener missing", listener, is(notNullValue()));
-		cause = listener.waitForSessionFailed(4000, TimeUnit.MILLISECONDS);
-		assertThat("client side handshake failure missing", cause, is(notNullValue()));
-
-		alert = clientAlertCatcher.waitForAlert(2000, TimeUnit.MILLISECONDS);
-		assertThat("client side alert", alert, is(new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE)));
-	}
-
-	@Test
-	public void testPskHandshakeWithoutExtendedMasterSecretByServerRequiredByClient() throws Exception {
-		DtlsConnectorConfig.Builder serverBuilder = DtlsConnectorConfig.builder()
-				.setExtendedMasterSecretMode(ExtendedMasterSecretMode.NONE)
-				.setApplicationLevelInfoSupplier(clientInfoSupplier);
-		startServer(serverBuilder);
-		DtlsConnectorConfig.Builder builder = DtlsConnectorConfig.builder()
-				.setExtendedMasterSecretMode(ExtendedMasterSecretMode.REQUIRED)
-				.setAdvancedPskStore(PSK_STORE);
-		startClientFailing(builder, new AddressEndpointContext(serverHelper.serverEndpoint));
-
-		LatchSessionListener listener = serverHelper.sessionListenerMap.get(client.getAddress());
-		assertThat("server side session listener missing", listener, is(notNullValue()));
-		Throwable cause = listener.waitForSessionFailed(4000, TimeUnit.MILLISECONDS);
-		assertThat("server side handshake failure missing", cause, is(notNullValue()));
-
-		AlertMessage alert = serverHelper.serverAlertCatcher.waitForAlert(2000, TimeUnit.MILLISECONDS);
-		assertThat("server side alert", alert, is(new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE)));
-
-		listener = serverHelper.sessionListenerMap.get(serverHelper.serverEndpoint);
-		assertThat("client side session listener missing", listener, is(notNullValue()));
-		cause = listener.waitForSessionFailed(4000, TimeUnit.MILLISECONDS);
-		assertThat("client side handshake failure missing", cause, is(notNullValue()));
-
-		alert = clientAlertCatcher.waitForAlert(2000, TimeUnit.MILLISECONDS);
-		assertThat("client side alert", alert, is(new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE)));
 	}
 
 	@Test
@@ -1360,100 +1219,6 @@ public class DTLSConnectorHandshakeTest {
 	}
 
 	@Test
-	public void testX509HandshakeFailingNoCommonSignatureAlgorithms() throws Exception {
-		DtlsConnectorConfig.Builder builder = DtlsConnectorConfig.builder()
-				.setClientAuthenticationWanted(true)
-				.setSupportedSignatureAlgorithms(SignatureAndHashAlgorithm.SHA384_WITH_ECDSA,
-						SignatureAndHashAlgorithm.SHA256_WITH_ECDSA)
-				.setApplicationLevelInfoSupplier(clientInfoSupplier);
-		startServer(builder);
-
-		AsyncNewAdvancedCertificateVerifier clientCertificateVerifier = (AsyncNewAdvancedCertificateVerifier) AsyncNewAdvancedCertificateVerifier
-				.builder().setTrustAllCertificates().build();
-		clientsCertificateVerifiers.add(clientCertificateVerifier);
-
-		builder = DtlsConnectorConfig.builder().setAdvancedCertificateVerifier(clientCertificateVerifier)
-				.setSupportedSignatureAlgorithms(SignatureAndHashAlgorithm.SHA1_WITH_ECDSA)
-				.setSupportedCipherSuites(CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8);
-
-		startClientFailing(builder, new AddressEndpointContext(serverHelper.serverEndpoint));
-
-		LatchSessionListener listener = serverHelper.sessionListenerMap.get(client.getAddress());
-		assertThat("server side session listener missing", listener, is(notNullValue()));
-		Throwable cause = listener.waitForSessionFailed(4000, TimeUnit.MILLISECONDS);
-		assertThat("server side handshake failure missing", cause, is(notNullValue()));
-
-		AlertMessage alert = serverHelper.serverAlertCatcher.waitForAlert(2000, TimeUnit.MILLISECONDS);
-		assertThat("server side alert", alert, is(new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE)));
-
-		listener = serverHelper.sessionListenerMap.get(serverHelper.serverEndpoint);
-		assertThat("client side session listener missing", listener, is(notNullValue()));
-		cause = listener.waitForSessionFailed(4000, TimeUnit.MILLISECONDS);
-		assertThat("client side handshake failure missing", cause, is(notNullValue()));
-		assertThat(cause.getMessage(), containsString("fatal alert"));
-
-		alert = clientAlertCatcher.waitForAlert(2000, TimeUnit.MILLISECONDS);
-		assertThat("client side alert", alert, is(new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE)));
-
-		serverHelper.serverAlertCatcher.resetAlert();
-		clientAlertCatcher.resetAlert();
-		client.destroy();
-
-		clientCertificateVerifier = (AsyncNewAdvancedCertificateVerifier) AsyncNewAdvancedCertificateVerifier
-				.builder().setTrustAllCertificates().build();
-		clientsCertificateVerifiers.add(clientCertificateVerifier);
-
-		builder = DtlsConnectorConfig.builder()
-				.setAdvancedCertificateVerifier(clientCertificateVerifier)
-				.setSupportedSignatureAlgorithms(SignatureAndHashAlgorithm.SHA384_WITH_ECDSA,
-						SignatureAndHashAlgorithm.SHA256_WITH_ECDSA)
-				.setSupportedCipherSuites(CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8);
-
-		startClient(false, null, builder);
-		assertThat(serverHelper.establishedServerSession.getCipherSuite(),
-				is(CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8));
-		assertThat(serverHelper.establishedServerSession.getSignatureAndHashAlgorithm(),
-				is(SignatureAndHashAlgorithm.SHA384_WITH_ECDSA));
-	}
-
-	@Test
-	public void testX509HandshakeFailingCertificateSignatureAlgorithm() throws Exception {
-		DtlsConnectorConfig.Builder builder = DtlsConnectorConfig.builder()
-				.setClientAuthenticationWanted(true)
-				.setSupportedSignatureAlgorithms(SignatureAndHashAlgorithm.SHA384_WITH_ECDSA,
-						SignatureAndHashAlgorithm.SHA256_WITH_ECDSA)
-				.setApplicationLevelInfoSupplier(clientInfoSupplier);
-		startServer(builder);
-
-		AsyncNewAdvancedCertificateVerifier clientCertificateVerifier = (AsyncNewAdvancedCertificateVerifier) AsyncNewAdvancedCertificateVerifier
-				.builder().setTrustAllCertificates().build();
-		clientsCertificateVerifiers.add(clientCertificateVerifier);
-
-		builder = DtlsConnectorConfig.builder().setAdvancedCertificateVerifier(clientCertificateVerifier)
-				.setSupportedSignatureAlgorithms(SignatureAndHashAlgorithm.SHA384_WITH_ECDSA)
-				.setSupportedCipherSuites(CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8);
-
-		startClientFailing(builder, new AddressEndpointContext(serverHelper.serverEndpoint));
-
-		LatchSessionListener listener = serverHelper.sessionListenerMap.get(client.getAddress());
-		assertThat("server side session listener missing", listener, is(notNullValue()));
-		Throwable cause = listener.waitForSessionFailed(4000, TimeUnit.MILLISECONDS);
-		assertThat("server side handshake failure missing", cause, is(notNullValue()));
-
-		AlertMessage alert = serverHelper.serverAlertCatcher.waitForAlert(2000, TimeUnit.MILLISECONDS);
-		assertThat("server side alert", alert, is(new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE)));
-
-		listener = serverHelper.sessionListenerMap.get(serverHelper.serverEndpoint);
-		assertThat("client side session listener missing", listener, is(notNullValue()));
-		cause = listener.waitForSessionFailed(4000, TimeUnit.MILLISECONDS);
-		assertThat("client side handshake failure missing", cause, is(notNullValue()));
-		assertThat(cause.getMessage(), containsString("fatal alert"));
-
-		alert = clientAlertCatcher.waitForAlert(2000, TimeUnit.MILLISECONDS);
-		assertThat("client side alert", alert, is(new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE)));
-	}
-
-	@Test
 	public void testX509HandshakeFailingWrongClientCertificate() throws Exception {
 		startServer(false, true, false, null);
 
@@ -1471,18 +1236,13 @@ public class DTLSConnectorHandshakeTest {
 		assertThat("server side session listener missing", listener, is(notNullValue()));
 		Throwable cause = listener.waitForSessionFailed(4000, TimeUnit.MILLISECONDS);
 		assertThat("server side handshake failure missing", cause, is(notNullValue()));
-
-		AlertMessage alert = serverHelper.serverAlertCatcher.waitForAlert(2000, TimeUnit.MILLISECONDS);
-		assertThat("server side alert", alert, is(new AlertMessage(AlertLevel.FATAL, AlertDescription.DECRYPT_ERROR)));
+		assertThat(cause.getMessage(), containsString("CertificateVerify message could not be verified."));
 
 		listener = serverHelper.sessionListenerMap.get(serverHelper.serverEndpoint);
 		assertThat("client side session listener missing", listener, is(notNullValue()));
 		cause = listener.waitForSessionFailed(4000, TimeUnit.MILLISECONDS);
 		assertThat("client side handshake failure missing", cause, is(notNullValue()));
 		assertThat(cause.getMessage(), containsString("fatal alert"));
-
-		alert = clientAlertCatcher.waitForAlert(2000, TimeUnit.MILLISECONDS);
-		assertThat("client side alert", alert, is(new AlertMessage(AlertLevel.FATAL, AlertDescription.DECRYPT_ERROR)));
 	}
 
 	@Test
@@ -1502,17 +1262,13 @@ public class DTLSConnectorHandshakeTest {
 		assertThat("server side session listener missing", listener, is(notNullValue()));
 		Throwable cause = listener.waitForSessionFailed(4000, TimeUnit.MILLISECONDS);
 		assertThat("server side handshake failure missing", cause, is(notNullValue()));
-
-		AlertMessage alert = serverHelper.serverAlertCatcher.waitForAlert(2000, TimeUnit.MILLISECONDS);
-		assertThat("server side alert", alert, is(new AlertMessage(AlertLevel.FATAL, AlertDescription.BAD_CERTIFICATE)));
+		assertThat(cause.getMessage(), containsString("Client Certificate required!"));
 
 		listener = serverHelper.sessionListenerMap.get(serverHelper.serverEndpoint);
 		assertThat("client side session listener missing", listener, is(notNullValue()));
 		cause = listener.waitForSessionFailed(4000, TimeUnit.MILLISECONDS);
 		assertThat("client side handshake failure missing", cause, is(notNullValue()));
-
-		alert = clientAlertCatcher.waitForAlert(2000, TimeUnit.MILLISECONDS);
-		assertThat("client side alert", alert, is(new AlertMessage(AlertLevel.FATAL, AlertDescription.BAD_CERTIFICATE)));
+		assertThat(cause.getMessage(), containsString("fatal alert"));
 	}
 
 	@Test
@@ -1533,49 +1289,13 @@ public class DTLSConnectorHandshakeTest {
 		assertThat("server side session listener missing", listener, is(notNullValue()));
 		Throwable cause = listener.waitForSessionFailed(4000, TimeUnit.MILLISECONDS);
 		assertThat("server side handshake failure missing", cause, is(notNullValue()));
-
-		AlertMessage alert = serverHelper.serverAlertCatcher.waitForAlert(2000, TimeUnit.MILLISECONDS);
-		assertThat("server side alert", alert, is(new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE)));
+		assertThat(cause.getMessage(), containsString("Client proposed unsupported cipher suites only"));
 
 		listener = serverHelper.sessionListenerMap.get(serverHelper.serverEndpoint);
 		assertThat("client side session listener missing", listener, is(notNullValue()));
 		cause = listener.waitForSessionFailed(4000, TimeUnit.MILLISECONDS);
 		assertThat("client side handshake failure missing", cause, is(notNullValue()));
-
-		alert = clientAlertCatcher.waitForAlert(2000, TimeUnit.MILLISECONDS);
-		assertThat("client side alert", alert, is(new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE)));
-	}
-
-	@Test
-	public void testX509HandshakeFailingCertificateCurve() throws Exception {
-		startServer(false, false, false, null);
-
-		AsyncNewAdvancedCertificateVerifier clientCertificateVerifier = (AsyncNewAdvancedCertificateVerifier) AsyncNewAdvancedCertificateVerifier
-				.builder().setTrustAllCertificates().build();
-		clientsCertificateVerifiers.add(clientCertificateVerifier);
-
-		DtlsConnectorConfig.Builder builder = DtlsConnectorConfig.builder()
-				.setAdvancedCertificateVerifier(clientCertificateVerifier)
-				.setRecommendedSupportedGroupsOnly(false)
-				.setSupportedGroups("secp384r1");
-
-		startClientFailing(builder, new AddressEndpointContext(serverHelper.serverEndpoint));
-
-		LatchSessionListener listener = serverHelper.sessionListenerMap.get(client.getAddress());
-		assertThat("server side session listener missing", listener, is(notNullValue()));
-		Throwable cause = listener.waitForSessionFailed(4000, TimeUnit.MILLISECONDS);
-		assertThat("server side handshake failure missing", cause, is(notNullValue()));
-
-		AlertMessage alert = serverHelper.serverAlertCatcher.waitForAlert(2000, TimeUnit.MILLISECONDS);
-		assertThat("server side alert", alert, is(new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE)));
-
-		listener = serverHelper.sessionListenerMap.get(serverHelper.serverEndpoint);
-		assertThat("client side session listener missing", listener, is(notNullValue()));
-		cause = listener.waitForSessionFailed(4000, TimeUnit.MILLISECONDS);
-		assertThat("client side handshake failure missing", cause, is(notNullValue()));
-
-		alert = clientAlertCatcher.waitForAlert(2000, TimeUnit.MILLISECONDS);
-		assertThat("client side alert", alert, is(new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE)));
+		assertThat(cause.getMessage(), containsString("fatal alert"));
 	}
 
 	@Test

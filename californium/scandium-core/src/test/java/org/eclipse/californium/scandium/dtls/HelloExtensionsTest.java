@@ -19,12 +19,15 @@
 package org.eclipse.californium.scandium.dtls;
 
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -35,6 +38,7 @@ import org.eclipse.californium.elements.util.DatagramWriter;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertDescription;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertLevel;
 import org.eclipse.californium.scandium.dtls.HelloExtension.ExtensionType;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -44,6 +48,12 @@ public class HelloExtensionsTest {
 	int unsupportedExtensionTypeCode = 0x50;
 	byte[] helloExtensionBytes;
 	HelloExtensions helloExtensions;
+	InetSocketAddress peerAddress;
+
+	@Before
+	public void setUp() throws UnknownHostException {
+		peerAddress = new InetSocketAddress(InetAddress.getLoopbackAddress(), 5684);
+	}
 
 	@Test
 	public void testSerializationDeserialization() throws HandshakeException {
@@ -53,7 +63,7 @@ public class HelloExtensionsTest {
 		extensions.addExtension(ext);
 		byte[] serializedExtension = extensions.toByteArray();
 
-		HelloExtensions deserializedExt = HelloExtensions.fromReader(new DatagramReader(serializedExtension));
+		HelloExtensions deserializedExt = HelloExtensions.fromReader(new DatagramReader(serializedExtension), peerAddress);
 		ClientCertificateTypeExtension certTypeExt = (ClientCertificateTypeExtension)
 				deserializedExt.getExtensions().get(0);
 		assertTrue(certTypeExt.getCertificateTypes().size() == 2);
@@ -184,7 +194,7 @@ public class HelloExtensionsTest {
 	}
 
 	private void whenDeserializingFromByteArray() throws HandshakeException {
-		helloExtensions = HelloExtensions.fromReader(new DatagramReader(helloExtensionBytes));
+		helloExtensions = HelloExtensions.fromReader(new DatagramReader(helloExtensionBytes), peerAddress);
 	}
 
 	private boolean containsExtensionType(int type, List<HelloExtension> extensions) {

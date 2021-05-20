@@ -27,7 +27,6 @@
  *    Achim Kraus (Bosch Software Innovations GmbH) - add clone method
  *    Achim Kraus (Bosch Software Innovations GmbH) - add support for custom defaults
  *                                                    remove clone method
- *    Pratheek Rai - Added TCP_NUMBER_OF_BULK_BLOCKS for BERT option.
  ******************************************************************************/
 package org.eclipse.californium.core.network.config;
 
@@ -41,24 +40,24 @@ import java.util.List;
 import java.util.Properties;
 
 import org.eclipse.californium.core.coap.Message;
+import org.eclipse.californium.elements.util.NotForAndroid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * The configuration for a Californium server, endpoint and/or connector.
  * Depending on the environment, the configuration is stored and loaded from
- * properties files. When missing, Californium will generated this properties
+ * properties files. When missing, californium will generated this properties
  * file. If file access is not possible, there are variants, which are marked as
  * "WithoutFile" or variants, which use a {@link InputStream} to read the
  * properties. Please use such a variant, e.g.
- * {@link #createStandardWithoutFile()}, if you want Californium to stop
+ * {@link #createStandardWithoutFile()}, if you want californium to stop
  * generating a properties file.
  * 
  * Note: For Android it's recommended to use the AssetManager and pass in the
  * InputStream to the variants using that as parameter. Alternatively you may
  * chose to use the "WithoutFile" variant and, if required, adjust the defaults
- * in your code. If the "File" variants are used, ensure, that you have the
- * android-os-permission to do so.
+ * in your code.
  */
 public final class NetworkConfig {
 
@@ -190,16 +189,7 @@ public final class NetworkConfig {
 		 * {@link NetworkConfigDefaults#DEFAULT_BLOCKWISE_STATUS_LIFETIME}.
 		 */
 		public static final String BLOCKWISE_STATUS_LIFETIME = "BLOCKWISE_STATUS_LIFETIME";
-		/**
-		 * The interval for removing expired/stale blockwise entries.
-		 * <p>
-		 * The default value of this property is
-		 * {@link NetworkConfigDefaults#DEFAULT_BLOCKWISE_STATUS_INTERVAL}.
-		 * 
-		 * @since 3.0
-		 */
-		public static final String BLOCKWISE_STATUS_INTERVAL = "BLOCKWISE_STATUS_INTERVAL";
-
+		
 		/**
 		 * Property to indicate if the response should always include the Block2 option when client request early blockwise negociation but the response can be sent on one packet.
 		 * <p>
@@ -294,14 +284,6 @@ public final class NetworkConfig {
 		public static final String TCP_CONNECTION_IDLE_TIMEOUT = "TCP_CONNECTION_IDLE_TIMEOUT";
 		public static final String TCP_CONNECT_TIMEOUT = "TCP_CONNECT_TIMEOUT";
 		public static final String TCP_WORKER_THREADS = "TCP_WORKER_THREADS";
-		
-		/**
-		 * If the value is greater than 1, this sets up the active use of BERT.
-		 * i.e. Messages will be sent with BERT option. The passive
-		 * receiving of BERT message is always enabled while using TCP connector.
-		 */
-		public static final String TCP_NUMBER_OF_BULK_BLOCKS = "TCP_NUMBER_OF_BULK_BLOCKS";
-
 		public static final String TLS_HANDSHAKE_TIMEOUT = "TLS_HANDSHAKE_TIMEOUT";
 
 		/** Properties for encryption */
@@ -430,6 +412,7 @@ public final class NetworkConfig {
 	 * @param file the configuration file
 	 * @return the network configuration
 	 */
+	@NotForAndroid
 	public static NetworkConfig createStandardWithFile(final File file) {
 		standard = createWithFile(file, DEFAULT_HEADER, null);
 		return standard;
@@ -449,6 +432,7 @@ public final class NetworkConfig {
 	 * @param customHandler custom defaults handler. Maybe {@code null}.
 	 * @return the network configuration
 	 */
+	@NotForAndroid
 	public static NetworkConfig createWithFile(final File file, final String header,
 			final NetworkConfigDefaultHandler customHandler) {
 		NetworkConfig standard = new NetworkConfig();
@@ -491,6 +475,7 @@ public final class NetworkConfig {
 	 * @param file the file
 	 * @throws NullPointerException if the file is {@code null}.
 	 */
+	@NotForAndroid
 	public void load(final File file) {
 		if (file == null) {
 			throw new NullPointerException("file must not be null");
@@ -500,7 +485,7 @@ public final class NetworkConfig {
 				load(inStream);
 			} catch (IOException e) {
 				LOGGER.warn("cannot load properties from file {}: {}",
-						file.getAbsolutePath(), e.getMessage());
+						new Object[] { file.getAbsolutePath(), e.getMessage() });
 			}
 		}
 	}
@@ -522,11 +507,12 @@ public final class NetworkConfig {
 	/**
 	 * Stores the configuration to a file.
 	 * 
-	 * Not intended for Android!
+	 * For available for Android!
 	 *
 	 * @param file The file to write to.
 	 * @throws NullPointerException if the file is {@code null}.
 	 */
+	@NotForAndroid
 	public void store(final File file) {
 		store(file, DEFAULT_HEADER);
 	}
@@ -534,12 +520,13 @@ public final class NetworkConfig {
 	/**
 	 * Stores the configuration to a file using a given header.
 	 * 
-	 * Not intended for Android!
+	 * For available for Android!
 	 * 
 	 * @param file The file to write to.
 	 * @param header The header to write to the top of the file.
 	 * @throws NullPointerException if the file is {@code null}.
 	 */
+	@NotForAndroid
 	public void store(File file, String header) {
 		if (file == null) {
 			throw new NullPointerException("file must not be null");
@@ -549,7 +536,7 @@ public final class NetworkConfig {
 				properties.store(writer, header);
 			} catch (IOException e) {
 				LOGGER.warn("cannot write properties to file {}: {}",
-						file.getAbsolutePath(), e.getMessage());
+						new Object[] { file.getAbsolutePath(), e.getMessage() });
 			}
 		}
 	}
@@ -558,7 +545,7 @@ public final class NetworkConfig {
 	 * Gets the string value for a key.
 	 *
 	 * @param key the key to look up.
-	 * @return the value, or {@code null}, if this configuration does not contain
+	 * @return the value or {@code null} if this configuration does not contain
 	 *         the given key.
 	 */
 	public String getString(final String key) {
@@ -588,6 +575,10 @@ public final class NetworkConfig {
 	 */
 	public Integer getOptInteger(final String key) {
 		return getNumberValue(new PropertyParser<Integer>() {
+			@Override
+			public String getTypeName() {
+				return "Integer";
+			}
 
 			@Override
 			public Integer parseValue(String value) {
@@ -606,6 +597,10 @@ public final class NetworkConfig {
 	 */
 	public Long getOptLong(final String key) {
 		return getNumberValue(new PropertyParser<Long>() {
+			@Override
+			public String getTypeName() {
+				return "Long";
+			}
 
 			@Override
 			public Long parseValue(String value) {
@@ -636,6 +631,10 @@ public final class NetworkConfig {
 	 */
 	public int getInt(final String key, final int defaultValue) {
 		return getNumberValue(new PropertyParser<Integer>() {
+			@Override
+			public String getTypeName() {
+				return "int";
+			}
 
 			@Override
 			public Integer parseValue(String value) {
@@ -666,6 +665,10 @@ public final class NetworkConfig {
 	 */
 	public long getLong(final String key, final long defaultValue) {
 		return getNumberValue(new PropertyParser<Long>() {
+			@Override
+			public String getTypeName() {
+				return "long";
+			}
 
 			@Override
 			public Long parseValue(String value) {
@@ -697,6 +700,10 @@ public final class NetworkConfig {
 	 */
 	public float getFloat(final String key, final float defaultValue) {
 		return getNumberValue(new PropertyParser<Float>() {
+			@Override
+			public String getTypeName() {
+				return "float";
+			}
 
 			@Override
 			public Float parseValue(String value) {
@@ -728,6 +735,10 @@ public final class NetworkConfig {
 	 */
 	public double getDouble(final String key, final double defaultValue) {
 		return getNumberValue(new PropertyParser<Double>() {
+			@Override
+			public String getTypeName() {
+				return "double";
+			}
 
 			@Override
 			public Double parseValue(String value) {
@@ -739,16 +750,15 @@ public final class NetworkConfig {
 	private <T> T getNumberValue(final PropertyParser<T> parser, final String key, final T defaultValue) {
 		T result = defaultValue;
 		String value = properties.getProperty(key);
-		if (value != null && !value.isEmpty()) {
-			try {
-				result = parser.parseValue(value);
-			} catch (NumberFormatException e) {
-				LOGGER.warn("value for key [{}] is not a {0}, returning default value", key, defaultValue.getClass());
-			}
-		} else if (value == null) {
+		if (value == null) {
 			LOGGER.debug("key [{}] is undefined, returning default value", key);
-		} else {
+		} else if (value.isEmpty()) {
 			LOGGER.debug("key [{}] is empty, returning default value", key);
+		}
+		try {
+			result = parser.parseValue(value);
+		} catch (NumberFormatException e) {
+			LOGGER.warn("value for key [{}] is not a {}, returning default value", key, parser.getTypeName());
 		}
 		return result;
 	}
@@ -788,7 +798,7 @@ public final class NetworkConfig {
 	}
 
 	private interface PropertyParser<T> {
-
+		String getTypeName();
 		T parseValue(String value);
 	}
 

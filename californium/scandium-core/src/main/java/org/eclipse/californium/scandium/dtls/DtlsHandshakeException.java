@@ -15,6 +15,8 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
+import java.net.InetSocketAddress;
+
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertDescription;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertLevel;
 
@@ -31,9 +33,11 @@ public class DtlsHandshakeException extends DtlsException {
 	 * @param message the detail message (which is saved for later retrieval by the <code>Throwable.getMessage()</code> method).
 	 * @param description the TLS <em>alert description</em> used to characterize the exception.
 	 * @param level the TLS <em>alert level</em> indicating the severity of the exception.
+	 * @param peer the IP address and port of the DTLS connection peer (which is saved for later retrieval by the
+	 *          <code>DtlsException.getPeer()</code> method).
 	 */
-	public DtlsHandshakeException(String message, AlertDescription description, AlertLevel level) {
-		super(message);
+	public DtlsHandshakeException(String message, AlertDescription description, AlertLevel level, InetSocketAddress peer) {
+		super(message, peer);
 		if (description == null) {
 			throw new NullPointerException("Description must not be null");
 		} else if (level == null) {
@@ -54,12 +58,14 @@ public class DtlsHandshakeException extends DtlsException {
 	 * @param message the detail message (which is saved for later retrieval by the <code>Throwable.getMessage()</code> method).
 	 * @param description the TLS <em>alert description</em> used to characterize the exception.
 	 * @param level the TLS <em>alert level</em> indicating the severity of the exception.
+	 * @param peer the IP address and port of the DTLS connection peer (which is saved for later retrieval by the
+	 *          <code>DtlsException.getPeer()</code> method).
 	 * @param cause the cause for this handshake exception (which is saved for later retrieval by the
 	 *          <code>Throwable.getCause()</code> method). (A <code>null</code> value is permitted, and indicates
 	 *          that the cause is nonexistent or unknown.)
 	 */
-	public DtlsHandshakeException(String message, AlertDescription description, AlertLevel level, Throwable cause) {
-		super(message, cause);
+	public DtlsHandshakeException(String message, AlertDescription description, AlertLevel level, InetSocketAddress peer, Throwable cause) {
+		super(message, peer, cause);
 		if (description == null) {
 			throw new NullPointerException("Description must not be null");
 		} else if (level == null) {

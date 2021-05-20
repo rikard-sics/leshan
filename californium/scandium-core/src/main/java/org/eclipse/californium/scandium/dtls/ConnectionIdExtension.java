@@ -15,6 +15,8 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
+import java.net.InetSocketAddress;
+
 import org.eclipse.californium.elements.util.DatagramReader;
 import org.eclipse.californium.elements.util.DatagramWriter;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertDescription;
@@ -39,7 +41,7 @@ public final class ConnectionIdExtension extends HelloExtension {
 	/**
 	 * Connection id to negotiate.
 	 */
-	private final ConnectionId id;
+	private ConnectionId id;
 
 	/**
 	 * Create connection id extension.
@@ -71,7 +73,8 @@ public final class ConnectionIdExtension extends HelloExtension {
 	protected void addExtensionData(final DatagramWriter writer) {
 		int length = id.length();
 		writer.write(1 + length, LENGTH_BITS);
-		writer.writeVarBytes(id, CID_FIELD_LENGTH_BITS);
+		writer.write(length, CID_FIELD_LENGTH_BITS);
+		writer.writeBytes(id.getBytes());
 	}
 
 	/**
@@ -92,28 +95,30 @@ public final class ConnectionIdExtension extends HelloExtension {
 	 * Create connection id extension from extensions data bytes.
 	 * 
 	 * @param extensionDataReader extension data bytes
+	 * @param peerAddress peer address
 	 * @return created connection id extension
 	 * @throws NullPointerException if extensionData is {@code null}
 	 * @throws HandshakeException if the extension data could not be decoded
 	 */
-	public static ConnectionIdExtension fromExtensionDataReader(DatagramReader extensionDataReader) throws HandshakeException {
+	public static ConnectionIdExtension fromExtensionDataReader(DatagramReader extensionDataReader,
+			final InetSocketAddress peerAddress) throws HandshakeException {
 		if (extensionDataReader == null) {
 			throw new NullPointerException("cid must not be null!");
 		} 
 		int availableBytes = extensionDataReader.bitsLeft() / Byte.SIZE;
 		if (availableBytes == 0) {
 			throw new HandshakeException("Connection id length must be provided!",
-					new AlertMessage(AlertLevel.FATAL, AlertDescription.ILLEGAL_PARAMETER));
+					new AlertMessage(AlertLevel.FATAL, AlertDescription.ILLEGAL_PARAMETER, peerAddress));
 		} else if (availableBytes > 256) {
 			throw new HandshakeException(
 					"Connection id length too large! 255 max, but has " + (availableBytes - 1),
-					new AlertMessage(AlertLevel.FATAL, AlertDescription.ILLEGAL_PARAMETER));
+					new AlertMessage(AlertLevel.FATAL, AlertDescription.ILLEGAL_PARAMETER, peerAddress));
 		}
 		int len = extensionDataReader.read(CID_FIELD_LENGTH_BITS);
 		if (len != (availableBytes - 1)) {
 			throw new HandshakeException(
 					"Connection id length " + len + " doesn't match " + (availableBytes - 1) + "!",
-					new AlertMessage(AlertLevel.FATAL, AlertDescription.ILLEGAL_PARAMETER));
+					new AlertMessage(AlertLevel.FATAL, AlertDescription.ILLEGAL_PARAMETER, peerAddress));
 		}
 		if (len == 0) {
 			return new ConnectionIdExtension(ConnectionId.EMPTY);

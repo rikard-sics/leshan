@@ -20,7 +20,6 @@ package org.eclipse.californium.elements.tcp.netty;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.security.GeneralSecurityException;
 import java.util.concurrent.RejectedExecutionException;
 
@@ -32,21 +31,21 @@ import org.slf4j.LoggerFactory;
 
 import io.netty.channel.ChannelHandlerAdapter;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.ssl.NotSslRecordException;
 
 /**
  * Channel handler that closes connection if an exception was raised. Use the
  * logging level of {@link CloseOnErrorHandler} to specify the amount of
- * stack-traces in cases of security errors. Level FINER, log all stack-traces,
- * Level WARNING, log stack-trace of the root most cause, and SEVERE for message
- * of root most cause only. All logging is done with Level SEVERE, so the level
- * only determines the amount of information in cases of security errors.
+ * stack-traces in cases of security errors. Common exceptions,
+ * {@link SSLException}, {@link GeneralSecurityException}, or
+ * {@link RejectedExecutionException} are logged with level WARN. If level DEBUG
+ * is enabled, log also a stack-traces of the root cause for these common
+ * exceptions. {@link IOException} are logged with WARN without stack trace and
+ * all other exceptions are logged as ERROR with a stack trace of the provided
+ * cause.
  */
 class CloseOnErrorHandler extends ChannelHandlerAdapter {
 
 	private final static Logger LOGGER = LoggerFactory.getLogger(CloseOnErrorHandler.class);
-
-	private final static Logger LOGGER_BAN = LoggerFactory.getLogger("org.eclipse.californium.ban");
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
@@ -59,34 +58,20 @@ class CloseOnErrorHandler extends ChannelHandlerAdapter {
 			while (null != rootCause.getCause()) {
 				rootCause = rootCause.getCause();
 			}
-			String remote = StringUtil.toString(ctx.channel().remoteAddress());
-			if (rootCause instanceof IOException) {
-				LOGGER.warn("{} in channel handler chain for endpoint {}. Closing connection.", rootCause.getMessage(),
-						remote);
-			} else if (!LOGGER.isDebugEnabled()
-					&& (rootCause instanceof SSLException || rootCause instanceof GeneralSecurityException)) {
-				/* comprehensive message for security exceptions */
-				if (LOGGER.isWarnEnabled()) {
-					/* with stacktrace */
-					LOGGER.warn("Security Exception in channel handler chain for endpoint {}. Closing connection.",
-							remote, rootCause);
+			String error = rootCause.toString();
+			String remote = StringUtil.toString((InetSocketAddress) ctx.channel().remoteAddress());
+			if (rootCause instanceof SSLException || rootCause instanceof GeneralSecurityException
+					|| rootCause instanceof RejectedExecutionException) {
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.warn("{} in channel handler chain for endpoint {}. Closing connection.", error, remote,
+							rootCause);
 				} else {
-					LOGGER.error("{} in channel handler chain for endpoint {}. Closing connection.", rootCause, remote);
+					LOGGER.warn("{} in channel handler chain for endpoint {}. Closing connection.", error, remote);
 				}
-			} else if (!LOGGER.isDebugEnabled() && rootCause instanceof RejectedExecutionException) {
-				LOGGER.warn("{} in channel handler chain for endpoint {}. Closing connection.", rootCause, remote);
+			} else if (rootCause instanceof IOException) {
+				LOGGER.warn("{} in channel handler chain for endpoint {}. Closing connection.", error, remote);
 			} else {
-				LOGGER.error("Exception in channel handler chain for endpoint {}. Closing connection.", remote, cause);
-			}
-			if (LOGGER_BAN.isInfoEnabled()) {
-				boolean ban = rootCause instanceof NotSslRecordException;
-				if (ban) {
-					SocketAddress remoteAddress = ctx.channel().remoteAddress();
-					if (remoteAddress instanceof InetSocketAddress) {
-						remote = ((InetSocketAddress) remoteAddress).getAddress().getHostAddress();
-						LOGGER_BAN.info("TLS Ban: {}", remote);
-					}
-				}
+				LOGGER.error("{} in channel handler chain for endpoint {}. Closing connection.", error, cause);
 			}
 		} finally {
 			ctx.close();

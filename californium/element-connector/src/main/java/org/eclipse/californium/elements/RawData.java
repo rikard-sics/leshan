@@ -33,6 +33,7 @@ package org.eclipse.californium.elements;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.security.Principal;
 
@@ -67,13 +68,6 @@ public final class RawData {
 	private final boolean multicast;
 
 	/**
-	 * Connectors inet socket address.
-	 * 
-	 * @since 3.0
-	 */
-	private final InetSocketAddress connector;
-
-	/**
 	 * Endpoint context of the remote peer.
 	 */
 	private final EndpointContext peerEndpointContext;
@@ -94,14 +88,11 @@ public final class RawData {
 	 * @param endpointContext remote peers endpoint context.
 	 * @param multicast indicates whether the data represents a multicast
 	 *            message
-	 * @param nanoTimestamp nano-timestamp for received messages. {@code 0} for
-	 *            outgoing messages.
-	 * @param connector connector's address. {@code null} for outgoing data.
-	 * @throws NullPointerException if data or endpoint context is {@code null}
-	 * @since 3.0 (added parameter connector)
+	 * @param nanoTimestamp nano-timestamp for received messages. {@code 0}
+	 *            for outgoing messages.
+	 * @throws NullPointerException if data or address is {@code null}
 	 */
-	private RawData(byte[] data, EndpointContext peerEndpointContext, MessageCallback callback, boolean multicast,
-			long nanoTimestamp, InetSocketAddress connector) {
+	private RawData(byte[] data, EndpointContext peerEndpointContext, MessageCallback callback, boolean multicast, long nanoTimestamp) {
 		if (data == null) {
 			throw new NullPointerException("Data must not be null");
 		} else if (peerEndpointContext == null) {
@@ -112,7 +103,6 @@ public final class RawData {
 			this.callback = callback;
 			this.multicast = multicast;
 			this.receiveNanoTimestamp = nanoTimestamp;
-			this.connector = connector;
 		}
 	}
 
@@ -129,19 +119,12 @@ public final class RawData {
 	 *            multicast message. (Currently {@link DatagramPacket} nor
 	 *            {@link DatagramSocket} offers this information!)
 	 * @param nanoTimestamp nano-timestamp for received messages.
-	 * @param connector connector's address
 	 * @return the raw data object containing the inbound message.
-	 * @throws NullPointerException if data, endpoint context, or connector is
-	 *             {@code null}.
+	 * @throws NullPointerException if data or address is {@code null}.
 	 * @see ClockUtil#nanoRealtime()
-	 * @since 3.0 (added parameter connector)
 	 */
-	public static RawData inbound(byte[] data, EndpointContext peerEndpointContext, boolean isMulticast,
-			long nanoTimestamp, InetSocketAddress connector) {
-		if (connector == null) {
-			throw new NullPointerException("Connectors's address must not be null");
-		}
-		return new RawData(data, peerEndpointContext, null, isMulticast, nanoTimestamp, connector);
+	public static RawData inbound(byte[] data, EndpointContext peerEndpointContext, boolean isMulticast, long nanoTimestamp) {
+		return new RawData(data, peerEndpointContext, null, isMulticast, nanoTimestamp);
 	}
 
 	/**
@@ -173,7 +156,7 @@ public final class RawData {
 	 */
 	public static RawData outbound(byte[] data, EndpointContext peerEndpointContext, MessageCallback callback,
 			boolean useMulticast) {
-		return new RawData(data, peerEndpointContext, callback, useMulticast, 0, null);
+		return new RawData(data, peerEndpointContext, callback, useMulticast, 0);
 	}
 
 	/**
@@ -195,6 +178,24 @@ public final class RawData {
 	}
 
 	/**
+	 * Gets the address.
+	 *
+	 * @return the address
+	 */
+	public InetAddress getAddress() {
+		return peerEndpointContext.getPeerAddress().getAddress();
+	}
+
+	/**
+	 * Gets the port.
+	 *
+	 * @return the port
+	 */
+	public int getPort() {
+		return peerEndpointContext.getPeerAddress().getPort();
+	}
+
+	/**
 	 * Get nano receive timestamp.
 	 * 
 	 * @return nano-time of receiving this message. {@code 0} for outgoing
@@ -212,16 +213,6 @@ public final class RawData {
 	 */
 	public boolean isMulticast() {
 		return multicast;
-	}
-
-	/**
-	 * Gets the IP address and port of the connector.
-	 *
-	 * @return the connector's address, {@code null}, for outgoing data.
-	 * @since 3.0
-	 */
-	public InetSocketAddress getConnectorAddress() {
-		return connector;
 	}
 
 	/**

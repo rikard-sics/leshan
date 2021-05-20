@@ -35,14 +35,10 @@ package org.eclipse.californium.scandium;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -68,19 +64,15 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.californium.elements.AddressEndpointContext;
 import org.eclipse.californium.elements.EndpointContext;
-import org.eclipse.californium.elements.PersistentConnector;
 import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.RawDataChannel;
 import org.eclipse.californium.elements.auth.ExtensiblePrincipal;
 import org.eclipse.californium.elements.util.ClockUtil;
 import org.eclipse.californium.elements.util.TestThreadFactory;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
-import org.eclipse.californium.scandium.dtls.AlertMessage;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.Connection;
 import org.eclipse.californium.scandium.dtls.ConnectionIdGenerator;
-import org.eclipse.californium.scandium.dtls.DTLSConnectionState;
-import org.eclipse.californium.scandium.dtls.DTLSContext;
 import org.eclipse.californium.scandium.dtls.DTLSSession;
 import org.eclipse.californium.scandium.dtls.DebugConnectionStore;
 import org.eclipse.californium.scandium.dtls.DtlsTestTools;
@@ -94,9 +86,11 @@ import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite.KeyExchangeAlgorithm;
 import org.eclipse.californium.scandium.dtls.pskstore.AdvancedMultiPskStore;
 import org.eclipse.californium.scandium.dtls.pskstore.AdvancedPskStore;
+import org.eclipse.californium.scandium.dtls.rpkstore.TrustedRpkStore;
+import org.eclipse.californium.scandium.dtls.x509.BridgeCertificateVerifier;
+import org.eclipse.californium.scandium.dtls.x509.BridgeCertificateVerifier.Builder;
 import org.eclipse.californium.scandium.dtls.x509.NewAdvancedCertificateVerifier;
 import org.eclipse.californium.scandium.dtls.x509.StaticNewAdvancedCertificateVerifier;
-import org.eclipse.californium.scandium.dtls.x509.StaticNewAdvancedCertificateVerifier.Builder;
 
 /**
  * A utility class for implementing DTLS integration tests.
@@ -122,9 +116,7 @@ public class ConnectorHelper {
 	SimpleRawDataChannel serverRawDataChannel;
 	RawDataProcessor serverRawDataProcessor;
 	Map<InetSocketAddress, LatchSessionListener> sessionListenerMap = new ConcurrentHashMap<>();
-	DTLSContext establishedServerContext;
 	DTLSSession establishedServerSession;
-	AlertCatcher serverAlertCatcher;
 
 	DtlsConnectorConfig serverConfig;
 
@@ -203,13 +195,10 @@ public class ConnectorHelper {
 		serverConnectionStore = new DebugConnectionStore(SERVER_CONNECTION_STORE_CAPACITY, 5 * 60, serverSessionCache); // connection timeout 5mins
 		serverConnectionStore.setTag("server");
 
-		serverAlertCatcher = new AlertCatcher();
-
 		server = new DtlsTestConnector(serverConfig, serverConnectionStore);
 		serverRawDataProcessor = new MessageCapturingProcessor();
 		serverRawDataChannel = new SimpleRawDataChannel(server, serverRawDataProcessor);
 		server.setRawDataReceiver(serverRawDataChannel);
-		server.setAlertHandler(serverAlertCatcher);
 		server.start();
 		serverEndpoint = server.getAddress();
 	}
@@ -227,16 +216,30 @@ public class ConnectorHelper {
 		return result;
 	}
 
+	@SuppressWarnings("deprecation")
 	public NewAdvancedCertificateVerifier ensureTrusts(DtlsConnectorConfig.Builder builder) {
 		NewAdvancedCertificateVerifier result = null;
 		DtlsConnectorConfig incompleteConfig = builder.getIncompleteConfig();
 		if (!Boolean.FALSE.equals(incompleteConfig.isClientAuthenticationRequired())
 				|| Boolean.TRUE.equals(incompleteConfig.isClientAuthenticationWanted())) {
 			if (incompleteConfig.getAdvancedCertificateVerifier() == null) {
-				Builder verifierBuilder = StaticNewAdvancedCertificateVerifier.builder();
-				X509Certificate[] trustedCertificates =  DtlsTestTools.getTrustedCertificates();
+				Builder verifierBuilder = BridgeCertificateVerifier.builder();
+				X509Certificate[] trustedCertificates = incompleteConfig.getTrustStore();
+				if (trustedCertificates == null) {
+					trustedCertificates = DtlsTestTools.getTrustedCertificates();
+				} else {
+					// reset trust store to use NewAdvancedCertificateVerifier
+					builder.setTrustStore(null);
+				}
 				verifierBuilder.setTrustedCertificates(trustedCertificates);
-				verifierBuilder.setTrustAllRPKs();
+				TrustedRpkStore rpks = incompleteConfig.getRpkTrustStore();
+				if (rpks == null) {
+					verifierBuilder.setTrustAllRPKs();
+				} else {
+					// reset trust store to use NewAdvancedCertificateVerifier
+					builder.setRpkTrustStore(null);
+					verifierBuilder.setTrustedRPKs(rpks);
+				}
 				result = verifierBuilder.build();
 				builder.setAdvancedCertificateVerifier(result);
 			}
@@ -274,10 +277,7 @@ public class ConnectorHelper {
 		if (serverRawDataChannel != null) {
 			serverRawDataChannel.setProcessor(serverRawDataProcessor);
 		}
-		if (serverAlertCatcher != null) {
-			serverAlertCatcher.resetAlert();
-			server.setAlertHandler(serverAlertCatcher);
-		} else {
+		if (server != null) {
 			server.setAlertHandler(null);
 		}
 		sessionListenerMap.clear();
@@ -343,8 +343,6 @@ public class ConnectorHelper {
 		assertTrue("DTLS handshake timed out after " + MAX_TIME_TO_WAIT_SECS + " seconds", clientChannel.await(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS));
 		Connection con = serverConnectionStore.get(client.getAddress());
 		assertNotNull(con);
-		establishedServerContext = con.getDtlsContext();
-		assertNotNull(establishedServerContext);
 		establishedServerSession = con.getEstablishedSession();
 		assertNotNull(establishedServerSession);
 		if (releaseSocket) {
@@ -363,27 +361,6 @@ public class ConnectorHelper {
 		@SuppressWarnings("unchecked")
 		ExtensiblePrincipal<? extends Principal> p = (ExtensiblePrincipal<? extends Principal>) peerIdentity;
 		assertThat(p.getExtendedInfo().get(key, String.class), is(expectedValue));
-	}
-
-	public static void assertReloadConnections(String tag, PersistentConnector connector) {
-		try {
-			ByteArrayOutputStream out = new ByteArrayOutputStream();
-			int saveCount = connector.saveConnections(out, 1000);
-			byte[] data1 = out.toByteArray();
-			int readCount = connector.loadConnections(new ByteArrayInputStream(data1), 0);
-			assertEquals(tag + " read mismatch", saveCount, readCount);
-			out = new ByteArrayOutputStream();
-			int saveCount2 = connector.saveConnections(out, 1000);
-			byte[] data2 = out.toByteArray();
-			assertEquals(tag + " 2. save mismatch", saveCount, saveCount2);
-			assertTrue(tag + " data mismatch", Arrays.equals(data1, data2));
-		} catch (IllegalStateException e) {
-			e.printStackTrace();
-			fail(tag + ": " + e.getMessage());
-		} catch (IOException e) {
-			e.printStackTrace();
-			fail(tag + " io-error: " + e.getMessage());
-		}
 	}
 
 	static class LatchDecrementingRawDataChannel implements RawDataChannel {
@@ -562,7 +539,7 @@ public class ConnectorHelper {
 	static class RecordCollectorDataHandler implements DataHandler {
 
 		private BlockingQueue<List<Record>> records = new LinkedBlockingQueue<>();
-		private Map<Integer, DTLSConnectionState> apply = new HashMap<>(8);
+		private Map<Integer, DTLSSession> apply = new HashMap<Integer, DTLSSession>(8);
 		private final ConnectionIdGenerator cidGenerator;
 
 		RecordCollectorDataHandler() {
@@ -579,18 +556,18 @@ public class ConnectorHelper {
 		 * @param session session to be applied. {@code null} is applied to
 		 *            epoch 0.
 		 */
-		void applyDtlsContext(DTLSContext context) {
-			if (context == null) {
-				apply.put(0, DTLSConnectionState.NULL);
+		void applySession(DTLSSession session) {
+			if (session == null) {
+				apply.put(0, null);
 			} else {
-				apply.put(context.getReadEpoch(), context.getReadState());
+				apply.put(session.getReadEpoch(), session);
 			}
 		}
 
 		@Override
 		public void handleData(InetSocketAddress endpoint, byte[] data) {
 			try {
-				records.put(DtlsTestTools.fromByteArray(data, cidGenerator, ClockUtil.nanoRealtime()));
+				records.put(DtlsTestTools.fromByteArray(data, endpoint, cidGenerator, ClockUtil.nanoRealtime()));
 			} catch (InterruptedException e) {
 			}
 		}
@@ -601,7 +578,7 @@ public class ConnectorHelper {
 				for (Record record : result) {
 					if (apply.containsKey(record.getEpoch())) {
 						try {
-							record.decodeFragment(apply.get(record.getEpoch()));
+							record.applySession(apply.get(record.getEpoch()));
 						} catch (GeneralSecurityException e) {
 							throw new IllegalStateException(e);
 						} catch (HandshakeException e) {
@@ -654,7 +631,7 @@ public class ConnectorHelper {
 		private AtomicReference<Throwable> error = new AtomicReference<Throwable>();
 
 		@Override
-		public void contextEstablished(Handshaker handshaker, DTLSContext establishedContext)
+		public void sessionEstablished(Handshaker handshaker, DTLSSession establishedSession)
 				throws HandshakeException {
 			established.set(true);
 			finished.countDown();
@@ -855,54 +832,6 @@ public class ConnectorHelper {
 			}
 		}
 		return expand.toArray(new BuilderSetups[expand.size()]);
-	}
-
-	public static class AlertCatcher implements AlertHandler {
-
-		private AlertMessage alert;
-
-		@Override
-		public synchronized void onAlert(InetSocketAddress peer, AlertMessage alert) {
-			if (this.alert == null) {
-				this.alert = alert;
-				notify();
-			}
-		}
-
-		/**
-		 * Reset current alert.
-		 * 
-		 * @since 3.0
-		 */
-		public synchronized void resetAlert() {
-			this.alert = null;
-		}
-
-		/**
-		 * Get alert.
-		 * 
-		 * @return alert, or {@code null}, if no alert was received.
-		 * @since 3.0
-		 */
-		public synchronized AlertMessage getAlert() {
-			return alert;
-		}
-
-		/**
-		 * Wait for alert.
-		 * 
-		 * @return {@code AlertMessage} if reported, {@code null}, otherwise.
-		 */
-		public synchronized AlertMessage waitForAlert(long timeout, TimeUnit unit) throws InterruptedException {
-			if (alert == null && timeout > 0) {
-				long millis = unit.toMillis(timeout);
-				if (millis <= 0) {
-					millis = 1;
-				}
-				wait(millis);
-			}
-			return alert;
-		}
 	}
 
 }

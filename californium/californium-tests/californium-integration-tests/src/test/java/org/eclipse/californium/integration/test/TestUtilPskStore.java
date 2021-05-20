@@ -21,9 +21,9 @@ import java.net.InetSocketAddress;
 import javax.crypto.SecretKey;
 
 import org.eclipse.californium.scandium.dtls.ConnectionId;
-import org.eclipse.californium.scandium.dtls.HandshakeResultHandler;
 import org.eclipse.californium.scandium.dtls.PskPublicInformation;
 import org.eclipse.californium.scandium.dtls.PskSecretResult;
+import org.eclipse.californium.scandium.dtls.PskSecretResultHandler;
 import org.eclipse.californium.scandium.dtls.pskstore.AdvancedPskStore;
 import org.eclipse.californium.scandium.util.SecretUtil;
 import org.eclipse.californium.scandium.util.ServerNames;
@@ -32,6 +32,7 @@ import org.eclipse.californium.scandium.util.ServerNames;
  * Simple {@link PskStore} implementation with exchangeable credentials and
  * catch all function.
  */
+@SuppressWarnings("deprecation")
 public class TestUtilPskStore implements AdvancedPskStore {
 	/**
 	 * Returns secret for all identities.
@@ -85,7 +86,7 @@ public class TestUtilPskStore implements AdvancedPskStore {
 
 	@Override
 	public PskSecretResult requestPskSecretResult(ConnectionId cid, ServerNames serverName,
-			PskPublicInformation identity, String hmacAlgorithm, SecretKey otherSecret, byte[] seed, boolean useExtendedMasterSecret) {
+			PskPublicInformation identity, String hmacAlgorithm, SecretKey otherSecret, byte[] seed) {
 		SecretKey secret = null;
 		PskPublicInformation pskIdentity = identity;
 		synchronized (this) {
@@ -105,6 +106,6 @@ public class TestUtilPskStore implements AdvancedPskStore {
 	}
 
 	@Override
-	public void setResultHandler(HandshakeResultHandler resultHandler) {
+	public void setResultHandler(PskSecretResultHandler resultHandler) {
 	}
 }

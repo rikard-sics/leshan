@@ -28,9 +28,8 @@ public class ListUtils {
 	 * Initialize ordered values, testing for contained item duplicates.
 	 * 
 	 * @param <T> element type of list
-	 * @param values list of values. May be {@code null}.
-	 * @return unmodifiable list with unique items, or {@code null}, if values
-	 *         is {@code null}.
+	 * @param values list of values. Maybe {@code null} for empty list.
+	 * @return unmodifiable list with unique items.
 	 * @throws IllegalArgumentException if duplicate items are contained
 	 */
 	public static <T> List<T> init(List<T> values) {

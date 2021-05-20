@@ -20,7 +20,6 @@ import java.net.InetSocketAddress;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.scandium.dtls.Connection;
 import org.eclipse.californium.scandium.dtls.ConnectionId;
-import org.eclipse.californium.scandium.dtls.DTLSContext;
 import org.eclipse.californium.scandium.dtls.DTLSSession;
 import org.eclipse.californium.scandium.dtls.SessionId;
 import org.slf4j.MDC;
@@ -30,58 +29,63 @@ import org.slf4j.MDC;
  * 
  * Set:
  * 
- * {@code "PEER"}
- * {@code "CONNECTION_ID"}
- * {@code "WRITE_CONNECTION_ID"}
+ * {@code "PEER"} {@code "CONNECTION_ID"} {@code "WRITE_CONNECTION_ID"}
  * {@code "SESSION_ID"}
  * 
  * @since 2.4
  */
-public class MdcConnectionListener implements ConnectionListener {
+public class MdcConnectionListener implements ConnectionExecutionListener, ConnectionListener {
+
+	/**
+	 * Indicates, that MDC support is available.
+	 * 
+	 * @see MDC
+	 */
+	private static final boolean MDC_SUPPORT;
+
+	static {
+		boolean mdc = false;
+		try {
+			MDC.clear();
+			mdc = true;
+		} catch (Throwable ex) {
+		}
+		MDC_SUPPORT = mdc;
+	}
 
 	@Override
 	public void onConnectionEstablished(Connection connection) {
-		// empty implementation
+
 	}
 
 	@Override
 	public void onConnectionRemoved(Connection connection) {
-		// empty implementation
-	}
 
-	@Override
-	public boolean onConnectionUpdatesSequenceNumbers(Connection connection, boolean writeSequenceNumber) {
-		// empty implementation, never close
-		return false;
-	}
-
-	@Override
-	public boolean onConnectionMacError(Connection connection) {
-		// empty implementation, never close
-		return false;
 	}
 
 	@Override
 	public void beforeExecution(Connection connection) {
-		InetSocketAddress peerAddress = connection.getPeerAddress();
-		if (peerAddress != null) {
-			MDC.put("PEER", StringUtil.toString(peerAddress));
-		}
-		ConnectionId cid = connection.getConnectionId();
-		if (cid != null) {
-			MDC.put("CONNECTION_ID", cid.getAsString());
-		}
-		DTLSContext context = connection.getEstablishedDtlsContext();
-		if (context != null) {
-			ConnectionId writeConnectionId = context.getWriteConnectionId();
-			if (writeConnectionId != null && !writeConnectionId.isEmpty()) {
-				MDC.put("WRITE_CONNECTION_ID", writeConnectionId.getAsString());
+		if (MDC_SUPPORT) {
+			InetSocketAddress peerAddress = connection.getPeerAddress();
+			if (peerAddress != null) {
+				MDC.put("PEER", StringUtil.toString(peerAddress));
 			}
-		}
-		DTLSSession session = connection.getSession();
-		if (session != null) {
-			SessionId sid = session.getSessionIdentifier();
-			MDC.put("SESSION_ID", sid.toString());
+			ConnectionId cid = connection.getConnectionId();
+			if (cid != null) {
+				MDC.put("CONNECTION_ID", cid.getAsString());
+			}
+			SessionId sid = connection.getSessionIdentity();
+			DTLSSession session = connection.getSession();
+			if (session != null) {
+				sid = session.getSessionIdentifier();
+				ConnectionId writeConnectionId = session.getWriteConnectionId();
+				if (writeConnectionId != null && !writeConnectionId.isEmpty()) {
+					MDC.put("WRITE_CONNECTION_ID", writeConnectionId.getAsString());
+				}
+			}
+			if (sid != null) {
+				MDC.put("SESSION_ID", sid.toString());
+			}
 		}
 	}
 
@@ -92,7 +96,9 @@ public class MdcConnectionListener implements ConnectionListener {
 
 	@Override
 	public void afterExecution(Connection connection) {
-		MDC.clear();
+		if (MDC_SUPPORT) {
+			MDC.clear();
+		}
 	}
 
 }

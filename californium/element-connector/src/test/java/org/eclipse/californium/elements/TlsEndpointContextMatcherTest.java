@@ -16,7 +16,7 @@
 package org.eclipse.californium.elements;
 
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertThat;
 
 import java.net.InetSocketAddress;
 
@@ -34,10 +34,9 @@ public class TlsEndpointContextMatcherTest {
 
 	@Before
 	public void setup() {
-		long time = System.currentTimeMillis();
-		connectorContext = new TlsEndpointContext(ADDRESS, null, "ID1", "S1", "C1", time);
-		messageContext = new TlsEndpointContext(ADDRESS, null, "ID1", "S1", "C1", time);
-		differentMessageContext = new TlsEndpointContext(ADDRESS, null, "ID2", "S2", "C1", System.currentTimeMillis());
+		connectorContext = new TlsEndpointContext(ADDRESS, null, "ID1", "S1", "C1");
+		messageContext = new TlsEndpointContext(ADDRESS, null, "ID1", "S1", "C1");
+		differentMessageContext = new TlsEndpointContext(ADDRESS, null, "ID2", "S2", "C1");
 		matcher = new TlsEndpointContextMatcher();
 	}
 
