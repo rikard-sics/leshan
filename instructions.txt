@@ -14,5 +14,14 @@ element-connector
 scandium
 
 To add dependencies:
-Right click project->Properties->Java Build Path->Add...
+Right click project->Properties->Java Build Path->Projects->Add...
+
+4. Change the following projects to use Java 1.8:
+leshan-client-demo
+leshan-server-demo
+leshan-bsserver-demo
+
+To change Java version:
+Right click project->Properties->Java Build Path->Libraries->Edit...
+Edit the JRE System Library to be Java 1.8.
 
