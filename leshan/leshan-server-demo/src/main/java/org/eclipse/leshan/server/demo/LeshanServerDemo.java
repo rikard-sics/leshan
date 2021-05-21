@@ -34,8 +34,13 @@ import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import javax.jmdns.JmDNS;
 import javax.jmdns.ServiceInfo;
@@ -45,10 +50,24 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.network.config.NetworkConfig.Keys;
+import org.eclipse.californium.core.server.resources.CoapExchange;
+import org.eclipse.californium.cose.CoseException;
+import org.eclipse.californium.cose.KeyKeys;
+import org.eclipse.californium.cose.OneKey;
+import org.eclipse.californium.edhoc.AppStatement;
+import org.eclipse.californium.edhoc.Constants;
+import org.eclipse.californium.edhoc.EdhocEndpointInfo;
+import org.eclipse.californium.edhoc.EdhocResource;
+import org.eclipse.californium.edhoc.EdhocSession;
+import org.eclipse.californium.edhoc.KissEDP;
+import org.eclipse.californium.edhoc.SharedSecretCalculation;
 import org.eclipse.californium.elements.util.SslContextUtil;
+import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.californium.oscore.OSCoreCoapStackFactory;
+import org.eclipse.californium.oscore.OSCoreCtxDB;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.SingleNodeConnectionIdGenerator;
 import org.eclipse.jetty.server.Server;
@@ -78,6 +97,8 @@ import org.eclipse.leshan.server.security.EditableSecurityStore;
 import org.eclipse.leshan.server.security.FileSecurityStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.upokecenter.cbor.CBORObject;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
@@ -658,5 +679,237 @@ public class LeshanServerDemo {
         lwServer.start();
         server.start();
         LOG.info("Web server started at {}.", server.getURI());
+
+        /* =============================================== */
+        // TODO: RH: Remove this testing
+
+        // Build EDHOC endpoint info
+        setupEdhocParameters();
+        HashMapCtxDB db = OscoreHandler.getContextDB();
+        EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(idCred, cred, keyPair, peerPublicKeys,
+                peerCredentials, edhocSessions, usedConnectionIds, supportedCiphersuites, db, uriLocal,
+                OSCORE_REPLAY_WINDOW, appStatements, edp);
+
+        // Build well-known and EDHOC resource
+        // provide an instance of a .well-known/edhoc resource
+        CoapResource edhocResource = new EdhocResource("edhoc", edhocEndpointInfo);
+        CoapResource wellKnownResource = new WellKnown();
+        wellKnownResource.add(edhocResource);
+
+        // Add resource to the CoapServer
+        lwServer.getCoapServer().add(wellKnownResource);
+    }
+
+    /*
+     * Definition of the .well-known Resource
+     */
+    static class WellKnown extends CoapResource {
+
+        public WellKnown() {
+
+            // set resource identifier
+            super(".well-known");
+
+            // set display name
+            getAttributes().setTitle(".well-known");
+
+        }
+
+        @Override
+        public void handleGET(CoapExchange exchange) {
+
+            // respond to the request
+            exchange.respond(".well-known");
+        }
+    }
+
+    // RH: Variables for initializing EdhocEndpointInfo
+    // Set in setupIdentityKeys() or setupSupportedCipherSuites()
+    static OneKey keyPair = null;
+    static int credType = Constants.CRED_TYPE_RPK;
+    static byte[] cred = null;
+    static CBORObject idCred = null;
+    static String subjectName = "";
+    static Map<CBORObject, OneKey> peerPublicKeys = new HashMap<CBORObject, OneKey>();
+    static Map<CBORObject, CBORObject> peerCredentials = new HashMap<CBORObject, CBORObject>();
+    static List<Integer> supportedCiphersuites = new ArrayList<Integer>();
+    // Other variables needed
+    static final int keyCurve = KeyKeys.EC2_P256.AsInt32(); // ECDSA
+    static Map<CBORObject, EdhocSession> edhocSessions = new HashMap<CBORObject, EdhocSession>();
+    static List<Set<Integer>> usedConnectionIds = new ArrayList<Set<Integer>>();
+    static String uriLocal = "coap://localhost";
+    static final int OSCORE_REPLAY_WINDOW = 32;
+    static Map<String, AppStatement> appStatements = new HashMap<String, AppStatement>();
+    static KissEDP edp;
+
+    /**
+     * RH: General method for setting up all EDHOC parameters needed to build the EdhocEndpointInfo
+     */
+    private static void setupEdhocParameters() {
+        Set<Integer> authMethods = new HashSet<Integer>();
+        for (int i = 0; i <= Constants.EDHOC_AUTH_METHOD_3; i++)
+            authMethods.add(i);
+        AppStatement appStatement = new AppStatement(true, authMethods, false, false);
+
+        appStatements.put(uriLocal + "/.well-known/edhoc", appStatement);
+
+        for (int i = 0; i < 4; i++) {
+            // Empty sets of assigned Connection Identifiers; one set for each possible size in bytes.
+            // The set with index 0 refers to Connection Identifiers with size 1 byte
+            usedConnectionIds.add(new HashSet<Integer>());
+        }
+
+        edp = new KissEDP();
+
+        setupSupportedCipherSuites();
+        setupIdentityKeys();
+    }
+
+    /**
+     * RH: Imported from the EDHOC code EdhocServer.
+     */
+    private static void setupSupportedCipherSuites() {
+
+        if (keyCurve == KeyKeys.EC2_P256.AsInt32()) {
+            supportedCiphersuites.add(Constants.EDHOC_CIPHER_SUITE_2);
+            supportedCiphersuites.add(Constants.EDHOC_CIPHER_SUITE_3);
+        } else if (keyCurve == KeyKeys.OKP_Ed25519.AsInt32() || keyCurve == KeyKeys.OKP_X25519.AsInt32()) {
+            supportedCiphersuites.add(Constants.EDHOC_CIPHER_SUITE_0);
+            supportedCiphersuites.add(Constants.EDHOC_CIPHER_SUITE_1);
+        }
+
+    }
+
+    /**
+     * RH: Imported from the EDHOC code EdhocServer.
+     */
+    private static void setupIdentityKeys() {
+
+        final int keyFormat = 0; // 0 is for Base64; 1 is for binary encoding
+
+        String keyPairBase64 = null;
+        String peerPublicKeyBase64 = null;
+        byte[] privateKeyBinary = null;
+        byte[] publicKeyBinary = null;
+        byte[] publicKeyBinaryY = null;
+        byte[] peerPublicKeyBinary = null;
+        byte[] peerPublicKeyBinaryY = null;
+
+        switch (keyFormat) {
+
+        /* For stand-alone testing, as base64 encoding of OneKey objects */
+        case 0:
+            if (keyCurve == KeyKeys.EC2_P256.AsInt32()) {
+                keyPairBase64 = "pgMmAQIgASFYIPWSTdB9SCF/+CGXpy7gty8qipdR30t6HgdFGQo8ViiAIlggXvJCtXVXBJwmjMa4YdRbcdgjpXqM57S2CZENPrUGQnMjWCDXCb+hy1ybUu18KTAJMvjsmXch4W3Hd7Rw7mTF3ocbLQ==";
+                peerPublicKeyBase64 = "pQMmAQIgASFYIGdZmgAlZDXB6FGfVVxHrB2LL8JMZag4JgK4ZcZ/+GBUIlgguZsSChh5hecy3n4Op+lZZJ2xXdbsz8DY7qRmLdIVavk=";
+            } else if (keyCurve == KeyKeys.OKP_Ed25519.AsInt32()) {
+                keyPairBase64 = "pQMnAQEgBiFYIDzQyFH694a7CcXQasH9RcqnmwQAy2FIX97dGGGy+bpSI1gg5aAfgdGCH2/2KFsQH5lXtDc8JUn1a+OkF0zOG6lIWXQ=";
+                peerPublicKeyBase64 = "pAMnAQEgBiFYIEPgltbaO4rEBSYv3Lhs09jLtrOdihHUxLdc9pRoR/W9";
+            } else if (keyCurve == KeyKeys.OKP_X25519.AsInt32()) {
+                keyPairBase64 = "pQMnAQEgBiFYIKOjK/y+4psOGi9zdnJBqTLThdpEj6Qygg4Voc10NYGSI1ggn/quL33vMaN9Rp4LKWCXVnaIRSgeeCJlU0Mv/y6zHlQ=";
+                peerPublicKeyBase64 = "pAMnAQEgBiFYIGt2OynWjaQY4cE9OhPQrwcrZYNg8lRJ+MwXIYMjeCtr";
+            }
+            break;
+        default:
+            System.err.println("ERROR in key format switch!");
+            break;
+        }
+
+        try {
+
+            /* Settings for this peer */
+
+            // Build the OneKey object for the identity key pair of this peer
+
+            switch (keyFormat) {
+            /* For stand-alone testing, as base64 encoding of OneKey objects */
+            case 0:
+                keyPair = new OneKey(CBORObject.DecodeFromBytes(Base64.getDecoder().decode(keyPairBase64)));
+                break;
+
+            /* Value from the test vectors, as binary serializations */
+            case 1:
+                if (keyCurve == KeyKeys.EC2_P256.AsInt32()) {
+                    keyPair = SharedSecretCalculation.buildEcdsa256OneKey(privateKeyBinary, publicKeyBinary,
+                            publicKeyBinaryY);
+                } else if (keyCurve == KeyKeys.OKP_Ed25519.AsInt32()) {
+                    keyPair = SharedSecretCalculation.buildEd25519OneKey(privateKeyBinary, publicKeyBinary);
+                } else if (keyCurve == KeyKeys.OKP_X25519.AsInt32()) {
+                    keyPair = SharedSecretCalculation.buildCurve25519OneKey(privateKeyBinary, publicKeyBinary);
+                }
+                break;
+            default:
+                System.err.println("ERROR in key format switch!");
+                break;
+            }
+
+            switch (credType) {
+            case Constants.CRED_TYPE_RPK:
+                // Build the related ID_CRED
+                // Use 0x07 as kid for this peer, i.e. the serialized ID_CRED_X is 0xa1, 0x04, 0x41, 0x07
+                byte[] idCredKid = new byte[] { (byte) 0x07 };
+                idCred = org.eclipse.californium.edhoc.Util.buildIdCredKid(idCredKid);
+                // Build the related CRED
+                cred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKey(keyPair, subjectName);
+                break;
+
+            default:
+                System.err.println("ERROR in cred type switch!");
+                break;
+            }
+
+            /* Settings for the other peer */
+
+            // Build the OneKey object for the identity public key of the other peer
+            OneKey peerPublicKey = null;
+
+            switch (keyFormat) {
+            /* For stand-alone testing, as base64 encoding of OneKey objects */
+            case 0:
+                peerPublicKey = new OneKey(CBORObject.DecodeFromBytes(Base64.getDecoder().decode(peerPublicKeyBase64)));
+                break;
+
+            /* Value from the test vectors, as binary serializations */
+            case 1:
+                if (keyCurve == KeyKeys.EC2_P256.AsInt32()) {
+                    peerPublicKey = SharedSecretCalculation.buildEcdsa256OneKey(null, peerPublicKeyBinary,
+                            peerPublicKeyBinaryY);
+                } else if (keyCurve == KeyKeys.OKP_Ed25519.AsInt32()) {
+                    peerPublicKey = SharedSecretCalculation.buildEd25519OneKey(null, peerPublicKeyBinary);
+                } else if (keyCurve == KeyKeys.OKP_X25519.AsInt32()) {
+                    peerPublicKey = SharedSecretCalculation.buildCurve25519OneKey(null, peerPublicKeyBinary);
+                }
+                break;
+            default:
+                System.err.println("ERROR in key format switch!");
+                break;
+            }
+
+            CBORObject peerIdCred = null;
+            byte[] peerCred = null;
+
+            switch (credType) {
+            case Constants.CRED_TYPE_RPK:
+                // Build the related ID_CRED
+                // Use 0x24 as kid for the other peer, i.e. the serialized ID_CRED_X is 0xa1, 0x04, 0x41, 0x24
+                byte[] peerKid = new byte[] { (byte) 0x24 };
+                CBORObject idCredPeer = org.eclipse.californium.edhoc.Util.buildIdCredKid(peerKid);
+                peerPublicKeys.put(idCredPeer, peerPublicKey);
+                // Build the related CRED
+                peerCred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKey(peerPublicKey, "");
+                peerCredentials.put(idCredPeer, CBORObject.FromObject(peerCred));
+                break;
+            default:
+                System.err.println("ERROR in cred type switch!");
+                break;
+            }
+            peerPublicKeys.put(peerIdCred, peerPublicKey);
+            peerCredentials.put(peerIdCred, CBORObject.FromObject(peerCred));
+
+        } catch (CoseException e) {
+            System.err.println("Error while generating the key pair " + e.getMessage());
+            return;
+        }
+
     }
 }

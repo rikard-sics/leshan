@@ -232,6 +232,18 @@ public class LeshanServer {
         coapApi = new CoapAPI();
     }
 
+    /**
+     * RH: Method to expose the internal CoapServer. I need this to add the EdhocResource to.
+     * 
+     * 
+     * TODO: RH: Instead have a method that only allows adding an EdhocResource? (To expose as little as possible)
+     * 
+     * @return the internal CoapServer object.
+     */
+    public CoapServer getCoapServer() {
+        return this.coapServer;
+    }
+
     protected CoapServer createCoapServer(NetworkConfig coapConfig) {
         return new CoapServer(coapConfig) {
             @Override
