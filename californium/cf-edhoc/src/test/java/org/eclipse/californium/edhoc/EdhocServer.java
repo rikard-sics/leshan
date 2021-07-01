@@ -108,7 +108,7 @@ public class EdhocServer extends CoapServer {
 	private static List<Integer> supportedCiphersuites = new ArrayList<Integer>();
 	
 	// The authentication method to be indicated in EDHOC message 1 (relevant for the Initiator only)
-	private static int authenticationMethod = Constants.EDHOC_AUTH_METHOD_0;
+	// private static int authenticationMethod = Constants.EDHOC_AUTH_METHOD_0;
 	
 	// The database of OSCORE Security Contexts
 	private final static HashMapCtxDB db = new HashMapCtxDB();

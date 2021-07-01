@@ -69,5 +69,10 @@ public class AppStatement {
 		return this.useMessage4;
 		
 	}
+
+	public Set<Integer> getAuthMethods() {
+
+		return this.authMethods;
+	}
 		
 }

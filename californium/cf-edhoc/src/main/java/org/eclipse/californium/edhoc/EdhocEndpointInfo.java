@@ -6,6 +6,7 @@ import java.util.Set;
 
 import org.eclipse.californium.cose.OneKey;
 import org.eclipse.californium.oscore.HashMapCtxDB;
+import org.eclipse.californium.oscore.OSCoreCtx;
 
 import com.upokecenter.cbor.CBORObject;
 
@@ -150,5 +151,5 @@ public class EdhocEndpointInfo {
 	public List<Set<Integer>> getUsedConnectionIds() {
 		return usedConnectionIds;
 	}
-	
+
 }

@@ -49,6 +49,7 @@ import org.eclipse.californium.scandium.dtls.pskstore.AdvancedSinglePskStore;
 import org.eclipse.californium.scandium.dtls.x509.NewAdvancedCertificateVerifier;
 import org.eclipse.californium.scandium.dtls.x509.StaticNewAdvancedCertificateVerifier;
 import org.eclipse.leshan.client.EndpointsManager;
+import org.eclipse.leshan.client.OscoreHandler;
 import org.eclipse.leshan.client.servers.ServerIdentity;
 import org.eclipse.leshan.client.servers.ServerIdentity.Role;
 import org.eclipse.leshan.client.servers.ServerInfo;
@@ -243,10 +244,14 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
                 // Also add the context by the IP of the server since requests may use that
                 String serverIP = InetAddress.getByName(serverInfo.getFullUri().getHost()).getHostAddress();
                 // Support Appendix B.2 functionality
-                ctx.setContextRederivationEnabled(true);
-                // Set to initiate Appendix B.2 procedure on first sent request
-                // To either server or bs server
-                ctx.setContextRederivationPhase(PHASE.CLIENT_INITIATE);
+				if (serverInfo.builtFromEdhoc == false) {
+					ctx.setContextRederivationEnabled(true);
+
+					// Set to initiate Appendix B.2 procedure on first sent
+					// request
+					// To either server or bs server
+					ctx.setContextRederivationPhase(PHASE.CLIENT_INITIATE);
+				}
 
                 db.addContext("coap://" + serverIP, ctx);
 

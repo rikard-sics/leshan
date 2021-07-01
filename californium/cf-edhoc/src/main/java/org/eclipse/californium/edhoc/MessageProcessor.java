@@ -531,7 +531,7 @@ public class MessageProcessor {
 						for (int i = 1; i < selectedIndex; i++) {
 							int cs = objectListRequest[1].get(i).AsInt32();
 							// This peer supports ciphersuites prior to the selected one in the provided list
-							if (supportedCiphersuites.contains(Integer.valueOf(cs))) {
+							if (false && supportedCiphersuites.contains(Integer.valueOf(cs))) { // RH:FIXME
 								errMsg = new String("Supported ciphersuites prior to the selected one in the provided list");
 								errorCode = Constants.ERR_CODE_WRONG_SELECTED_CIPHER_SUITE;
 								responseCode = ResponseCode.BAD_REQUEST;
@@ -943,6 +943,7 @@ public class MessageProcessor {
     		CBORObject kidCBOR = Util.decodeFromBstrIdentifier(rawIdCredR);
     		if (kidCBOR == null) {
 	        	errMsg = new String("Invalid format for ID_CRED_R");
+				System.out.println(errMsg);
 	        	responseCode = ResponseCode.BAD_REQUEST;
     			error = true;
     		}
@@ -950,9 +951,13 @@ public class MessageProcessor {
 	    		idCredR.Add(HeaderKeys.KID.AsCBOR(), kidCBOR);
 	    		
 	    		if (!peerPublicKeys.containsKey(idCredR)) {
-		        	errMsg = new String("The identity expressed by ID_CRED_R is not recognized");
+					errMsg = new String("The identity expressed by ID_CRED_R is not recognized A");
+					System.out.println(errMsg);
 		        	responseCode = ResponseCode.BAD_REQUEST;
 	    			error = true;
+
+					System.out.println("idCredR: " + idCredR.toString());
+					System.out.println("Peer public keys idCredR(s): " + peerPublicKeys.keySet());
 	    		}
     		}
     	}
@@ -969,9 +974,12 @@ public class MessageProcessor {
     			idCredR = CBORObject.DecodeFromBytes(rawIdCredR.GetByteString());
     			
     			if (!peerPublicKeys.containsKey(idCredR)) {
-		        	errMsg = new String("The identity expressed by ID_CRED_R is not recognized");
+					errMsg = new String("The identity expressed by ID_CRED_R is not recognized B");
+					System.out.println(errMsg);
 		        	responseCode = ResponseCode.BAD_REQUEST;
 	    			error = true;
+
+
     			}
     		}
     	}

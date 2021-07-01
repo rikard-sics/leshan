@@ -17,6 +17,7 @@
                 <option value="rpk"    show={secmode.rpk}    >Raw Public Key</option>
                 <option value="x509"   show={secmode.x509}   >X.509 Certificate</option>
                 <option value="oscore" show={secmode.oscore} >OSCORE</option>
+                <option value="edhoc"  show={secmode.edhoc}  >EDHOC</option>
             </select>
         </div>
     </div>
@@ -39,6 +40,11 @@
     <!-- OSCORE -->
     <div if={  refs.secMode.value == "oscore" } >
         <oscore-input ref="oscore" onchange={onchange} disable={disable}></oscore-input>
+    </div>
+    
+    <!-- EDHOC -->
+    <div if={  refs.secMode.value == "edhoc" } >
+        <edhoc-input ref="edhoc" onchange={onchange} disable={disable}></edhoc-input>
     </div>
 
     <div class="form-group" if={  refs.secMode.value == "x509" }>
@@ -75,7 +81,7 @@
 
         // Tag Functions
         function default_uri() {
-            if (!tag.refs.secMode || tag.refs.secMode.value == "no_sec" || tag.refs.secMode.value == "oscore")
+            if (!tag.refs.secMode || tag.refs.secMode.value == "no_sec" || tag.refs.secMode.value == "oscore" || tag.refs.secMode.value == "edhoc")
                 return opts.unsecuri;
             else
                 return opts.securi;
@@ -133,6 +139,24 @@
                 config.oscore.aeadAlgorithm = oscoreVals.aeadAlgorithm;
                 config.oscore.hkdfAlgorithm = oscoreVals.hkdfAlgorithm;
 
+            } else if(config.secmode === "EDHOC"){
+            	var edhocVals = tag.refs.edhoc.get_value();
+            	
+                // Relay to config object
+                config.edhoc = {};
+                
+                config.edhoc.initiator = edhocVals.initiator;
+                config.edhoc.authenticationMethod = edhocVals.authenticationMethod;
+                config.edhoc.ciphersuite = edhocVals.ciphersuite;
+                config.edhoc.credentialIdentifier = fromHex(edhocVals.credentialIdentifier);
+                config.edhoc.publicCredential = fromHex(edhocVals.publicCredential);
+                config.edhoc.privateKey = fromHex(edhocVals.privateKey);
+                config.edhoc.serverCredentialIdentifier = fromHex(edhocVals.serverCredentialIdentifier);
+                config.edhoc.serverPublicKey = fromHex(edhocVals.serverPublicKey);
+                config.edhoc.oscoreMasterSecretLength = edhocVals.oscoreMasterSecretLength;
+                config.edhoc.oscoreMasterSaltLength = edhocVals.oscoreMasterSaltLength;
+                config.edhoc.edhocOscoreCombined = edhocVals.edhocOscoreCombined;
+            	
             }
 
             return config;

@@ -26,7 +26,7 @@
                             <securityconfig-input   ref="lwserver" onchange={update} show={activetab.lwserver}
                                                     securi={ "coaps://" + location.hostname + ":5684" }
                                                     unsecuri= { "coap://" + location.hostname + ":5683" }
-                                                    secmode = { {no_sec:true, psk:true, rpk:true, x509:true, oscore:true} }
+                                                    secmode = { {no_sec:true, psk:true, rpk:true, x509:true, oscore:true, edhoc:true} }
                                                     ></securityconfig-input>
                         </div>
                         <div>
@@ -36,7 +36,7 @@
                                                     serverpubkey= {serversecurity.rpk.hexDer}
                                                     servercertificate= {serversecurity.certificate.hexDer}
                                                     disable = { {uri:true, serverpubkey:true, servercertificate:true}}
-                                                    secmode = { {no_sec:true, psk:true,rpk:true, x509:true, oscore:true}}
+                                                    secmode = { {no_sec:true, psk:true,rpk:true, x509:true, oscore:true} }
                                                     ></securityconfig-input>
                         </div>
 
@@ -123,7 +123,27 @@
                 var dmOscoreSecurityMode = 1; // link to dm oscore object
                 lwserver.secmode = "NO_SEC"; // act as no_sec from here
             }
-
+            
+            if(lwserver.secmode === "EDHOC") {
+                var lwserverEdhoc = lwserver.edhoc;
+                var dmEdhoc =
+                {
+                    initiator : lwserverEdhoc.initiator,
+                    authenticationMethod : lwserverEdhoc.authenticationMethod,
+                    ciphersuite : lwserverEdhoc.ciphersuite,
+                    credentialIdentifier : lwserverEdhoc.credentialIdentifier,
+                    publicCredential : lwserverEdhoc.publicCredential,
+                    privateKey : lwserverEdhoc.privateKey,
+                    serverCredentialIdentifier : lwserverEdhoc.serverCredentialIdentifier,
+                    serverPublicKey : lwserverEdhoc.serverPublicKey,
+                    oscoreMasterSecretLength : lwserverEdhoc.oscoreMasterSecretLength,
+                    oscoreMasterSaltLength : lwserverEdhoc.oscoreMasterSaltLength,
+                    edhocOscoreCombined : lwserverEdhoc.edhocOscoreCombined,
+                }
+                var dmOscoreSecurityMode = 1; // link to dm oscore object
+                lwserver.secmode = "NO_SEC"; // act as no_sec from here
+            }
+            
             // add config to the store
             bsConfigStore.add(endpoint.value, {
                  dm:[{
@@ -148,7 +168,8 @@
                         uri : lwserver.uri,
                         oscoreSecurityMode : dmOscoreSecurityMode
                       },
-                      oscore : dmOscore
+                      oscore : dmOscore,
+                      edhoc: dmEdhoc
                 }],
                  bs:[{
                     security : {

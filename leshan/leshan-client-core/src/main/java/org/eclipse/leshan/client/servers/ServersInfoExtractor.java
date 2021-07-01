@@ -14,6 +14,7 @@
  *     Sierra Wireless - initial API and implementation
  *     Achim Kraus (Bosch Software Innovations GmbH) - use ServerIdentity.SYSTEM
  *     Rikard Höglund (RISE SICS) - Additions to support OSCORE
+ *     Rikard Höglund (RISE) - Additions to support EDHOC
  *******************************************************************************/
 package org.eclipse.leshan.client.servers;
 
@@ -37,6 +38,9 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.EnumSet;
 import java.util.Map;
 
+import org.eclipse.californium.oscore.OSCoreCtx;
+import org.eclipse.californium.oscore.OSException;
+import org.eclipse.leshan.client.OscoreHandler;
 import org.eclipse.leshan.client.resource.LwM2mInstanceEnabler;
 import org.eclipse.leshan.client.resource.LwM2mObjectEnabler;
 import org.eclipse.leshan.core.CertificateUsage;
@@ -47,7 +51,10 @@ import org.eclipse.leshan.core.node.LwM2mObjectInstance;
 import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.node.ObjectLink;
 import org.eclipse.leshan.core.request.BindingMode;
+import org.eclipse.leshan.core.request.BootstrapWriteRequest;
+import org.eclipse.leshan.core.request.ContentFormat;
 import org.eclipse.leshan.core.request.ReadRequest;
+import org.eclipse.leshan.core.request.WriteRequest;
 import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.util.Hex;
 import org.eclipse.leshan.core.util.SecurityUtil;
@@ -65,6 +72,7 @@ public class ServersInfoExtractor {
         LwM2mObjectEnabler securityEnabler = objectEnablers.get(SECURITY);
         LwM2mObjectEnabler serverEnabler = objectEnablers.get(SERVER);
         LwM2mObjectEnabler oscoreEnabler = objectEnablers.get(OSCORE);
+		LwM2mObjectEnabler edhocEnabler = objectEnablers.get(EDHOC);
 
         if (securityEnabler == null || serverEnabler == null)
             return null;
@@ -74,7 +82,84 @@ public class ServersInfoExtractor {
         LwM2mObject servers = (LwM2mObject) serverEnabler.read(SYSTEM, new ReadRequest(SERVER)).getContent();
 
         LwM2mObject oscores = null;
-        if (oscoreEnabler != null) {
+
+		// If EDHOC is used, first update the OSCORE object
+		if (edhocEnabler != null) {
+			LwM2mObject edhocs = (LwM2mObject) edhocEnabler.read(SYSTEM, new ReadRequest(EDHOC)).getContent();
+			Map<Integer, LwM2mObjectInstance> edhocInstances = edhocs.getInstances();
+			if (edhocInstances.size() != 0) {
+				/*
+				 * System.out.println("EDHOC enabler present.");
+				 * 
+				 * // Retrieve OSCORE context established by EDHOC String
+				 * lwServerUri = OscoreHandler.getlwServerUri(); OSCoreCtx ctx =
+				 * null; try { ctx =
+				 * OscoreHandler.getContextDB().getContext(lwServerUri); } catch
+				 * (OSException e) { System.err.
+				 * println("Failed to retrieve OSCORE context established by EDHOC"
+				 * ); e.printStackTrace(); } if (ctx != null) {
+				 * System.out.println("Found OSCORE Context created by EDHOC");
+				 * } else { System.out.
+				 * println("Did not find OSCORE Context created by EDHOC"); }
+				 * 
+				 * // Now write to the OSCORE resource String oscoreMasterSecret
+				 * = Hex.encodeHexString(ctx.getMasterSecret()); String
+				 * oscoreSenderId = Hex.encodeHexString(ctx.getSenderId());
+				 * String oscoreRecipientId =
+				 * Hex.encodeHexString(ctx.getRecipientId()); int
+				 * oscoreAeadAlgorithm = ctx.getAlg().AsCBOR().AsInt32(); int
+				 * oscoreHmacAlgorithm = ctx.getKdf().AsCBOR().AsInt32(); String
+				 * oscoreMasterSalt = Hex.encodeHexString(ctx.getSalt());
+				 * 
+				 * System.out.println("master secret " + oscoreMasterSecret);
+				 * System.out.println("master salt " + oscoreMasterSalt);
+				 * System.out.println("oscoreSenderId " + oscoreSenderId);
+				 * System.out.println("oscoreRecipientId " + oscoreRecipientId);
+				 * System.out.println("oscoreAeadAlgorithm " +
+				 * oscoreAeadAlgorithm);
+				 * System.out.println("oscoreHmacAlgorithm " +
+				 * oscoreHmacAlgorithm); System.out.println("oscoreMasterSalt "
+				 * + oscoreMasterSalt);
+				 * 
+				 * oscoreEnabler.write(SYSTEM, new
+				 * WriteRequest(ContentFormat.TLV, OSCORE, 1, 0,
+				 * oscoreMasterSecret)); oscoreEnabler.write(SYSTEM, new
+				 * WriteRequest(ContentFormat.TLV, OSCORE, 1, 1,
+				 * oscoreSenderId)); oscoreEnabler.write(SYSTEM, new
+				 * WriteRequest(ContentFormat.TLV, OSCORE, 1, 2,
+				 * oscoreRecipientId)); oscoreEnabler.write(SYSTEM, new
+				 * WriteRequest(ContentFormat.TLV, OSCORE, 1, 3,
+				 * oscoreAeadAlgorithm)); oscoreEnabler.write(SYSTEM, new
+				 * WriteRequest(ContentFormat.TLV, OSCORE, 1, 4,
+				 * oscoreHmacAlgorithm)); oscoreEnabler.write(SYSTEM, new
+				 * WriteRequest(ContentFormat.TLV, OSCORE, 1, 5,
+				 * oscoreMasterSalt));
+				 * 
+				 * oscoreEnabler.write(SYSTEM, new
+				 * WriteRequest(ContentFormat.TLV, OSCORE, 0, 0,
+				 * oscoreMasterSecret)); oscoreEnabler.write(SYSTEM, new
+				 * WriteRequest(ContentFormat.TLV, OSCORE, 0, 1,
+				 * oscoreSenderId)); oscoreEnabler.write(SYSTEM, new
+				 * WriteRequest(ContentFormat.TLV, OSCORE, 0, 2,
+				 * oscoreRecipientId)); oscoreEnabler.write(SYSTEM, new
+				 * WriteRequest(ContentFormat.TLV, OSCORE, 0, 3,
+				 * oscoreAeadAlgorithm)); oscoreEnabler.write(SYSTEM, new
+				 * WriteRequest(ContentFormat.TLV, OSCORE, 0, 4,
+				 * oscoreHmacAlgorithm)); oscoreEnabler.write(SYSTEM, new
+				 * WriteRequest(ContentFormat.TLV, OSCORE, 0, 5,
+				 * oscoreMasterSalt));
+				 */
+			}
+		}
+
+		Map<Integer, LwM2mObjectInstance> edhocInstances = null;
+		if (edhocEnabler != null) {
+			LwM2mObject edhocs = (LwM2mObject) edhocEnabler.read(SYSTEM, new ReadRequest(EDHOC)).getContent();
+			edhocInstances = edhocs.getInstances();
+		}
+		boolean usingEdhoc = edhocInstances != null && !edhocInstances.isEmpty();
+
+		if (oscoreEnabler != null && usingEdhoc == false) {
             oscores = (LwM2mObject) oscoreEnabler.read(SYSTEM, new ReadRequest(OSCORE)).getContent();
         }
 
@@ -155,17 +240,22 @@ public class ServersInfoExtractor {
                     ObjectLink oscoreObjLink = (ObjectLink) security.getResource(SEC_OSCORE_SECURITY_MODE).getValue();
                     if (oscoreObjLink != null && !oscoreObjLink.isNullLink()) {
                         if (oscoreObjLink.getObjectId() != OSCORE) {
+							// System.out.println("1");
                             LOG.warn(
                                     "Invalid Security info for LWM2M server {} : 'OSCORE Security Mode' does not link to OSCORE Object but to {} object.",
                                     info.serverUri, oscoreObjLink.getObjectId());
                         } else {
-                            if (oscores == null) {
-                                LOG.warn(
+							if (oscores == null) {
+								// System.out.println("2");
+								if (!usingEdhoc) {
+									LOG.warn(
                                         "Invalid Security info for LWM2M server {}: OSCORE object enabler is not available.",
-                                        info.serverUri);
+											info.serverUri);
+								}
                             } else {
                                 oscoreInstance = oscores.getInstance(oscoreObjLink.getObjectInstanceId());
                                 if (oscoreInstance == null) {
+									// System.out.println("3");
                                     LOG.warn(
                                             "Invalid Security info for LWM2M server {} : OSCORE instance {} does not exist.",
                                             info.serverUri, oscoreObjLink.getObjectInstanceId());
@@ -174,7 +264,36 @@ public class ServersInfoExtractor {
                         }
                     }
 
-                    if (oscoreInstance != null) {
+					// Overwrite the information taken from the OSCORE object
+					if (oscores == null && usingEdhoc) {
+						System.out.println("Client using OSCORE after EDHOC to DM");
+
+						// Retrieve OSCORE context established by EDHOC String
+						String lwServerUri = OscoreHandler.getlwServerUri();
+						OSCoreCtx ctx = null;
+						try {
+							ctx = OscoreHandler.getContextDB().getContext(lwServerUri);
+						} catch (OSException e) {
+							System.err.println("Failed to retrieve OSCORE context established by EDHOC");
+							e.printStackTrace();
+						}
+						if (ctx != null) {
+							System.out.println("Found OSCORE Context created by EDHOC");
+						} else {
+							System.out.println("Did not find OSCORE Context created by EDHOC");
+						}
+
+						info.useOscore = true;
+						info.builtFromEdhoc = true;
+						info.masterSecret = ctx.getMasterSecret();
+						info.senderId = ctx.getSenderId();
+						info.recipientId = ctx.getRecipientId();
+						info.aeadAlgorithm = ctx.getAlg().AsCBOR().AsInt32();
+						info.hkdfAlgorithm = ctx.getKdf().AsCBOR().AsInt32();
+						info.masterSalt = ctx.getSalt();
+
+					} else if (oscoreInstance != null) {
+						System.out.println("Client using OSCORE to DM");
                         info.useOscore = true;
                         info.masterSecret = getMasterSecret(oscoreInstance);
                         info.senderId = getSenderId(oscoreInstance);

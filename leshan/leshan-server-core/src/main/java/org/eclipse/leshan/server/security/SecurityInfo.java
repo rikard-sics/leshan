@@ -13,6 +13,7 @@
  * Contributors:
  *     Sierra Wireless - initial API and implementation
  *     Rikard Höglund (RISE SICS) - Additions to support OSCORE
+ *     Rikard Höglund (RISE) - Additions to support EDHOC
  *******************************************************************************/
 package org.eclipse.leshan.server.security;
 
@@ -58,6 +59,9 @@ public class SecurityInfo implements Serializable {
 
     // TODO OSCORE : Save content properly information here. Must be serializable.
     private final String oscoreIdentity;
+
+	// If using OSCORE, did it start with EDHOC?
+	private boolean builtFromEdhoc = false;
 
     private SecurityInfo(String endpoint, String identity, byte[] preSharedKey, PublicKey rawPublicKey,
             boolean useX509Cert, OSCoreCtx oscoreCtx) {
@@ -259,5 +263,13 @@ public class SecurityInfo implements Serializable {
                 "SecurityInfo [endpoint=%s, identity=%s, rawPublicKey=%s, useX509Cert=%s, oscoreIdentity=%s]", endpoint,
                 identity, rawPublicKey, useX509Cert, oscoreIdentity);
     }
+
+	public void setBuiltFromEdhoc(boolean val) {
+		this.builtFromEdhoc = val;
+	}
+
+	public boolean getBuiltFromEdhoc() {
+		return builtFromEdhoc;
+	}
 
 }

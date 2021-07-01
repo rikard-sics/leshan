@@ -13,6 +13,7 @@
  * Contributors:
  *     Sierra Wireless - initial API and implementation
  *     Rikard Höglund (RISE SICS) - Additions to support OSCORE
+ *     Rikard Höglund (RISE) - Additions to support EDHOC
  *******************************************************************************/
 package org.eclipse.leshan.client.servers;
 
@@ -63,6 +64,8 @@ public class ServerInfo {
     public long aeadAlgorithm;
     public long hkdfAlgorithm;
     public byte[] masterSalt;
+	// EDHOC parameters
+	public boolean builtFromEdhoc = false;
 
     public InetSocketAddress getAddress() {
         return getAddress(serverUri);

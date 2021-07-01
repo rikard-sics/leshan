@@ -68,6 +68,20 @@
 				AEAD Algorithm : <code>{{ security.oscore.aeadAlgorithm }}</code><br/>
 				HKDF Algorithm : <code>{{ security.oscore.hkdfAlgorithm }}</code>
 			</td>
+			<!-- EDHOC fields -->
+			<td ng-if="security.edhoc">EDHOC</td>
+			<td ng-if="security.edhoc">
+				Initiator : <code>{{ security.edhoc.initiator }}</code><br/>
+				Authentication Method : <code>{{ security.edhoc.authenticationMethod }}</code><br/>
+				Ciphersuite : <code>{{ security.edhoc.ciphersuite }}</code><br/>
+				Credential Identifier : <code>{{ security.edhoc.credentialIdentifier }}</code><br/>
+				Public Credential : <code>{{ security.edhoc.publicCredential }}</code><br/>
+				Server Credential Identifier : <code>{{ security.edhoc.serverCredentialIdentifier }}</code><br/>
+				Server Credential : <code>{{ security.edhoc.serverPublicKey }}</code><br/>
+				OSCORE Master Secret Length : <code>{{ security.edhoc.oscoreMasterSecretLength }}</code><br/>
+				OSCORE Master Salt Length : <code>{{ security.edhoc.oscoreMasterSaltLength }}</code><br/>
+				OSCORE EDHOC Combined : <code>{{ security.edhoc.edhocOscoreCombined }}</code><br/>
+			</td>
 			<td ng-if="security.rpk">Raw Public Key <br/><small class="text-muted" >(Elliptic Curve)</small></td>
 			<td ng-if="security.rpk">Public Key : <br/> <code style=display:block;white-space:pre-wrap>{{wrap(security.rpk.key)}}</code><br/> 
 			</td>
@@ -110,6 +124,7 @@
 								<option value="x509">X.509 Certificate</option>
 								<!-- Drop-down option for OSCORE security context information -->
 								<option value="oscore">OSCORE</option>
+								<option value="edhoc">EDHOC</option>
 							</select>
 						</div>
 					</div>
@@ -200,6 +215,91 @@
 							<textarea class="form-control" style="resize:none" rows="1" id="hkdfAlgorithmValue" name="hkdfAlgorithm" 
 							ng-model="hkdfAlgorithm" ng-maxlength="32" placeholder="{{defaultHkdfAlgorithm}}" ></textarea>
 							<p class="help-block" ng-if="form.hkdfAlgorithm.$error.maxlength">HKDF Algorithm is too long</p>
+						</div>
+					</div>
+					
+					<!-- EDHOC inputs TODO: Add validation -->
+					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
+						<label for="initiatorValue" class="col-sm-4 control-label">Initiator</label>
+						<div class="col-sm-8">
+							<textarea class="form-control" style="resize:none" rows="1" id="initiatorValue" name="initiator" 
+							ng-model="initiator" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
+						</div>
+					</div>
+					
+					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
+						<label for="authenticationMethodValue" class="col-sm-4 control-label">Authentication Method</label>
+						<div class="col-sm-8">
+							<textarea class="form-control" style="resize:none" rows="1" id="authenticationMethodValue" name="authenticationMethod" 
+							ng-model="authenticationMethod" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
+						</div>
+					</div>
+					
+					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
+						<label for="ciphersuiteValue" class="col-sm-4 control-label">Ciphersuite</label>
+						<div class="col-sm-8">
+							<textarea class="form-control" style="resize:none" rows="1" id="ciphersuiteValue" name="ciphersuite" 
+							ng-model="ciphersuite" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
+						</div>
+					</div>
+					
+					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
+						<label for="credentialIdentifierValue" class="col-sm-4 control-label">Credential Identifier</label>
+						<div class="col-sm-8">
+							<textarea class="form-control" style="resize:none" rows="1" id="credentialIdentifierValue" name="credentialIdentifier" 
+							ng-model="credentialIdentifier" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
+							<p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
+						</div>
+					</div>
+
+					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
+						<label for="publicCredentialValue" class="col-sm-4 control-label">Public Credential</label>
+						<div class="col-sm-8">
+							<textarea class="form-control" style="resize:none" rows="4" id="publicCredentialValue" name="publicCredential" 
+							ng-model="publicCredential" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
+							<p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
+						</div>
+					</div>
+					
+					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
+						<label for="serverCredentialIdentifierValue" class="col-sm-4 control-label">Server Credential Identifier</label>
+						<div class="col-sm-8">
+							<textarea class="form-control" style="resize:none" rows="1" id="serverCredentialIdentifierValue" name="serverCredentialIdentifier" 
+							ng-model="serverCredentialIdentifier" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
+							<p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
+						</div>
+					</div>
+					
+					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
+						<label for="serverPublicKeyValue" class="col-sm-4 control-label">Server Credential</label>
+						<div class="col-sm-8">
+							<textarea class="form-control" style="resize:none" rows="5" id="serverPublicKeyValue" name="serverPublicKey" 
+							ng-model="serverPublicKey" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="256" ></textarea>
+							<p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
+						</div>
+					</div>
+					
+					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
+						<label for="oscoreMasterSecretLengthValue" class="col-sm-4 control-label">OSCORE Master Secret Length</label>
+						<div class="col-sm-8">
+							<textarea class="form-control" style="resize:none" rows="1" id="oscoreMasterSecretLengthValue" name="oscoreMasterSecretLength" 
+							ng-model="oscoreMasterSecretLength" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
+						</div>
+					</div>
+					
+					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
+						<label for="oscoreMasterSaltLengthValue" class="col-sm-4 control-label">OSCORE Master Salt Length</label>
+						<div class="col-sm-8">
+							<textarea class="form-control" style="resize:none" rows="1" id="oscoreMasterSaltLengthValue" name="oscoreMasterSaltLength" 
+							ng-model="oscoreMasterSaltLength" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
+						</div>
+					</div>
+					
+					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
+						<label for="edhocOscoreCombinedValue" class="col-sm-4 control-label">EDHOC OSCORE Combined</label>
+						<div class="col-sm-8">
+							<textarea class="form-control" style="resize:none" rows="1" id="edhocOscoreCombinedValue" name="edhocOscoreCombined" 
+							ng-model="edhocOscoreCombined" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
 						</div>
 					</div>
 

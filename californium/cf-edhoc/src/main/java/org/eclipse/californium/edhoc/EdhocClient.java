@@ -83,49 +83,18 @@ public class EdhocClient {
     // Uncomment to use a Montgomery key pair with curve X25519
     // private final static int keyCurve = KeyKeys.OKP_X25519.AsInt32();
     
-    // The ID_CRED used for the identity key of this peer
-    private static CBORObject idCred = null;
     
     // The type of the credential of this peer and the other peer
     // Possible values: CRED_TYPE_RPK ; CRED_TYPE_X5T ; CRED_TYPE_X5U ; CRED_TYPE_X5CHAIN
     private static int credType = Constants.CRED_TYPE_X5T;
     
-    // The CRED used for the identity key of this peer
-    private static byte[] cred = null;
-    
     // The subject name used for the identity key of this peer
     private static String subjectName = "";
-    
-    // The long-term asymmetric key pair of this peer
-	private static OneKey keyPair = null;
-	
-	// Long-term public keys of authorized peers
-	// The map label is a CBOR Map used as ID_CRED_X
-	private static Map<CBORObject, OneKey> peerPublicKeys = new HashMap<CBORObject, OneKey>();
-	
-	// CRED of the long-term public keys of authorized peers
-	// The map label is a CBOR Map used as ID_CRED_X
-	// The map value is a CBOR byte string, with value the serialization of CRED
-	// (i.e. the serialization of what the other peer stores as CRED in its Session)
-	private static Map<CBORObject, CBORObject> peerCredentials = new HashMap<CBORObject, CBORObject>();
-		
-	// Existing EDHOC Sessions, including completed ones
-	// The map label is C_X, i.e. the connection identifier offered to the other peer, as a CBOR byte string
-	private static Map<CBORObject, EdhocSession> edhocSessions = new HashMap<CBORObject, EdhocSession>();
-	
+
 	// Each set of the list refers to a different size of Connection Identifier, i.e. C_ID_X to offer to the other peer.
 	// The element with index 0 includes as elements Recipient IDs with size 1 byte.
 	private static List<Set<Integer>> usedConnectionIds = new ArrayList<Set<Integer>>();
-	
-	// List of supported ciphersuites
-	private static List<Integer> supportedCiphersuites = new ArrayList<Integer>();
-	
-	// The authentication method to be indicated in EDHOC message 1 (relevant for the Initiator only)
-	private static int authenticationMethod = Constants.EDHOC_AUTH_METHOD_0;
-			
-	// The database of OSCORE Security Contexts
-	private final static HashMapCtxDB db = new HashMapCtxDB();
-	
+
 	// The size of the Replay Window to use in an OSCORE Recipient Context
 	private static final int OSCORE_REPLAY_WINDOW = 32;
 	
@@ -135,8 +104,34 @@ public class EdhocClient {
 	// Set to true if EDHOC message_3 will be combined with the first OSCORE request
 	private static final boolean OSCORE_EDHOC_COMBINED = false;
 	
-	// The collection of applicability statements - The lookup key is the full URI of the EDHOC resource
-	private static Map<String, AppStatement> appStatements = new HashMap<String, AppStatement>();
+	// Long-term public keys of authorized peers
+	// The map label is a CBOR Map used as ID_CRED_X
+	private static Map<CBORObject, OneKey> peerPublicKeys = new HashMap<CBORObject, OneKey>();
+
+	// CRED of the long-term public keys of authorized peers
+	// The map label is a CBOR Map used as ID_CRED_X
+	// The map value is a CBOR byte string, with value the serialization of
+	// CRED
+	// (i.e. the serialization of what the other peer stores as CRED in its
+	// Session)
+	private static Map<CBORObject, CBORObject> peerCredentials = new HashMap<CBORObject, CBORObject>();
+
+	// The ID_CRED used for the identity key of this peer
+	private static CBORObject idCred = null;
+
+	// The CRED used for the identity key of this peer
+	private static byte[] cred = null;
+
+	// The long-term asymmetric key pair of this peer
+	private static OneKey keyPair = null;
+
+	// List of supported ciphersuites
+	private static List<Integer> supportedCiphersuites = new ArrayList<Integer>();
+
+	// Existing EDHOC Sessions, including completed ones
+	// The map label is C_X, i.e. the connection identifier offered to the
+	// other peer, as a CBOR byte string
+	private static Map<CBORObject, EdhocSession> edhocSessions = new HashMap<CBORObject, EdhocSession>();
 	
 	private static NetworkConfigDefaultHandler DEFAULTS = new NetworkConfigDefaultHandler() {
 
@@ -150,18 +145,31 @@ public class EdhocClient {
 	
 	private static String helloWorldURI = "coap://localhost/helloWorld";
 	
-	private static String edhocURI = "coap://localhost/.well-known/edhoc";
 	// private static String edhocURI = "coap://51.75.194.248/.well-known/edhoc"; // Timothy
 	// private static String edhocURI = "coap://54.93.59.163/.well-known/edhoc"; // Stefan
 	// private static String edhocURI = "coap://195.251.58.203:5683/.well-known/edhoc"; // Lidia
 	// private static String edhocURI = "coap://hephaistos.proxy.rd.coap.amsuess.com:1234/.well-known/edhoc"; // Christian
-	
-	
+
 	/*
 	 * Application entry point.
 	 * 
 	 */
 	public static void main(String args[]) {
+
+		// The authentication method to be indicated in EDHOC message 1
+		// (relevant for the Initiator only)
+		int authenticationMethod = Constants.EDHOC_AUTH_METHOD_0;
+
+		// The collection of applicability statements - The lookup key is the
+		// full URI of the EDHOC resource
+		Map<String, AppStatement> appStatements = new HashMap<String, AppStatement>();
+
+		// The database of OSCORE Security Contexts
+		HashMapCtxDB db = new HashMapCtxDB();
+
+		String edhocURI = "coap://localhost/.well-known/edhoc";
+		//
+
 		String defaultUri = "coap://localhost/helloWorld";
 				
 		NetworkConfig config = NetworkConfig.createWithFile(CONFIG_FILE, CONFIG_HEADER, DEFAULTS);
@@ -191,8 +199,7 @@ public class EdhocClient {
 		// - Use of message_4 as expected to be sent by the Responder
 		//
 		Set<Integer> authMethods = new HashSet<Integer>();
-		for (int i = 0; i <= Constants.EDHOC_AUTH_METHOD_3; i++ )
-			authMethods.add(i);
+		authMethods.add(authenticationMethod);
 		AppStatement appStatement = new AppStatement(true, authMethods, false, false);
 		
 		appStatements.put(edhocURI, appStatement);
@@ -245,6 +252,11 @@ public class EdhocClient {
 
 	}
 	
+	public static void installCryptoProvider() {
+		// Insert EdDSA security provider
+		Security.insertProviderAt(EdDSA, 1);
+	}
+
 	private static void setupIdentityKeys () {
 		
 		String keyPairBase64 = null;
@@ -488,7 +500,7 @@ public class EdhocClient {
 		
 	}
 	
-	private static void edhocExchangeAsInitiator(final String args[], final URI targetUri,
+	public static void edhocExchangeAsInitiator(final String args[], final URI targetUri,
 												 EdhocEndpointInfo edhocEndpointInfo, CBORObject[] ead1) {
 		
 		CoapClient client = new CoapClient(targetUri);
@@ -557,13 +569,14 @@ public class EdhocClient {
 		
 		String uriAsString = targetUri.toString();
 		AppStatement appStatement = edhocEndpointInfo.getAppStatements().get(uriAsString);
+		Integer authenticationMethod = (Integer) appStatement.getAuthMethods().toArray()[0];
 		
 		int correlation = appStatement.getCorrelation() ? Constants.EDHOC_CORR_1 : Constants.EDHOC_CORR_0;
 		EdhocSession session = MessageProcessor.createSessionAsInitiator(authenticationMethod, correlation,
                  edhocEndpointInfo.getKeyPair(), edhocEndpointInfo.getIdCred(), edhocEndpointInfo.getCred(),
                  edhocEndpointInfo.getSupportedCiphersuites(), edhocEndpointInfo.getUsedConnectionIds(),
                  appStatement, edhocEndpointInfo.getEdp());
-		
+
 		// At this point, the initiator may overwrite the information in the EDHOC session about the supported ciphersuites
 		// and the selected ciphersuite, based on a previously received EDHOC Error Message
 		
@@ -689,8 +702,8 @@ public class EdhocClient {
 			
 			/* Start handling EDHOC Message 2 */
 			
-			processingResult = MessageProcessor.readMessage2(responsePayload, cI, edhocSessions, peerPublicKeys,
-					                                         peerCredentials, usedConnectionIds);
+			processingResult = MessageProcessor.readMessage2(responsePayload, cI, edhocSessions,
+					edhocEndpointInfo.getPeerPublicKeys(), edhocEndpointInfo.getPeerCredentials(), usedConnectionIds);
 			
 			if (processingResult.get(0) == null || processingResult.get(0).getType() != CBORType.ByteString) {
 				System.err.println("Internal error when processing EDHOC Message 2");
@@ -772,7 +785,15 @@ public class EdhocClient {
 					}
 			        
 			        try {
-						db.addContext(edhocURI, ctx);
+						edhocEndpointInfo.getOscoreDb().addContext(edhocEndpointInfo.getUri(), ctx);
+
+						System.out.println("Client: Adding Context generated by EDHOC: ");
+						System.out.println("Master Secret: "
+								+ org.eclipse.californium.core.Utils.toHexString(ctx.getMasterSecret()));
+						System.out.println("Master Salt: " + Utils.toHexString(ctx.getSalt()));
+						System.out.println("Sender Id: " + Utils.toHexString(ctx.getSenderId()));
+						System.out.println("Recipient Id: " + Utils.toHexString(ctx.getRecipientId()));
+						System.out.println("ID Context: " + Utils.toHexString(ctx.getIdContext()));
 					} catch (OSException e) {
 						System.err.println("Error when adding the OSCORE Security Context to the context database "
 					                        + e.getMessage());

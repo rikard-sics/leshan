@@ -13,6 +13,7 @@
  * Contributors:
  *     Sierra Wireless - initial API and implementation
  *     Rikard Höglund (RISE SICS) - Additions to support OSCORE
+ *     Rikard Höglund (RISE) - Additions to support EDHOC
  *******************************************************************************/
 package org.eclipse.leshan.client.object;
 
@@ -21,6 +22,7 @@ import static org.eclipse.leshan.core.LwM2mId.*;
 import java.util.Arrays;
 import java.util.List;
 
+import org.eclipse.leshan.client.OscoreHandler;
 import org.eclipse.leshan.client.resource.BaseInstanceEnabler;
 import org.eclipse.leshan.client.resource.LwM2mInstanceEnabler;
 import org.eclipse.leshan.client.servers.ServerIdentity;
@@ -197,6 +199,7 @@ public class Security extends BaseInstanceEnabler {
                 return WriteResponse.badRequest("invalid type");
             }
             serverUri = (String) value.getValue();
+			OscoreHandler.setlwServerUri(serverUri); // RH: TODO: Move?
             return WriteResponse.success();
 
         case SEC_BOOTSTRAP: // is bootstrap server

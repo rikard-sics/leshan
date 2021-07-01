@@ -47,7 +47,7 @@ var configsFromRestToUI = function(configs){
 
 //convert config from UI to rest API format:
 var configFromUIToRest = function(config){
-    var newConfig = {servers:{}, security:{}, oscore:{}};
+    var newConfig = {servers:{}, security:{}, oscore:{}, edhoc:{}};
     var writingOscore = false;
     for (var i = 0; i < config.bs.length; i++) {
         var bs = config.bs[i];
@@ -60,8 +60,10 @@ var configFromUIToRest = function(config){
         newConfig.security[i+j] = dm.security;
         delete dm.security;
         newConfig.oscore[i+j] = dm.oscore;
+        newConfig.edhoc[i+j] = dm.edhoc;
         writingOscore |= (dm.oscore != null);
         delete dm.oscore;
+        delete dm.edhoc;
         newConfig.servers[j] = dm;
     }
     newConfig.toDelete = ["/0", "/1"]

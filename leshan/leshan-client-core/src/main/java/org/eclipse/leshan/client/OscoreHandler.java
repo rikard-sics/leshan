@@ -12,8 +12,9 @@
  * 
  * Contributors:
  *     Rikard Höglund (RISE SICS) - Additions to support OSCORE
+ *     Rikard Höglund (RISE) - Additions to support EDHOC
  *******************************************************************************/
-package org.eclipse.leshan.client.californium;
+package org.eclipse.leshan.client;
 
 import org.eclipse.californium.oscore.HashMapCtxDB;
 
@@ -21,6 +22,7 @@ import org.eclipse.californium.oscore.HashMapCtxDB;
 public class OscoreHandler {
 
     private static HashMapCtxDB db;
+	private static String lwServerUri;
 
     public static HashMapCtxDB getContextDB() {
         if (db == null) {
@@ -28,4 +30,14 @@ public class OscoreHandler {
         }
         return db;
     }
+
+	// RH: TODO: Avoid this static method?
+	public static void setlwServerUri(String toSetlwServerUri) {
+		lwServerUri = toSetlwServerUri;
+	}
+
+	public static String getlwServerUri() {
+		return lwServerUri;
+	}
+
 }

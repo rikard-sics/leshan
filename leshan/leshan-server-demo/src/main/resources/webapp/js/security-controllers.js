@@ -107,7 +107,13 @@ angular.module('securityControllers', [])
                     var security = {endpoint: $scope.endpoint, oscore : { masterSecret : $scope.masterSecret, masterSalt : $scope.masterSalt,
                         senderId : $scope.senderId, recipientId : $scope.recipientId, aeadAlgorithm : $scope.aeadAlgorithm || $scope.defaultAeadAlgorithm,
                         hkdfAlgorithm : $scope.hkdfAlgorithm || $scope.defaultHkdfAlgorithm }};
-                    } else {
+                } else if($scope.securityMode == "edhoc") {
+                    // Information for EDHOC
+                	var security = {endpoint: $scope.endpoint, edhoc : { initiator : $scope.initiator, authenticationMethod : $scope.authenticationMethod,
+                        ciphersuite : $scope.ciphersuite, credentialIdentifier : $scope.credentialIdentifier, publicCredential : $scope.publicCredential,
+                        privateKey : $scope.privateKey, serverCredentialIdentifier : $scope.serverCredentialIdentifier, serverPublicKey : $scope.serverPublicKey,
+                        oscoreMasterSecretLength : $scope.oscoreMasterSecretLength, oscoreMasterSaltLength : $scope.oscoreMasterSaltLength, edhocOscoreCombined : $scope.edhocOscoreCombined }};
+               } else {
                     var security = {endpoint: $scope.endpoint, x509 : true};
                 }
                 if(security) {
