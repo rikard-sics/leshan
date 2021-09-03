@@ -202,7 +202,7 @@ public class RegisterResource extends LwM2mCoapResource {
             // RH: Send ACK
             exchange.accept();
 
-            // RH: Build response to send
+            // RH: Build response to send and send it
             Response resp = Response.createResponse(request, ResponseCode.CREATED);
             resp.getOptions().setLocationPath(RESOURCE_NAME + "/" + response.getRegistrationID());
             resp.setConfirmable(true);
@@ -216,10 +216,12 @@ public class RegisterResource extends LwM2mCoapResource {
             // RH: Send ACK
             exchange.accept();
 
-            // RH: Build response to send
+            // RH: Build response to send and send it
             Response resp = Response.createResponse(request, toCoapResponseCode(response.getCode()));
             resp.setPayload(response.getErrorMessage());
             resp.setConfirmable(true);
+
+            exchange.respond(resp);
 
             // RH: Old code
             // exchange.respond(toCoapResponseCode(response.getCode()), response.getErrorMessage());
