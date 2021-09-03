@@ -20,8 +20,8 @@ Right click project->Properties->Java Build Path->Projects->Add...
 leshan-client-demo
 leshan-server-demo
 leshan-bsserver-demo
+*In some situations this may be needed for all individual Leshan projects
 
 To change Java version:
 Right click project->Properties->Java Build Path->Libraries->Edit...
 Edit the JRE System Library to be Java 1.8.
-

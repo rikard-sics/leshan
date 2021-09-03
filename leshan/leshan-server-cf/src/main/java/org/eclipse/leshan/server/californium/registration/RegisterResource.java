@@ -26,6 +26,7 @@ import java.util.Map;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
 import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.core.coap.Request;
+import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.core.server.resources.Resource;
 import org.eclipse.californium.oscore.HashMapCtxDB;
@@ -198,10 +199,30 @@ public class RegisterResource extends LwM2mCoapResource {
         // Create CoAP Response from LwM2m request
         // -------------------------------
         if (response.getCode() == org.eclipse.leshan.core.ResponseCode.CREATED) {
-            exchange.setLocationPath(RESOURCE_NAME + "/" + response.getRegistrationID());
-            exchange.respond(ResponseCode.CREATED);
+            // RH: Send ACK
+            exchange.accept();
+
+            // RH: Build response to send
+            Response resp = Response.createResponse(request, ResponseCode.CREATED);
+            resp.getOptions().setLocationPath(RESOURCE_NAME + "/" + response.getRegistrationID());
+            resp.setConfirmable(true);
+
+            exchange.respond(resp);
+
+            // RH: Old code
+            // exchange.setLocationPath(RESOURCE_NAME + "/" + response.getRegistrationID());
+            // exchange.respond(ResponseCode.CREATED);
         } else {
-            exchange.respond(toCoapResponseCode(response.getCode()), response.getErrorMessage());
+            // RH: Send ACK
+            exchange.accept();
+
+            // RH: Build response to send
+            Response resp = Response.createResponse(request, toCoapResponseCode(response.getCode()));
+            resp.setPayload(response.getErrorMessage());
+            resp.setConfirmable(true);
+
+            // RH: Old code
+            // exchange.respond(toCoapResponseCode(response.getCode()), response.getErrorMessage());
         }
         sendableResponse.sent();
     }
