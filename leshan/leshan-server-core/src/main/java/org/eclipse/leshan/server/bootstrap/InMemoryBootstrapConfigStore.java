@@ -77,6 +77,15 @@ public class InMemoryBootstrapConfigStore implements EditableBootstrapConfigStor
         }
         // TODO we should probably also check lwm2m server
 
+        System.out.println("Endpoint name: " + endpoint);
+        BootstrapConfig currentExistingConfig = bootstrapByEndpoint.get(endpoint);
+        // Merge configs
+        if(currentExistingConfig != null) {
+        	System.out.println("Client already added, merging configs");
+        	mergeConfig(currentExistingConfig, config);
+        }
+        
+        
         bootstrapByEndpoint.put(endpoint, config);
         if (pskToAdd != null) {
             bootstrapByPskId.put(pskToAdd, config);
@@ -84,6 +93,67 @@ public class InMemoryBootstrapConfigStore implements EditableBootstrapConfigStor
         addOscoreContext(config);
     }
 
+    static int counter = 124;
+    private void mergeConfig(BootstrapConfig currentExistingConfig, BootstrapConfig config) {
+    	int index = config.acls.size();
+    	if(config.acls != null ) {
+    		
+    		for (Integer i : currentExistingConfig.acls.keySet()) 
+    		{ 
+    		    config.acls.put(index + i, currentExistingConfig.acls.get(i));
+    		}
+    	}
+    
+    	index = config.oscore.size();
+    	if(config.oscore != null ) {
+    		
+    		for (Integer i : currentExistingConfig.oscore.keySet()) 
+    		{ 
+    		    config.oscore.put(index + i, currentExistingConfig.oscore.get(i));
+    		}
+    	}
+    	
+    	index = config.edhoc.size();
+    	if(config.edhoc != null ) {
+    		
+    		for (Integer i : currentExistingConfig.edhoc.keySet()) 
+    		{ 
+    		    config.edhoc.put(index + i, currentExistingConfig.edhoc.get(i));
+    		}
+    	}
+    	
+    	
+		
+		for (Integer i : currentExistingConfig.security.keySet()) {
+			
+			if(currentExistingConfig.security.get(i) != null && currentExistingConfig.security.get(i).serverId != null) {
+				counter++;
+				currentExistingConfig.security.get(i).serverId = counter;	
+			}
+		}
+		
+    	
+    	index = config.security.size();
+    	if(config.security != null ) {
+
+    		
+    		for (Integer i : currentExistingConfig.security.keySet()) 
+    		{ 
+    		    config.security.put(index + i, currentExistingConfig.security.get(i));
+    		}
+    	}
+    	
+    	index = config.servers.size();
+    	if(config.servers != null ) {
+    		
+    		for (Integer i : currentExistingConfig.servers.keySet()) 
+    		{ 
+    		    config.servers.put(index + i, currentExistingConfig.servers.get(i));
+    		}
+    	}
+
+    }
+    
     protected void checkConfig(String endpoint, BootstrapConfig config) throws InvalidConfigurationException {
         configChecker.verify(config);
     }

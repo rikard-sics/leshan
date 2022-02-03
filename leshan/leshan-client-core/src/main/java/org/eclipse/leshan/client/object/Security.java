@@ -198,8 +198,8 @@ public class Security extends BaseInstanceEnabler {
             if (value.getType() != Type.STRING) {
                 return WriteResponse.badRequest("invalid type");
             }
+           
             serverUri = (String) value.getValue();
-			OscoreHandler.setlwServerUri(serverUri); // RH: TODO: Move?
             return WriteResponse.success();
 
         case SEC_BOOTSTRAP: // is bootstrap server
@@ -239,6 +239,17 @@ public class Security extends BaseInstanceEnabler {
                 return WriteResponse.badRequest("invalid type");
             }
             shortServerId = ((Long) value.getValue()).intValue();
+            
+            if(!bootstrapServer && shortServerId == 123) {
+            	System.out.println("Short server ID: " + shortServerId);
+            	System.out.println("Device Manager URI: " + serverUri);
+            	OscoreHandler.setlwServerUri(serverUri); // RH: TODO: Move?
+            } else if(!bootstrapServer) {
+            	System.out.println("Short server ID: " + shortServerId);
+            	System.out.println("AS URI: " + serverUri);
+            	OscoreHandler.setAsServerUri(serverUri); // RH: TODO: Move?
+            }
+            
             return WriteResponse.success();
         case SEC_CERTIFICATE_USAGE: // certificate usage
             if (value.getType() != Type.UNSIGNED_INTEGER) {
@@ -258,6 +269,9 @@ public class Security extends BaseInstanceEnabler {
             return super.write(identity, replace, resourceId, value);
         }
 
+        
+
+        
     }
 
     @Override

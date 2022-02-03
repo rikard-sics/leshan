@@ -140,7 +140,7 @@ public class LeshanClientDemo {
                             "10351.xml", "10352.xml", "10353.xml", "10354.xml", "10355.xml", "10356.xml", "10357.xml",
                             "10358.xml", "10359.xml", "10360.xml", "10361.xml", "10362.xml", "10363.xml", "10364.xml",
                             "10365.xml", "10366.xml", "10368.xml", "10369.xml", "10371.xml", "18830.xml",
-                            "18831.xml", };
+                            "18831.xml", "9999.xml", };
 
     private static final int OBJECT_ID_TEMPERATURE_SENSOR = 3303;
     private final static String DEFAULT_ENDPOINT = "LeshanClientDemo";
@@ -824,6 +824,7 @@ public class LeshanClientDemo {
         initializer.setInstancesForObject(DEVICE, new MyDevice());
         initializer.setInstancesForObject(LOCATION, locationInstance);
         initializer.setInstancesForObject(OBJECT_ID_TEMPERATURE_SENSOR, new RandomTemperatureSensor());
+        initializer.setInstancesForObject(9999, new MyLight());
         List<LwM2mObjectEnabler> enablers = initializer.createAll();
 
         // Create CoAP Config

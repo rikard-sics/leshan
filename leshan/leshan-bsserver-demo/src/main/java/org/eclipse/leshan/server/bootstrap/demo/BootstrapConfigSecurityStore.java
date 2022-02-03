@@ -86,12 +86,13 @@ public class BootstrapConfigSecurityStore implements BootstrapSecurityStore {
                 }
             }
         }
+        System.out.println("Identity 1");
         return null;
     }
 
     @Override
     public Iterator<SecurityInfo> getAllByEndpoint(String endpoint) {
-
+    	System.out.println("Identity 2");
         BootstrapConfig bsConfig = bootstrapConfigStore.get(endpoint, null, null);
 
         // TODO this should be done via OSCORE store ?

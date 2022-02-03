@@ -17,12 +17,15 @@
 package org.eclipse.leshan.client;
 
 import org.eclipse.californium.oscore.HashMapCtxDB;
+import org.eclipse.leshan.client.object.Edhoc;
 
 //TODO OSCORE : remove this class and static access.
 public class OscoreHandler {
 
     private static HashMapCtxDB db;
 	private static String lwServerUri;
+	private static String asServerUri;
+	private static Edhoc asEdhocObj;
 
     public static HashMapCtxDB getContextDB() {
         if (db == null) {
@@ -38,6 +41,24 @@ public class OscoreHandler {
 
 	public static String getlwServerUri() {
 		return lwServerUri;
+	}
+	
+	// RH: TODO: Avoid this static method?
+	public static void setAsServerUri(String toSetasServerUri) {
+		asServerUri = toSetasServerUri;
+	}
+
+	public static String getAsServerUri() {
+		return asServerUri;
+	}
+
+	public static Edhoc getAsEdhocObj() {
+		return asEdhocObj;
+	}
+
+	
+	public static void setAsEdhocObj(Edhoc asEdhocObj) {
+		OscoreHandler.asEdhocObj = asEdhocObj;
 	}
 
 }

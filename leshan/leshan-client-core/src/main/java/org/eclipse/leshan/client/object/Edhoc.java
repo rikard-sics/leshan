@@ -72,17 +72,17 @@ public class Edhoc extends BaseInstanceEnabler {
             Credential_Identifier, Public_Credential, Private_Key, Server_Credential_Identifier, Server_Public_Key,
             Oscore_Master_Secret_Length, Oscore_Master_Salt_Length, Edhoc_Oscore_Combined);
 
-    private boolean initiator;
-    private ULong authenticationMethod;
-    private ULong ciphersuite;
-    private byte[] credentialIdentifier;
-    private byte[] publicCredential;
-    private byte[] privateKey;
-    private byte[] serverCredentialIdentifier;
-    private byte[] serverPublicKey;
-    private ULong oscoreMasterSecretLength;
-    private ULong oscoreMasterSaltLength;
-    private boolean edhocOscoreCombined;
+    public boolean initiator;
+    public ULong authenticationMethod;
+    public ULong ciphersuite;
+    public byte[] credentialIdentifier;
+    public byte[] publicCredential;
+    public byte[] privateKey;
+    public byte[] serverCredentialIdentifier;
+    public byte[] serverPublicKey;
+    public ULong oscoreMasterSecretLength;
+    public ULong oscoreMasterSaltLength;
+    public boolean edhocOscoreCombined;
 
     public Edhoc() {
 
@@ -110,6 +110,8 @@ public class Edhoc extends BaseInstanceEnabler {
         this.edhocOscoreCombined = edhocOscoreCombined;
     }
 
+
+	boolean edhocWithDmDone = false;
     @Override
     public WriteResponse write(ServerIdentity identity, boolean replace, int resourceId, LwM2mResource value) {
         LOG.debug("Write on resource {}: {}", resourceId, value);
@@ -134,7 +136,7 @@ public class Edhoc extends BaseInstanceEnabler {
 
 		// RH: Run EDHOC now
 		// RH: TODO: Do somewhere else instead?
-		if (resourceId == Edhoc_Oscore_Combined) {
+		if (resourceId == Edhoc_Oscore_Combined && !edhocWithDmDone) {
 
 			// Install crypto provider
 			EdhocClient.installCryptoProvider();
@@ -186,8 +188,17 @@ public class Edhoc extends BaseInstanceEnabler {
 			// multiple additional elements
 			CBORObject[] ead1 = null;
 
-			System.out.println("RUNNING EDHOC:");
+			System.out.println("Running EDHOC with Device Manager: ");
 			EdhocClient.edhocExchangeAsInitiator(args, uri, edhocEndpointInfo, ead1);
+			
+			edhocWithDmDone = true;
+		} else if (resourceId == Edhoc_Oscore_Combined && edhocWithDmDone) {
+			Edhoc temp = new Edhoc(100, initiator, authenticationMethod.longValue(), ciphersuite.longValue(),
+		            credentialIdentifier,
+		            publicCredential, privateKey, serverCredentialIdentifier, serverPublicKey,
+		            oscoreMasterSecretLength.longValue(), oscoreMasterSaltLength.longValue(), edhocOscoreCombined);
+			OscoreHandler.setAsEdhocObj(temp);
+			
 		}
 		// End run EDHOC
 

@@ -225,6 +225,10 @@ public class BootstrapUtil {
         }
         // handle edhoc
 		boolean writingEdhoc = false;
+		
+		
+		
+		
         for (Entry<Integer, EdhocObject> edhoc : bootstrapConfig.edhoc.entrySet()) {
             requests.add(toWriteRequest(edhoc.getKey(), edhoc.getValue(), contentFormat));
 			writingEdhoc = true;
