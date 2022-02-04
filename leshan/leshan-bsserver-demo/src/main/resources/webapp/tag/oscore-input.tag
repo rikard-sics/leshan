@@ -1,5 +1,14 @@
 <oscore-input>
     <!-- OSCORE inputs -->
+    
+    
+    <button type="button" onclick="
+         document.getElementById('masterSecret').value = 'AAAA';
+         document.getElementById('senderId').value = 'CC';
+         document.getElementById('recipientId').value = 'BB';
+    ">Fill Client<->BS config</button> 
+    
+    
     <div class={ form-group:true, has-error: masterSecret.error }>
         <label for="masterSecret" class="col-sm-4 control-label">Master Secret</label>
         <div class="col-sm-8">

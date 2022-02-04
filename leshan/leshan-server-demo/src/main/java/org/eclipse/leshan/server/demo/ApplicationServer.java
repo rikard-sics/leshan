@@ -28,6 +28,7 @@ import org.eclipse.californium.edhoc.SharedSecretCalculation;
 import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.californium.oscore.OSCoreCtx;
+import org.eclipse.californium.oscore.OSCoreResource;
 import org.eclipse.californium.oscore.OSException;
 import org.eclipse.leshan.core.util.Hex;
 import org.eclipse.leshan.server.OscoreHandler;
@@ -384,12 +385,12 @@ public class ApplicationServer {
 	/*
 	 * Definition of the Temp Resource
 	 */
-	static class Temp extends CoapResource {
+	static class Temp extends OSCoreResource {
 
 		public Temp() {
 
 			// set resource identifier
-			super("temp");
+			super("temp", true);
 
 			// set display name
 			getAttributes().setTitle("temp");

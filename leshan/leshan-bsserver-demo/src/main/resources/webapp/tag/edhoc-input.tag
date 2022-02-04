@@ -3,6 +3,34 @@
     
     <!-- TODO: Add validation -->
     
+    <button type="button" onclick="
+         document.getElementById('initiator').value = 'True';
+         document.getElementById('authenticationMethod').value = '0';
+         document.getElementById('ciphersuite').value = '2';
+         document.getElementById('credentialIdentifier').value = '07';
+         document.getElementById('publicCredential').value = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
+         document.getElementById('privateKey').value = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
+         document.getElementById('serverCredentialIdentifier').value = '24';
+         document.getElementById('serverPublicKey').value = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('oscoreMasterSecretLength').value = '16';
+         document.getElementById('oscoreMasterSaltLength').value = '8';
+         document.getElementById('edhocOscoreCombined').value = 'False';
+    ">Fill Client<->DM config</button> 
+         
+    <button type="button" onclick="
+         document.getElementById('initiator').value = 'True';
+         document.getElementById('authenticationMethod').value = '0';
+         document.getElementById('ciphersuite').value = '2';
+         document.getElementById('credentialIdentifier').value = '08';
+         document.getElementById('publicCredential').value = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
+         document.getElementById('privateKey').value = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
+         document.getElementById('serverCredentialIdentifier').value = '25';
+         document.getElementById('serverPublicKey').value = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('oscoreMasterSecretLength').value = '16';
+         document.getElementById('oscoreMasterSaltLength').value = '8';
+         document.getElementById('edhocOscoreCombined').value = 'False';
+    ">Fill Client<->AS config</button> 
+    
     <div class={ form-group:true }>
         <label for="initiator" class="col-sm-4 control-label">Initiator</label>
         <div class="col-sm-8">
@@ -269,6 +297,7 @@
                 oscoreMasterSaltLength:tag.refs.oscoreMasterSaltLength.value,
                 edhocOscoreCombined:tag.refs.edhocOscoreCombined.value };
         }
+
     </script>
 </edhoc-input>
 

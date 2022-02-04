@@ -35,7 +35,6 @@ public class OscoreHandler {
         return db;
     }
 
-	// RH: TODO: Avoid this static method?
 	public static void setlwServerUri(String toSetlwServerUri) {
 		lwServerUri = toSetlwServerUri;
 	}
@@ -43,8 +42,7 @@ public class OscoreHandler {
 	public static String getlwServerUri() {
 		return lwServerUri;
 	}
-	
-	// RH: TODO: Avoid this static method?
+
 	public static void setAsServerUri(String toSetasServerUri) {
 		asServerUri = toSetasServerUri;
 	}
