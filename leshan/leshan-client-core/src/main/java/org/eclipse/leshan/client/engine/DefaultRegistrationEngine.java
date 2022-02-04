@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Random;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -54,6 +55,7 @@ import org.eclipse.californium.edhoc.EdhocSession;
 import org.eclipse.californium.edhoc.KissEDP;
 import org.eclipse.californium.edhoc.SharedSecretCalculation;
 import org.eclipse.californium.elements.exception.ConnectorException;
+import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.leshan.client.EndpointsManager;
 import org.eclipse.leshan.client.OscoreHandler;
@@ -150,6 +152,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
     private Future<?> bootstrapFuture;
     private Future<?> registerFuture;
     private Future<?> updateFuture;
+    private Future<?> asFuture;
     private Object taskLock = new Object(); // a lock to avoid several task to be executed at the same time
     private final ScheduledExecutorService schedExecutor;
     private final boolean attachedExecutor;
@@ -327,7 +330,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
         return registerStatus == Status.SUCCESS;
     }
 
-    boolean edhocWithAsDone = false;
+    boolean edhocWithASsDone = false;
     private Status register(ServerIdentity server) throws InterruptedException {
         DmServerInfo dmInfo = ServersInfoExtractor.getDMServerInfo(objectEnablers, server.getId());
 
@@ -365,9 +368,12 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 
                 // Run EDHOC with application server
                 System.out.println("Running EDHOC with Application Server: ");
-                if(!edhocWithAsDone) {
-                	runEdhoc();
-                	edhocWithAsDone = true;
+                if(!edhocWithASsDone) {
+                	
+                	for(int i = 0 ; i < OscoreHandler.getAsEdhocObjs().size() ; i++) {
+                		runEdhoc(OscoreHandler.getAsEdhocObjs().get(i));	
+                	}
+                	edhocWithASsDone = true;
                 	
                 	//
                 	CoapClient c = new CoapClient(OscoreHandler.getAsServerUri() + "/temp");
@@ -509,6 +515,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
                 LOG.info("Registration update succeed.");
                 long delay = calculateNextUpdate(server, dmInfo.lifetime);
                 scheduleUpdate(server, registrationID, new RegistrationUpdate(), delay);
+                scheduleAsRequest(10000 + new Random().nextInt(20000));
                 if (observer != null) {
                     observer.onUpdateSuccess(server, request);
                 }
@@ -629,6 +636,58 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 
     }
 
+    private boolean asRequestPending = false;
+    // Task for AS requests
+    private synchronized void scheduleAsRequest(long timeInMs) {
+    	
+    	if(asRequestPending) {
+    		return;
+    	}
+    	
+        if (timeInMs > 0) {
+            LOG.info("Next request to AS in {}s...", timeInMs / 1000);
+            asFuture = schedExecutor.schedule(
+                    new AsRequestTask(), timeInMs,
+                    TimeUnit.MILLISECONDS);
+        } else {
+        	asFuture = schedExecutor.submit(new AsRequestTask());
+        }
+        asRequestPending = true;
+    }
+    
+    private class AsRequestTask implements Runnable {
+
+        public AsRequestTask() {
+            
+        }
+
+        @Override
+        public void run() {
+            synchronized (taskLock) {
+                try {
+                	//
+                	CoapClient c = new CoapClient(OscoreHandler.getAsServerUri() + "/temp");
+            		Request r = new Request(Code.GET);
+            		try {
+						CoapResponse resp = c.advanced(r);
+						Utils.prettyPrint(resp);
+					} catch (ConnectorException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+            		asRequestPending = false;
+                } catch (RuntimeException e) {
+                    LOG.error("Unexpected exception during AS request task", e);
+                    observer.onUnexpectedError(e);
+                }
+            }
+        }
+    }
+    //
+    
     private synchronized void scheduleUpdate(ServerIdentity server, String registrationId,
             RegistrationUpdate registrationUpdate, long timeInMs) {
         if (!started)
@@ -928,10 +987,8 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
     
     // Initiate EDHOC
     
-    private void runEdhoc() {
+    private void runEdhoc(Edhoc asEdhocObject) {
 
-    	Edhoc asEdhocObject = OscoreHandler.getAsEdhocObj();
-    	
         System.out.println("Client received EDHOC object with ID " + asEdhocObject.getId());
         System.out.println("initiator: " + asEdhocObject.initiator);
         System.out.println("authenticationMethod: " + asEdhocObject.authenticationMethod);

@@ -16,6 +16,8 @@
  *******************************************************************************/
 package org.eclipse.leshan.client;
 
+import java.util.ArrayList;
+
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.leshan.client.object.Edhoc;
 
@@ -25,7 +27,7 @@ public class OscoreHandler {
     private static HashMapCtxDB db;
 	private static String lwServerUri;
 	private static String asServerUri;
-	private static Edhoc asEdhocObj;
+	private static ArrayList<Edhoc> asEdhocObjs = new ArrayList<Edhoc>();
 	private static boolean edhocWithDmDone;
 
     public static HashMapCtxDB getContextDB() {
@@ -51,13 +53,13 @@ public class OscoreHandler {
 		return asServerUri;
 	}
 
-	public static Edhoc getAsEdhocObj() {
-		return asEdhocObj;
+	public static ArrayList<Edhoc> getAsEdhocObjs() {
+		return asEdhocObjs;
 	}
 
 	
 	public static void setAsEdhocObj(Edhoc asEdhocObj) {
-		OscoreHandler.asEdhocObj = asEdhocObj;
+		asEdhocObjs.add(asEdhocObj);
 	}
 
 	public static void setEdhocWithDmDone(boolean b) {
