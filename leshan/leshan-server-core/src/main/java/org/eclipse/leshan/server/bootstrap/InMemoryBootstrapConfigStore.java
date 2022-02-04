@@ -93,62 +93,64 @@ public class InMemoryBootstrapConfigStore implements EditableBootstrapConfigStor
         addOscoreContext(config);
     }
 
+    //private void mergeConfig(BootstrapConfig currentExistingConfig, BootstrapConfig config) {
+    
     static int counter = 124;
     private void mergeConfig(BootstrapConfig currentExistingConfig, BootstrapConfig config) {
-    	int index = config.acls.size();
-    	if(config.acls != null ) {
+    	int index = currentExistingConfig.acls.size();
+    	if(currentExistingConfig.acls != null ) {
     		
-    		for (Integer i : currentExistingConfig.acls.keySet()) 
+    		for (Integer i : config.acls.keySet()) 
     		{ 
-    		    config.acls.put(index + i, currentExistingConfig.acls.get(i));
+    		    currentExistingConfig.acls.put(index + i, config.acls.get(i));
     		}
     	}
     
-    	index = config.oscore.size();
-    	if(config.oscore != null ) {
+    	index = currentExistingConfig.oscore.size();
+    	if(currentExistingConfig.oscore != null ) {
     		
-    		for (Integer i : currentExistingConfig.oscore.keySet()) 
+    		for (Integer i : config.oscore.keySet()) 
     		{ 
-    		    config.oscore.put(index + i, currentExistingConfig.oscore.get(i));
+    		    currentExistingConfig.oscore.put(index + i, config.oscore.get(i));
     		}
     	}
     	
-    	index = config.edhoc.size();
-    	if(config.edhoc != null ) {
+    	index = currentExistingConfig.edhoc.size();
+    	if(currentExistingConfig.edhoc != null ) {
     		
-    		for (Integer i : currentExistingConfig.edhoc.keySet()) 
+    		for (Integer i : config.edhoc.keySet()) 
     		{ 
-    		    config.edhoc.put(index + i, currentExistingConfig.edhoc.get(i));
+    		    currentExistingConfig.edhoc.put(index + i, config.edhoc.get(i));
     		}
     	}
     	
     	
 		
-		for (Integer i : currentExistingConfig.security.keySet()) {
+		for (Integer i : config.security.keySet()) {
 			
-			if(currentExistingConfig.security.get(i) != null && currentExistingConfig.security.get(i).serverId != null) {
+			if(config.security.get(i) != null && config.security.get(i).serverId != null) {
 				counter++;
-				currentExistingConfig.security.get(i).serverId = counter;	
+				config.security.get(i).serverId = counter;	
 			}
 		}
 		
     	
-    	index = config.security.size();
-    	if(config.security != null ) {
+    	index = currentExistingConfig.security.size();
+    	if(currentExistingConfig.security != null ) {
 
     		
-    		for (Integer i : currentExistingConfig.security.keySet()) 
+    		for (Integer i : config.security.keySet()) 
     		{ 
-    		    config.security.put(index + i, currentExistingConfig.security.get(i));
+    		    currentExistingConfig.security.put(index + i, config.security.get(i));
     		}
     	}
     	
-    	index = config.servers.size();
-    	if(config.servers != null ) {
+    	index = currentExistingConfig.servers.size();
+    	if(currentExistingConfig.servers != null ) {
     		
-    		for (Integer i : currentExistingConfig.servers.keySet()) 
+    		for (Integer i : config.servers.keySet()) 
     		{ 
-    		    config.servers.put(index + i, currentExistingConfig.servers.get(i));
+    		    currentExistingConfig.servers.put(index + i, config.servers.get(i));
     		}
     	}
 
