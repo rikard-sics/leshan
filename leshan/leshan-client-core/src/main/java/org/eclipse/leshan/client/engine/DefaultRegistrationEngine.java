@@ -334,6 +334,8 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
     private Status register(ServerIdentity server) throws InterruptedException {
         DmServerInfo dmInfo = ServersInfoExtractor.getDMServerInfo(objectEnablers, server.getId());
 
+        Utils.printPause("Registering with the Device Manager: ");
+        
         if (dmInfo == null) {
             LOG.info("Trying to register device but there is no LWM2M server config.");
             return Status.FAILURE;
@@ -367,7 +369,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
                 LOG.info("Registered with location '{}'.", registrationID);
 
                 // Run EDHOC with application server
-                System.out.println("Running EDHOC with Application Server: ");
+                Utils.printPause("Will now run EDHOC with Application Server: ");
                 if(!edhocWithASsDone) {
                 	
                 	for(int i = 0 ; i < OscoreHandler.getAsEdhocObjs().size() ; i++) {
@@ -375,6 +377,8 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
                 	}
                 	edhocWithASsDone = true;
                 	
+                	
+                	Utils.printPause("Will do an initial request to the Application Server: ");
                 	//
                 	CoapClient c = new CoapClient(OscoreHandler.getAsServerUri() + "/temp");
             		Request r = new Request(Code.GET);

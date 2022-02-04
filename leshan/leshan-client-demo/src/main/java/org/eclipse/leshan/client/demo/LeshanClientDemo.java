@@ -49,6 +49,7 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Option.Builder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.eclipse.californium.core.Utils;
 import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.cose.CoseException;
@@ -1028,6 +1029,8 @@ public class LeshanClientDemo {
         commandsHelp.append("  - d : to move to West.");
         commandsHelp.append(System.lineSeparator());
         LOG.info(commandsHelp.toString());
+        
+        Utils.printPause("Initialize client and perform bootstrapping: ");
 
         // Start the client
         client.start();

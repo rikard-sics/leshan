@@ -24,6 +24,7 @@
  ******************************************************************************/
 package org.eclipse.californium.core;
 
+import java.io.IOException;
 import java.security.Principal;
 
 import org.eclipse.californium.core.coap.CoAP.Code;
@@ -201,4 +202,21 @@ public final class Utils {
 		}
 		return sb.toString();
 	}
+	
+    /**
+     * Simple method for "press enter to continue" functionality
+     */
+    public static void printPause(String message) {
+    	
+    	System.out.println("===");
+    	System.out.println(message);
+    	System.out.println("Press ENTER to continue");
+    	System.out.println("===");
+        try {
+            @SuppressWarnings("unused")
+            int read = System.in.read(new byte[2]);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 }
