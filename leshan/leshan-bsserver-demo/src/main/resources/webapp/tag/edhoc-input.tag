@@ -15,6 +15,30 @@
          document.getElementById('oscoreMasterSecretLength').value = '16';
          document.getElementById('oscoreMasterSaltLength').value = '8';
          document.getElementById('edhocOscoreCombined').value = 'False';
+         
+         document.getElementById('initiator').innerHTML = 'True';
+         document.getElementById('authenticationMethod').innerHTML = '0';
+         document.getElementById('ciphersuite').innerHTML = '2';
+         document.getElementById('credentialIdentifier').innerHTML = '07';
+         document.getElementById('publicCredential').innerHTML = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
+         document.getElementById('privateKey').innerHTML = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
+         document.getElementById('serverCredentialIdentifier').innerHTML = '24';
+         document.getElementById('serverPublicKey').innerHTML = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('oscoreMasterSecretLength').innerHTML = '16';
+         document.getElementById('oscoreMasterSaltLength').innerHTML = '8';
+         document.getElementById('edhocOscoreCombined').innerHTML = 'False';
+         
+         document.getElementById('initiator').innerText = 'True';
+         document.getElementById('authenticationMethod').innerText = '0';
+         document.getElementById('ciphersuite').innerText = '2';
+         document.getElementById('credentialIdentifier').innerText = '07';
+         document.getElementById('publicCredential').innerText = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
+         document.getElementById('privateKey').innerText = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
+         document.getElementById('serverCredentialIdentifier').innerText = '24';
+         document.getElementById('serverPublicKey').innerText = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('oscoreMasterSecretLength').innerText = '16';
+         document.getElementById('oscoreMasterSaltLength').innerText = '8';
+         document.getElementById('edhocOscoreCombined').innerText = 'False';
     ">Fill Client<->DM config</button> 
          
     <button type="button" onclick="
@@ -29,6 +53,30 @@
          document.getElementById('oscoreMasterSecretLength').value = '16';
          document.getElementById('oscoreMasterSaltLength').value = '8';
          document.getElementById('edhocOscoreCombined').value = 'False';
+         
+         document.getElementById('initiator').innerText = 'True';
+         document.getElementById('authenticationMethod').innerText = '0';
+         document.getElementById('ciphersuite').innerText = '2';
+         document.getElementById('credentialIdentifier').innerText = '08';
+         document.getElementById('publicCredential').innerText = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
+         document.getElementById('privateKey').innerText = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
+         document.getElementById('serverCredentialIdentifier').innerText = '25';
+         document.getElementById('serverPublicKey').innerText = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('oscoreMasterSecretLength').innerText = '16';
+         document.getElementById('oscoreMasterSaltLength').innerText = '8';
+         document.getElementById('edhocOscoreCombined').innerText = 'False';
+         
+         document.getElementById('initiator').innerHTML = 'True';
+         document.getElementById('authenticationMethod').innerHTML = '0';
+         document.getElementById('ciphersuite').innerHTML = '2';
+         document.getElementById('credentialIdentifier').innerHTML = '08';
+         document.getElementById('publicCredential').innerHTML = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
+         document.getElementById('privateKey').innerHTML = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
+         document.getElementById('serverCredentialIdentifier').innerHTML = '25';
+         document.getElementById('serverPublicKey').innerHTML = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('oscoreMasterSecretLength').innerHTML = '16';
+         document.getElementById('oscoreMasterSaltLength').innerHTML = '8';
+         document.getElementById('edhocOscoreCombined').innerHTML = 'False';
     ">Fill Client<->AS config</button> 
     
     <div class={ form-group:true }>

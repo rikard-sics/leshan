@@ -17,7 +17,7 @@
                         </div>
 
                         <ul class="nav nav-tabs nav-justified">
-                            <li role="presentation" class={ active:activetab.lwserver }><a href="javascript:void(0);" onclick={activetab.activelwserver}>LWM2M Server</a></li>
+                            <li role="presentation" class={ active:activetab.lwserver }><a href="javascript:void(0);" onclick={activetab.activelwserver}>LWM2M/AS Server</a></li>
                             <li role="presentation" class={ active:activetab.bsserver }><a href="javascript:void(0);" onclick={activetab.activebsserver}>LWM2M Bootstrap Server</a></li>
                         </ul>
                         </br>

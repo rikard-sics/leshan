@@ -6,6 +6,14 @@
          document.getElementById('masterSecret').value = 'AAAA';
          document.getElementById('senderId').value = 'CC';
          document.getElementById('recipientId').value = 'BB';
+         
+         document.getElementById('masterSecret').innerHTML = 'AAAA';
+         document.getElementById('senderId').innerHTML = 'CC';
+         document.getElementById('recipientId').innerHTML = 'BB';
+         
+         document.getElementById('masterSecret').innerText = 'AAAA';
+         document.getElementById('senderId').innerText = 'CC';
+         document.getElementById('recipientId').innerText = 'BB';
     ">Fill Client<->BS config</button> 
     
     
