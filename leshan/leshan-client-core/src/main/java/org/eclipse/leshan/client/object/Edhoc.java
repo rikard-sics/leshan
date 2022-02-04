@@ -111,7 +111,6 @@ public class Edhoc extends BaseInstanceEnabler {
     }
 
 
-	boolean edhocWithDmDone = false;
     @Override
     public WriteResponse write(ServerIdentity identity, boolean replace, int resourceId, LwM2mResource value) {
         LOG.debug("Write on resource {}: {}", resourceId, value);
@@ -136,7 +135,7 @@ public class Edhoc extends BaseInstanceEnabler {
 
 		// RH: Run EDHOC now
 		// RH: TODO: Do somewhere else instead?
-		if (resourceId == Edhoc_Oscore_Combined && !edhocWithDmDone) {
+		if (resourceId == Edhoc_Oscore_Combined && !OscoreHandler.getEdhocWithDmDone()) {
 
 			// Install crypto provider
 			EdhocClient.installCryptoProvider();
@@ -191,8 +190,8 @@ public class Edhoc extends BaseInstanceEnabler {
 			System.out.println("Running EDHOC with Device Manager: ");
 			EdhocClient.edhocExchangeAsInitiator(args, uri, edhocEndpointInfo, ead1);
 			
-			edhocWithDmDone = true;
-		} else if (resourceId == Edhoc_Oscore_Combined && edhocWithDmDone) {
+			OscoreHandler.setEdhocWithDmDone(true);
+		} else if (resourceId == Edhoc_Oscore_Combined && OscoreHandler.getEdhocWithDmDone()) {
 			Edhoc temp = new Edhoc(100, initiator, authenticationMethod.longValue(), ciphersuite.longValue(),
 		            credentialIdentifier,
 		            publicCredential, privateKey, serverCredentialIdentifier, serverPublicKey,

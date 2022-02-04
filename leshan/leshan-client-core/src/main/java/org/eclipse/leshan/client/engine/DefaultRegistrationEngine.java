@@ -83,6 +83,7 @@ import org.eclipse.leshan.core.response.BootstrapResponse;
 import org.eclipse.leshan.core.response.DeregisterResponse;
 import org.eclipse.leshan.core.response.RegisterResponse;
 import org.eclipse.leshan.core.response.UpdateResponse;
+import org.eclipse.leshan.core.util.Hex;
 import org.eclipse.leshan.core.util.NamedThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -892,7 +893,18 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
      */
     protected DmServerInfo selectServer(Map<Long, DmServerInfo> servers) {
         if (servers != null && !servers.isEmpty()) {
+        	
+        	System.out.println("Available servers: " + servers.size());
+        	
             if (servers.size() > 1) {
+            	
+            	for(long i = 0 ; i < servers.size() ; i++) {
+            		if(servers.get(i).serverId == 123) {
+            			System.out.println("Returning DM Server info");
+            			return(servers.get(i));
+            		}
+            	}
+            	
                 LOG.warn(
                         "DefaultRegistrationEngine support only connection to 1 LWM2M server, first server will be used from the server list of {}",
                         servers.size());
@@ -917,8 +929,22 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
     // Initiate EDHOC
     
     private void runEdhoc() {
-    	
+
     	Edhoc asEdhocObject = OscoreHandler.getAsEdhocObj();
+    	
+        System.out.println("Client received EDHOC object with ID " + asEdhocObject.getId());
+        System.out.println("initiator: " + asEdhocObject.initiator);
+        System.out.println("authenticationMethod: " + asEdhocObject.authenticationMethod);
+        System.out.println("ciphersuite: " + asEdhocObject.ciphersuite);
+        System.out.println("credentialIdentifier: " + Hex.encodeHexString(asEdhocObject.credentialIdentifier));
+        System.out.println("publicCredential: " + Hex.encodeHexString(asEdhocObject.publicCredential));
+        System.out.println("privateKey: " + Hex.encodeHexString(asEdhocObject.privateKey));
+        System.out.println("serverCredentialIdentifier: " + Hex.encodeHexString(asEdhocObject.serverCredentialIdentifier));
+        System.out.println("serverPublicKey: " + Hex.encodeHexString(asEdhocObject.serverPublicKey));
+        System.out.println("oscoreMasterSecretLength: " + asEdhocObject.oscoreMasterSecretLength);
+        System.out.println("oscoreMasterSaltLength: " + asEdhocObject.oscoreMasterSaltLength);
+        System.out.println("edhocOscoreCombined: " + asEdhocObject.edhocOscoreCombined);
+        System.out.println("edhocURI: " + OscoreHandler.getAsServerUri() + "/.well-known/edhoc");
 
 		// Install crypto provider
 		EdhocClient.installCryptoProvider();

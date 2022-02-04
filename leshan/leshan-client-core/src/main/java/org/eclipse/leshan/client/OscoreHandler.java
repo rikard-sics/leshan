@@ -26,6 +26,7 @@ public class OscoreHandler {
 	private static String lwServerUri;
 	private static String asServerUri;
 	private static Edhoc asEdhocObj;
+	private static boolean edhocWithDmDone;
 
     public static HashMapCtxDB getContextDB() {
         if (db == null) {
@@ -61,4 +62,15 @@ public class OscoreHandler {
 		OscoreHandler.asEdhocObj = asEdhocObj;
 	}
 
+	public static void setEdhocWithDmDone(boolean b) {
+		edhocWithDmDone = b;
+		
+	}
+
+	public static boolean getEdhocWithDmDone() {
+		return edhocWithDmDone;
+		
+	}
+
+	
 }

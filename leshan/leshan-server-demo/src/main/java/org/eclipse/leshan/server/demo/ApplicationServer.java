@@ -56,9 +56,9 @@ public class ApplicationServer {
 		Boolean initiator = false;
 		Long authenticationMethod = 0L;
 		Long ciphersuite = 2L;
-		byte[] credentialIdentifier = hexStringToByteArray("07");
+		byte[] credentialIdentifier = hexStringToByteArray("08");
 		byte[] publicCredential = hexStringToByteArray("67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9");
-		byte[] serverCredentialIdentifier = hexStringToByteArray("24");
+		byte[] serverCredentialIdentifier = hexStringToByteArray("25");
 		byte[] serverKey = hexStringToByteArray("D709BFA1CB5C9B52ED7C29300932F8EC997721E16DC777B470EE64C5DE871B2DF5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273");
 		Long oscoreMasterSecretLength = 16L;
 		Long oscoreMasterSaltLength = 8L;
@@ -401,6 +401,8 @@ public class ApplicationServer {
 
 			// respond to the request
 			exchange.respond(Integer.toString(rand.nextInt(50)));
+			
+			System.out.println("Received request for temperature reading.");
 		}
 	}
 	
