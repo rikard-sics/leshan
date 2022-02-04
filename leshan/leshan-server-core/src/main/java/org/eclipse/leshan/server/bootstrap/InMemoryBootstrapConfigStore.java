@@ -97,63 +97,62 @@ public class InMemoryBootstrapConfigStore implements EditableBootstrapConfigStor
     
     static int counter = 124;
     private void mergeConfig(BootstrapConfig currentExistingConfig, BootstrapConfig config) {
-    	int index = currentExistingConfig.acls.size();
-    	if(currentExistingConfig.acls != null ) {
-    		
-    		for (Integer i : config.acls.keySet()) 
+    	int index = config.acls.size();
+    	if(config.acls != null ) {
+
+    		for (Integer i : currentExistingConfig.acls.keySet()) 
     		{ 
-    		    currentExistingConfig.acls.put(index + i, config.acls.get(i));
+    		    config.acls.put(index + i, currentExistingConfig.acls.get(i));
     		}
     	}
-    
-    	index = currentExistingConfig.oscore.size();
-    	if(currentExistingConfig.oscore != null ) {
-    		
-    		for (Integer i : config.oscore.keySet()) 
+
+    	index = config.oscore.size();
+    	if(config.oscore != null ) {
+
+    		for (Integer i : currentExistingConfig.oscore.keySet()) 
     		{ 
-    		    currentExistingConfig.oscore.put(index + i, config.oscore.get(i));
+    		    config.oscore.put(index + i, currentExistingConfig.oscore.get(i));
     		}
     	}
-    	
-    	index = currentExistingConfig.edhoc.size();
-    	if(currentExistingConfig.edhoc != null ) {
-    		
-    		for (Integer i : config.edhoc.keySet()) 
+
+    	index = config.edhoc.size();
+    	if(config.edhoc != null ) {
+
+    		for (Integer i : currentExistingConfig.edhoc.keySet()) 
     		{ 
-    		    currentExistingConfig.edhoc.put(index + i, config.edhoc.get(i));
+    		    config.edhoc.put(index + i, currentExistingConfig.edhoc.get(i));
     		}
     	}
-    	
-    	
-		
-		for (Integer i : config.security.keySet()) {
-			
-			if(config.security.get(i) != null && config.security.get(i).serverId != null) {
+
+
+
+		for (Integer i : currentExistingConfig.security.keySet()) {
+
+			if(currentExistingConfig.security.get(i) != null && currentExistingConfig.security.get(i).serverId != null) {
 				counter++;
-				config.security.get(i).serverId = counter;	
+				currentExistingConfig.security.get(i).serverId = counter;	
 			}
 		}
-		
-    	
-    	index = currentExistingConfig.security.size();
-    	if(currentExistingConfig.security != null ) {
 
-    		
-    		for (Integer i : config.security.keySet()) 
+
+    	index = config.security.size();
+    	if(config.security != null ) {
+
+
+    		for (Integer i : currentExistingConfig.security.keySet()) 
     		{ 
-    		    currentExistingConfig.security.put(index + i, config.security.get(i));
-    		}
-    	}
-    	
-    	index = currentExistingConfig.servers.size();
-    	if(currentExistingConfig.servers != null ) {
-    		
-    		for (Integer i : config.servers.keySet()) 
-    		{ 
-    		    currentExistingConfig.servers.put(index + i, config.servers.get(i));
+    		    config.security.put(index + i, currentExistingConfig.security.get(i));
     		}
     	}
 
+    	index = config.servers.size();
+    	if(config.servers != null ) {
+
+    		for (Integer i : currentExistingConfig.servers.keySet()) 
+    		{ 
+    		    config.servers.put(index + i, currentExistingConfig.servers.get(i));
+    		}
+    	}
     }
     
     protected void checkConfig(String endpoint, BootstrapConfig config) throws InvalidConfigurationException {

@@ -380,11 +380,11 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
                 	
                 	Utils.printPause("Will do an initial request to the Application Server: ");
                 	//
-                	CoapClient c = new CoapClient(OscoreHandler.getAsServerUri() + "/temp");
+                	CoapClient c = new CoapClient(OscoreHandler.getAsServerUri() + "/test");
             		Request r = new Request(Code.GET);
             		try {
 						CoapResponse resp = c.advanced(r);
-						Utils.prettyPrint(resp);
+						System.out.println(Utils.prettyPrint(resp));
 					} catch (ConnectorException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
@@ -519,7 +519,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
                 LOG.info("Registration update succeed.");
                 long delay = calculateNextUpdate(server, dmInfo.lifetime);
                 scheduleUpdate(server, registrationID, new RegistrationUpdate(), delay);
-                scheduleAsRequest(10000 + new Random().nextInt(20000));
+                scheduleAsRequest(10000);
                 if (observer != null) {
                     observer.onUpdateSuccess(server, request);
                 }
@@ -670,11 +670,11 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
             synchronized (taskLock) {
                 try {
                 	//
-                	CoapClient c = new CoapClient(OscoreHandler.getAsServerUri() + "/temp");
+                	CoapClient c = new CoapClient(OscoreHandler.getAsServerUri() + "/test");
             		Request r = new Request(Code.GET);
             		try {
 						CoapResponse resp = c.advanced(r);
-						Utils.prettyPrint(resp);
+						System.out.println(Utils.prettyPrint(resp));
 					} catch (ConnectorException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();

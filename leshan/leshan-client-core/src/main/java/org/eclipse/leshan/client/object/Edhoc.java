@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.eclipse.californium.core.Utils;
 import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.cose.KeyKeys;
 import org.eclipse.californium.cose.OneKey;
@@ -137,6 +138,8 @@ public class Edhoc extends BaseInstanceEnabler {
 		// RH: TODO: Do somewhere else instead?
 		if (resourceId == Edhoc_Oscore_Combined && !OscoreHandler.getEdhocWithDmDone()) {
 
+			// Utils.printPause("Running EDHOC with Device Manager");
+			
 			// Install crypto provider
 			EdhocClient.installCryptoProvider();
 

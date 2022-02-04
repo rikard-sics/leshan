@@ -11,6 +11,10 @@ import java.util.Set;
 
 import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.CoapServer;
+import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.coap.CoAP.Code;
+import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.coap.MediaTypeRegistry;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.Endpoint;
 import org.eclipse.californium.core.server.resources.CoapExchange;
@@ -121,6 +125,7 @@ public class ApplicationServer {
 		CoapServer server = new CoapServer(4444);
 		server.add(wellKnownResource);
 		server.add(new Temp());
+		server.add(new TestResource());
 		server.start();
 	}
 	
@@ -377,6 +382,34 @@ public class ApplicationServer {
 
 			// respond to the request
 			exchange.respond(".well-known");
+		}
+	}
+	
+	/*
+	 * Definition of the test Resource
+	 */
+	static class TestResource extends CoapResource {
+
+		public TestResource() {
+
+			// set resource identifier
+			super("test");
+
+			// set display name
+			getAttributes().setTitle("test");
+
+		}
+
+		@Override
+		public void handleGET(CoapExchange exchange) {
+
+			System.out.println("Received request from Client: " + exchange.getRequestText());
+			
+			// respond to the request
+			Response resp = Response.createResponse(exchange.advanced().getRequest(), ResponseCode.CONTENT);
+			resp.getOptions().setContentFormat(MediaTypeRegistry.TEXT_PLAIN);
+			resp.setPayload("Response from AS: Test");
+			exchange.respond(resp);
 		}
 	}
 	
