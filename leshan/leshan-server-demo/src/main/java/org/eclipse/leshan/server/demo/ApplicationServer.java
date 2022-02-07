@@ -1,5 +1,8 @@
 package org.eclipse.leshan.server.demo;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -12,11 +15,10 @@ import java.util.Set;
 import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.CoapServer;
 import org.eclipse.californium.core.coap.Response;
-import org.eclipse.californium.core.coap.CoAP.Code;
+import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
 import org.eclipse.californium.core.coap.MediaTypeRegistry;
 import org.eclipse.californium.core.network.CoapEndpoint;
-import org.eclipse.californium.core.network.Endpoint;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.cose.KeyKeys;
@@ -31,19 +33,20 @@ import org.eclipse.californium.edhoc.KissEDP;
 import org.eclipse.californium.edhoc.SharedSecretCalculation;
 import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.oscore.HashMapCtxDB;
+import org.eclipse.californium.oscore.OSCoreCoapStackFactory;
 import org.eclipse.californium.oscore.OSCoreCtx;
 import org.eclipse.californium.oscore.OSCoreResource;
 import org.eclipse.californium.oscore.OSException;
 import org.eclipse.leshan.core.util.Hex;
 import org.eclipse.leshan.server.OscoreHandler;
-import org.eclipse.leshan.server.security.SecurityInfo;
-
 import com.google.gson.JsonParseException;
 import com.upokecenter.cbor.CBORObject;
 
 public class ApplicationServer {
+	
+	static String localHostname;
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws UnknownHostException {
 		// Application Server EDHOC Configuration (read from file)
 //		Boolean initiator = edhoc.get("initiator").getAsBoolean();
 //		Long authenticationMethod = edhoc.get("authenticationMethod").getAsLong();
@@ -69,6 +72,9 @@ public class ApplicationServer {
 		Long oscoreMasterSaltLength = 8L;
 		Boolean edhocOscoreCombined = false;
 
+		if(args.length != 0) {
+			localHostname = args[1];
+		}
 		
 		// RH: TODO: Remove debug print
 		System.out.println("Configured EDHOC object: ");
@@ -112,6 +118,7 @@ public class ApplicationServer {
 				publicCredential);
 
 		HashMapCtxDB db = OscoreHandler.getContextDB();
+		OSCoreCoapStackFactory.useAsDefault(db);
 		EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(idCred, cred, keyPair, peerPublicKeys,
 				peerCredentials, edhocSessions, usedConnectionIds, supportedCiphersuites, db, uriLocal,
 				OSCORE_REPLAY_WINDOW, appStatements, edp);
@@ -122,7 +129,16 @@ public class ApplicationServer {
 		CoapResource wellKnownResource = new WellKnown();
 		wellKnownResource.add(edhocResource);
 		
-		CoapServer server = new CoapServer(4444);
+		CoapServer server = new CoapServer();
+		CoapEndpoint.Builder builder = new CoapEndpoint.Builder();
+		InetSocketAddress host = new InetSocketAddress(InetAddress.getByName(localHostname), CoAP.DEFAULT_COAP_PORT);
+		builder.setCustomCoapStackArgument(db);
+		builder.setInetSocketAddress(host);
+		CoapEndpoint serverEndpoint = builder.build();
+		server = new CoapServer();
+		server.addEndpoint(serverEndpoint);
+
+		
 		server.add(wellKnownResource);
 		server.add(new Temp());
 		server.add(new TestResource());

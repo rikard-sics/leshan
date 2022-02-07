@@ -382,6 +382,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
                 	//
                 	CoapClient c = new CoapClient(OscoreHandler.getAsServerUri() + "/test");
             		Request r = new Request(Code.GET);
+            		r.getOptions().setOscore(Bytes.EMPTY);
             		try {
 						CoapResponse resp = c.advanced(r);
 						System.out.println(Utils.prettyPrint(resp));
@@ -670,9 +671,11 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
         public void run() {
             synchronized (taskLock) {
                 try {
+            		asRequestPending = false;
                 	//
                 	CoapClient c = new CoapClient(OscoreHandler.getAsServerUri() + "/test");
             		Request r = new Request(Code.GET);
+            		r.getOptions().setOscore(Bytes.EMPTY);
             		try {
 						CoapResponse resp = c.advanced(r);
 						System.out.println(Utils.prettyPrint(resp));
@@ -683,7 +686,6 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
-            		asRequestPending = false;
                     scheduleAsRequest(10000);
                 } catch (RuntimeException e) {
                     LOG.error("Unexpected exception during AS request task", e);
@@ -768,7 +770,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
             started = false;
             cancelUpdateTask(true);
             cancelRegistrationTask();
-            // TODO we should manage the case where we stop in the middle of a bootstrap session ...
+            // TODO we shouldtrue manage the case where we stop in the middle of a bootstrap session ...
             cancelBootstrapTask();
         }
         try {
