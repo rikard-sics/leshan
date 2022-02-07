@@ -1080,7 +1080,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 	// Other variables needed
 	static final int keyCurve = KeyKeys.EC2_P256.AsInt32(); // ECDSA
 	static Map<CBORObject, EdhocSession> edhocSessions = new HashMap<CBORObject, EdhocSession>();
-	static List<Set<Integer>> usedConnectionIds = new ArrayList<Set<Integer>>();
+	static List<Set<Integer>> usedConnectionIds = OscoreHandler.getUsedConnectionIds();
 	static String uriLocal = "coap://localhost";
 	static final int OSCORE_REPLAY_WINDOW = 32;
 	static Map<String, AppStatement> appStatements = new HashMap<String, AppStatement>();
@@ -1099,18 +1099,18 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 
 		// appStatements.put(uriLocal + "/.well-known/edhoc", appStatement);
 
-		for (int i = 0; i < 4; i++) {
-			// Empty sets of assigned Connection Identifiers; one set for each
-			// possible size in bytes.
-			// The set with index 0 refers to Connection Identifiers with size 1
-			// byte
-			//FIXME ?
-			HashSet<Integer> set = new HashSet<Integer>();
-			set.add(0);
-			set.add(1);
-			set.add(2);
-			usedConnectionIds.add(set);
-		}
+//		for (int i = 0; i < 4; i++) {
+//			// Empty sets of assigned Connection Identifiers; one set for each
+//			// possible size in bytes.
+//			// The set with index 0 refers to Connection Identifiers with size 1
+//			// byte
+//			//FIXME ?
+//			HashSet<Integer> set = new HashSet<Integer>();
+//			set.add(0);
+//			set.add(1);
+//			set.add(2);
+//			usedConnectionIds.add(set);
+//		}
 
 		edp = new KissEDP();
 	}
