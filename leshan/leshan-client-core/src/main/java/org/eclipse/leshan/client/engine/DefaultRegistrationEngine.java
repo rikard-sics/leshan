@@ -392,6 +392,8 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
+            		
+                    scheduleAsRequest(10000);
                 }
                 
                 // Update every lifetime period
@@ -519,7 +521,6 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
                 LOG.info("Registration update succeed.");
                 long delay = calculateNextUpdate(server, dmInfo.lifetime);
                 scheduleUpdate(server, registrationID, new RegistrationUpdate(), delay);
-                scheduleAsRequest(10000);
                 if (observer != null) {
                     observer.onUpdateSuccess(server, request);
                 }
@@ -683,6 +684,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 						e.printStackTrace();
 					}
             		asRequestPending = false;
+                    scheduleAsRequest(10000);
                 } catch (RuntimeException e) {
                     LOG.error("Unexpected exception during AS request task", e);
                     observer.onUnexpectedError(e);
@@ -1042,7 +1044,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 		// Set Authentication Method
 		Set<Integer> authMethods = new HashSet<Integer>();
 		authMethods.add(asEdhocObject.authenticationMethod.intValue());
-		AppStatement appStatement = new AppStatement(true, authMethods, false, true);
+		AppStatement appStatement = new AppStatement(true, authMethods, false, false);
 		appStatements.put(edhocURI, appStatement);
 
 		EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(idCred, cred, keyPair, peerPublicKeys,

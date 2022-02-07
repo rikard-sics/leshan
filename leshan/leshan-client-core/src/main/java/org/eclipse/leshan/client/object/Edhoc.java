@@ -175,7 +175,7 @@ public class Edhoc extends BaseInstanceEnabler {
 			// Set Authentication Method
 			Set<Integer> authMethods = new HashSet<Integer>();
 			authMethods.add(authenticationMethod.intValue());
-			AppStatement appStatement = new AppStatement(true, authMethods, false, true);
+			AppStatement appStatement = new AppStatement(true, authMethods, false, false);
 			appStatements.put(edhocURI, appStatement);
 
 			EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(idCred, cred, keyPair, peerPublicKeys,
