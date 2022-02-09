@@ -138,7 +138,7 @@ public class Edhoc extends BaseInstanceEnabler {
 		// RH: TODO: Do somewhere else instead?
 		if (resourceId == Edhoc_Oscore_Combined && !OscoreHandler.getEdhocWithDmDone()) {
 
-			// Utils.printPause("Running EDHOC with Device Manager");
+			Utils.printPause("Running EDHOC with Device Manager");
 			
 			// Install crypto provider
 			EdhocClient.installCryptoProvider();
