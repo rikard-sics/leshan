@@ -369,9 +369,9 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
                 LOG.info("Registered with location '{}'.", registrationID);
 
                 // Run EDHOC with application server
-                Utils.printPause("Will now run EDHOC with Application Server: ");
-                if(!edhocWithASsDone) {
-                	
+                if(!edhocWithASsDone && OscoreHandler.withEdhoc()) {
+                    Utils.printPause("Will now run EDHOC with Application Server: ");
+                    
                 	for(int i = 0 ; i < OscoreHandler.getAsEdhocObjs().size() ; i++) {
                 		runEdhoc(OscoreHandler.getAsEdhocObjs().get(i));	
                 	}
@@ -646,7 +646,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
     // Task for AS requests
     private synchronized void scheduleAsRequest(long timeInMs) {
     	
-    	if(asRequestPending) {
+    	if(asRequestPending || !OscoreHandler.withEdhoc()) {
     		return;
     	}
     	

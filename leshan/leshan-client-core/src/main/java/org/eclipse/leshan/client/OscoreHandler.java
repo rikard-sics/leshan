@@ -32,6 +32,7 @@ public class OscoreHandler {
 	private static String asServerUri;
 	private static ArrayList<Edhoc> asEdhocObjs = new ArrayList<Edhoc>();
 	private static boolean edhocWithDmDone;
+	private static boolean withEdhoc;
 
     public static HashMapCtxDB getContextDB() {
         if (db == null) {
@@ -92,5 +93,12 @@ public class OscoreHandler {
 		return usedConnectionIds;
 	}
 
+	public static boolean withEdhoc() {
+		return withEdhoc;
+	}
+
+	public static void setWithEdhoc(boolean b) {
+		withEdhoc = b;
+	}
 	
 }

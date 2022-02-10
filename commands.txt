@@ -1,0 +1,15 @@
+Leshan client at 192.168.0.99
+
+Leshan server at 192.168.0.102
+
+Leshan bootstrap server at 192.168.0.103
+
+Application server at 192.168.0.104
+
+
+#With EDHOC
+java -jar Cli2.jar -b -u 192.168.0.103 -n Test -msec AAAA -sid BB -rid CC -edhoc true
+
+#Without EDHOC
+java -jar Cli2.jar -b -u 192.168.0.103 -n Test -msec AAAA -sid BB -rid CC
+

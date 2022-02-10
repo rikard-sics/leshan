@@ -205,6 +205,7 @@ public class LeshanClientDemo {
         options.addOption("u", true, String.format("Set the LWM2M or Bootstrap server URL.\nDefault: localhost:%d.",
                 LwM2m.DEFAULT_COAP_PORT));
         options.addOption("r", false, "Force reconnect/rehandshake on update.");
+        options.addOption("edhoc", false, "Support EDHOC.");
         options.addOption("f", false, "Do not try to resume session always, do a full handshake.");
         options.addOption("ocf",
                 "activate support of old/unofficial content format .\n See https://github.com/eclipse/leshan/pull/720");
@@ -332,6 +333,11 @@ public class LeshanClientDemo {
             } else {
                 rpkConfig = true;
             }
+        }
+        
+        // Check if EDHOC is supported
+        if (cl.hasOption("edhoc")) {
+        	OscoreHandler.setWithEdhoc(Boolean.parseBoolean(cl.getOptionValue("edhoc")));
         }
 
         // Abort if all X509 config is not complete
