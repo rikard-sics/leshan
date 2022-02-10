@@ -337,7 +337,7 @@ public class LeshanClientDemo {
         
         // Check if EDHOC is supported
         if (cl.hasOption("edhoc")) {
-        	OscoreHandler.setWithEdhoc(Boolean.parseBoolean(cl.getOptionValue("edhoc")));
+        	OscoreHandler.setWithEdhoc(true);
         }
 
         // Abort if all X509 config is not complete
