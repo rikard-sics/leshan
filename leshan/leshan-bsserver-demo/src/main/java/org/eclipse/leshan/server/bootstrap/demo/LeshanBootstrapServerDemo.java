@@ -75,6 +75,15 @@ public class LeshanBootstrapServerDemo {
     private final static String USAGE = "java -jar leshan-bsserver-demo.jar [OPTION]";
 
     public static void main(String[] args) {
+    	
+    	// Delete old config files
+    	String serverData = "/home/segrid-1/Leshan-Critisec2/leshan/leshan/leshan-server-demo/data/security.data";
+    	String bsServerData = "/home/segrid-1/Leshan-Critisec2/leshan/leshan/leshan-bsserver-demo/data/bootstrap.json";
+    	File rmFile = new File(serverData);
+    	rmFile.delete();
+    	rmFile = new File(bsServerData);
+    	rmFile.delete();
+    	
         // Define options for command line tools
         Options options = new Options();
 
@@ -154,6 +163,8 @@ public class LeshanBootstrapServerDemo {
         HelpFormatter formatter = new HelpFormatter();
         formatter.setWidth(120);
         formatter.setOptionComparator(null);
+        
+        
 
         // Parse arguments
         CommandLine cl;
@@ -319,7 +330,14 @@ public class LeshanBootstrapServerDemo {
 
                 // get input files.
                 File[] files;
-                if (input.isDirectory()) {
+                if (input.isDirectory()) {    	// Delete old config files
+                	String serverCfg = "/home/segrid-1/Leshan-Critisec2/leshan/leshan/leshan-server-demo/data/security.data";
+                	String bsServerCfg = "/home/segrid-1/Leshan-Critisec2/leshan/leshan/leshan-bsserver-demo/data/bootstrap.json";
+                	File file = new File(serverCfg);
+                	file.delete();
+                	file = new File(bsServerCfg);
+                	file.delete();
+                	
                     files = input.listFiles();
                 } else {
                     files = new File[] { input };

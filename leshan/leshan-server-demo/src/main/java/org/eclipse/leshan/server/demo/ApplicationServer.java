@@ -1,5 +1,6 @@
 package org.eclipse.leshan.server.demo;
 
+import java.io.File;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
@@ -47,6 +48,15 @@ public class ApplicationServer {
 	static String localHostname;
 
 	public static void main(String[] args) throws UnknownHostException {
+		
+    	// Delete old config files
+    	String serverData = "/home/segrid-1/Leshan-Critisec2/leshan/leshan/leshan-server-demo/data/security.data";
+    	String bsServerData = "/home/segrid-1/Leshan-Critisec2/leshan/leshan/leshan-bsserver-demo/data/bootstrap.json";
+    	File rmFile = new File(serverData);
+    	rmFile.delete();
+    	rmFile = new File(bsServerData);
+    	rmFile.delete();
+    	
 		// Application Server EDHOC Configuration (read from file)
 //		Boolean initiator = edhoc.get("initiator").getAsBoolean();
 //		Long authenticationMethod = edhoc.get("authenticationMethod").getAsLong();
