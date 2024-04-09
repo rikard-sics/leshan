@@ -90,7 +90,7 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
 	public int MAX_UNFRAGMENTED_SIZE = 4096;
 
 
-    public CaliforniumEndpointsManager(InetSocketAddress localAddress, NetworkConfig coapConfig,
+	public CaliforniumEndpointsManager(InetSocketAddress localAddress, Configuration coapConfig,
             Builder dtlsConfigBuilder, EndpointFactory endpointFactory) {
         this(localAddress, coapConfig, dtlsConfigBuilder, null, endpointFactory);
     }
@@ -98,7 +98,7 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
     /**
      * @since 2.0
      */
-    public CaliforniumEndpointsManager(InetSocketAddress localAddress, NetworkConfig coapConfig,
+	public CaliforniumEndpointsManager(InetSocketAddress localAddress, Configuration coapConfig,
             Builder dtlsConfigBuilder, List<Certificate> trustStore, EndpointFactory endpointFactory) {
         this.localAddress = localAddress;
         this.coapConfig = coapConfig;

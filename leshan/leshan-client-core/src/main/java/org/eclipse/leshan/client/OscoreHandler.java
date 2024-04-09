@@ -24,6 +24,8 @@ import java.util.Set;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.leshan.client.object.Edhoc;
 
+import com.upokecenter.cbor.CBORObject;
+
 //TODO OSCORE : remove this class and static access.
 public class OscoreHandler {
 
@@ -75,20 +77,9 @@ public class OscoreHandler {
 		return edhocWithDmDone;
 	}
 	
-	private static List<Set<Integer>> usedConnectionIds = null;
-	public static List<Set<Integer>> getUsedConnectionIds() {
-		
-		if(usedConnectionIds == null) {
-			usedConnectionIds = new ArrayList<Set<Integer>>();
-			
-			for (int i = 0; i < 4; i++) {
-				// Empty sets of assigned Connection Identifiers; one set for each
-				// possible size in bytes.
-				// The set with index 0 refers to Connection Identifiers with size 1
-				// byte
-				usedConnectionIds.add(new HashSet<Integer>());
-			}
-		}
+	private static Set<CBORObject> usedConnectionIds = new HashSet<>();
+
+	public static Set<CBORObject> getUsedConnectionIds() {
 		
 		return usedConnectionIds;
 	}

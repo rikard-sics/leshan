@@ -182,4 +182,12 @@ public final class Utils {
 		}
 		return sb.toString();
 	}
+
+	public static void printPause(String str) {
+		System.out.println(str);
+	}
+
+	public static void installCryptoProvider() {
+		System.out.println("FIXME: Crypto providers");
+	}
 }

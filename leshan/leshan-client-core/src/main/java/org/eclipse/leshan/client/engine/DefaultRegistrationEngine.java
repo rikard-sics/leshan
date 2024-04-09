@@ -45,14 +45,15 @@ import org.eclipse.californium.core.CoapResponse;
 import org.eclipse.californium.core.Utils;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.CoAP.Code;
+import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.cose.KeyKeys;
 import org.eclipse.californium.cose.OneKey;
-import org.eclipse.californium.edhoc.AppStatement;
+import org.eclipse.californium.edhoc.AppProfile;
+import org.eclipse.californium.edhoc.ClientEdhocExecutor;
 import org.eclipse.californium.edhoc.Constants;
 import org.eclipse.californium.edhoc.EdhocClient;
 import org.eclipse.californium.edhoc.EdhocEndpointInfo;
 import org.eclipse.californium.edhoc.EdhocSession;
-import org.eclipse.californium.edhoc.KissEDP;
 import org.eclipse.californium.edhoc.SharedSecretCalculation;
 import org.eclipse.californium.elements.exception.ConnectorException;
 import org.eclipse.californium.elements.util.Bytes;
@@ -1012,7 +1013,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
         System.out.println("edhocURI: " + OscoreHandler.getAsServerUri() + "/.well-known/edhoc");
 
 		// Install crypto provider
-		EdhocClient.installCryptoProvider();
+		Utils.installCryptoProvider();
 
 		// Set params
 		setupEdhocParameters();
@@ -1027,7 +1028,6 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 				asEdhocObject.privateKey, asEdhocObject.publicCredential, asEdhocObject.serverPublicKey);
 
 		// Specify the processor of External Authorization Data
-		KissEDP edp = new KissEDP();
 		String args[] = new String[0];
 		HashMapCtxDB db = OscoreHandler.getContextDB();
 		// String edhocURI = identity.getUri() + "/.well-known/edhoc";
@@ -1046,12 +1046,56 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 		// Set Authentication Method
 		Set<Integer> authMethods = new HashSet<Integer>();
 		authMethods.add(asEdhocObject.authenticationMethod.intValue());
-		AppStatement appStatement = new AppStatement(true, authMethods, false, false);
+		AppProfile appStatement = new AppProfile(authMethods, false, true, false);
 		appStatements.put(edhocURI, appStatement);
 
-		EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(idCred, cred, keyPair, peerPublicKeys,
-				peerCredentials, edhocSessions, usedConnectionIds, supportedCiphersuites, db, edhocURI,
-				OSCORE_REPLAY_WINDOW, appStatements, edp);
+		Set<Integer> supportedEads = new HashSet<Integer>();
+		HashMap<Integer, List<CBORObject>> eadProductionInput = null;
+
+		// TODO
+		// The asymmetric key pairs of this peer (one per supported curve)
+		HashMap<Integer, HashMap<Integer, OneKey>> keyPairs = new HashMap<Integer, HashMap<Integer, OneKey>>();
+
+		// The identifiers of the authentication credentials of this peer
+		HashMap<Integer, HashMap<Integer, CBORObject>> idCreds = new HashMap<Integer, HashMap<Integer, CBORObject>>();
+
+		// The authentication credentials of this peer (one per supported curve)
+		HashMap<Integer, HashMap<Integer, CBORObject>> creds = new HashMap<Integer, HashMap<Integer, CBORObject>>();
+
+		// Each element is the ID_CRED_X used for an authentication credential
+		// associated to this peer
+		Set<CBORObject> ownIdCreds = new HashSet<>();
+
+		// Build an integer
+		// Key Pairs
+		HashMap<Integer, OneKey> inner = keyPairs.get(Constants.ECDH_KEY);
+		inner.put(Constants.CURVE_Ed25519, keyPair);
+		inner.put(Constants.CURVE_X25519, keyPair);
+		inner = keyPairs.get(Constants.SIGNATURE_KEY);
+		inner.put(Constants.CURVE_Ed25519, keyPair);
+		inner.put(Constants.CURVE_X25519, keyPair);
+
+		// Creds
+		HashMap<Integer, CBORObject> innerC = creds.get(Constants.ECDH_KEY);
+		innerC.put(Constants.CURVE_Ed25519, CBORObject.FromObject(cred));
+		innerC.put(Constants.CURVE_X25519, CBORObject.FromObject(cred));
+		innerC = creds.get(Constants.SIGNATURE_KEY);
+		innerC.put(Constants.CURVE_Ed25519, CBORObject.FromObject(cred));
+		innerC.put(Constants.CURVE_X25519, CBORObject.FromObject(cred));
+
+		// ID Creds
+		HashMap<Integer, CBORObject> innerD = idCreds.get(Constants.ECDH_KEY);
+		innerD.put(Constants.ID_CRED_TYPE_KID, idCred);
+		innerD = idCreds.get(Constants.SIGNATURE_KEY);
+		innerD.put(Constants.ID_CRED_TYPE_KID, idCred);
+		
+		// Complete map
+		ownIdCreds.add(idCred);
+
+		EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(idCreds, creds, keyPairs, peerPublicKeys,
+				peerCredentials, edhocSessions, usedConnectionIds, supportedCiphersuites, supportedEads,
+				eadProductionInput, Constants.TRUST_MODEL_STRICT, db, edhocURI, OSCORE_REPLAY_WINDOW, 2048,
+				appStatements);
 
 		// Possibly specify external authorization data for EAD_1, or null
 		// if
@@ -1061,8 +1105,31 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 		// multiple additional elements
 		CBORObject[] ead1 = null;
 
-		// System.out.println("RUNNING EDHOC:");
-		EdhocClient.edhocExchangeAsInitiator(args, uri, edhocEndpointInfo, ead1);
+		System.out.println("RUNNING EDHOC:");
+		String appRequestURI = "coap://localhost/helloWorld";
+		// CoAP method to use for the application request sent after the EDHOC
+		// execution
+		Code appRequestCode = Code.GET;
+		// CoAP message type to use (CON or NON) for the application request
+		// sent after the EDHOC execution
+		Type appRequestType = Type.CON;
+		// CoAP method to use for the application request sent within an EDHOC +
+		// OSCORE combined request
+		Code combinedRequestAppCode = Code.GET;
+		// CoAP message type to use (CON or NON) for the application request
+		// sent within an EDHOC + OSCORE combined request
+		Type combinedRequestAppType = Type.CON;
+		// Payload of the application request sent within an EDHOC + OSCORE
+		// combined request. It can be null
+		byte[] combinedRequestAppPayload = null;
+
+		ClientEdhocExecutor edhocExecutor = new ClientEdhocExecutor();
+		List<Integer> peerSupportedCipherSuites = new ArrayList<Integer>();
+		boolean ret = edhocExecutor.startEdhocExchangeAsInitiator(asEdhocObject.authenticationMethod.intValue(),
+				peerSupportedCipherSuites, ownIdCreds, edhocEndpointInfo, false, "", combinedRequestAppCode,
+				combinedRequestAppType, combinedRequestAppPayload);
+		System.out.println("EDHOC succeeded: " + ret);
+
     }
     
     /* === RH: EDHOC support methods === */
@@ -1070,21 +1137,20 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 	// RH: Variables for initializing EdhocEndpointInfo
 	// Set in setupIdentityKeys() or setupSupportedCipherSuites()
 	static OneKey keyPair = null;
-	static int credType = Constants.CRED_TYPE_RPK;
+	static int credType = Constants.CRED_TYPE_CCS;
 	static byte[] cred = null;
 	static CBORObject idCred = null;
 	static String subjectName = "";
-	static Map<CBORObject, OneKey> peerPublicKeys = new HashMap<CBORObject, OneKey>();
-	static Map<CBORObject, CBORObject> peerCredentials = new HashMap<CBORObject, CBORObject>();
+	static HashMap<CBORObject, OneKey> peerPublicKeys = new HashMap<CBORObject, OneKey>();
+	static HashMap<CBORObject, CBORObject> peerCredentials = new HashMap<CBORObject, CBORObject>();
 	static List<Integer> supportedCiphersuites = new ArrayList<Integer>();
 	// Other variables needed
 	static final int keyCurve = KeyKeys.EC2_P256.AsInt32(); // ECDSA
-	static Map<CBORObject, EdhocSession> edhocSessions = new HashMap<CBORObject, EdhocSession>();
-	static List<Set<Integer>> usedConnectionIds = OscoreHandler.getUsedConnectionIds();
+	static HashMap<CBORObject, EdhocSession> edhocSessions = new HashMap<CBORObject, EdhocSession>();
+	static Set<CBORObject> usedConnectionIds = OscoreHandler.getUsedConnectionIds();
 	static String uriLocal = "coap://localhost";
 	static final int OSCORE_REPLAY_WINDOW = 32;
-	static Map<String, AppStatement> appStatements = new HashMap<String, AppStatement>();
-	static KissEDP edp;
+	static HashMap<String, AppProfile> appStatements = new HashMap<String, AppProfile>();
 	final static int keyFormat = 0; //
 
 	/**
@@ -1112,7 +1178,6 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 //			usedConnectionIds.add(set);
 //		}
 
-		edp = new KissEDP();
 	}
 
 	/**
@@ -1224,14 +1289,15 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 		}
 
 		switch (credType) {
-		case Constants.CRED_TYPE_RPK:
+		case Constants.CRED_TYPE_CCS:
 			// Build the related ID_CRED
 			// Use 0x07 as kid for this peer, i.e. the serialized ID_CRED_X
 			// is 0xa1, 0x04, 0x41, 0x07
 			// byte[] idCredKid = new byte[] { (byte) 0x07 };
 			idCred = org.eclipse.californium.edhoc.Util.buildIdCredKid(idCredKid);
 			// Build the related CRED
-			cred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKey(keyPair, subjectName);
+			cred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKeyCcs(keyPair, subjectName,
+					CBORObject.FromObject(idCredKid));
 			System.out.println("Adding key");
 			break;
 
@@ -1289,7 +1355,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 		byte[] peerCred = null;
 
 		switch (credType) {
-		case Constants.CRED_TYPE_RPK:
+		case Constants.CRED_TYPE_CCS:
 			// Build the related ID_CRED
 			// Use 0x24 as kid for the other peer, i.e. the serialized
 			// ID_CRED_X is 0xa1, 0x04, 0x41, 0x24
@@ -1297,7 +1363,8 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 			CBORObject idCredPeer = org.eclipse.californium.edhoc.Util.buildIdCredKid(peerKid);
 			peerPublicKeys.put(idCredPeer, peerPublicKey);
 			// Build the related CRED
-			peerCred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKey(peerPublicKey, "");
+			peerCred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKeyCcs(peerPublicKey, "",
+					CBORObject.FromObject(idCredKid));
 			peerCredentials.put(idCredPeer, CBORObject.FromObject(peerCred));
 			System.out.println("Adding peer key");
 			break;

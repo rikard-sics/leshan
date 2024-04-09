@@ -48,11 +48,11 @@ public class LockStepTest {
     public IntegrationTestHelper helper = new IntegrationTestHelper() {
         @Override
         protected LeshanServerBuilder createServerBuilder() {
-            NetworkConfig coapConfig = LeshanServerBuilder.createDefaultNetworkConfig();
+			NetworkConfig coapConfig = LeshanServerBuilder.createDefaultNetworkConfig();
 
             // configure retransmission, with this configuration a request without ACK should timeout in ~200*5ms
-            coapConfig.setInt(NetworkConfig.Keys.ACK_TIMEOUT, 200).setFloat(NetworkConfig.Keys.ACK_RANDOM_FACTOR, 1f)
-                    .setFloat(NetworkConfig.Keys.ACK_TIMEOUT_SCALE, 1f).setInt(NetworkConfig.Keys.MAX_RETRANSMIT, 4);
+			coapConfig.setInt(NetworkConfig.Keys.ACK_TIMEOUT, 200).setFloat(NetworkConfig.Keys.ACK_RANDOM_FACTOR, 1f)
+					.setFloat(NetworkConfig.Keys.ACK_TIMEOUT_SCALE, 1f).setInt(NetworkConfig.Keys.MAX_RETRANSMIT, 4);
 
             LeshanServerBuilder builder = super.createServerBuilder();
             builder.setCoapConfig(coapConfig);

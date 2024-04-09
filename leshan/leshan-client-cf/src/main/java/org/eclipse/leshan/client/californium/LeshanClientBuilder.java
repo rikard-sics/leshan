@@ -21,6 +21,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.eclipse.californium.core.CoapServer;
 import org.eclipse.californium.core.config.CoapConfig;
@@ -288,16 +289,16 @@ public class LeshanClientBuilder {
 
         // handle dtlsConfig
         if (dtlsConfigBuilder == null) {
-			DtlsConnectorConfig = DtlsConnectorConfig.getStandard();
+        	dtlsConfigBuilder = Configuration.getStandard();
+			
         }
-        DtlsConnectorConfig incompleteConfig = dtlsConfigBuilder.getIncompleteConfig();
+        DtlsConnectorConfig incompleteConfig = DtlsConnectorConfig.builder(dtlsConfigBuilder).build();
 
         // Handle secure address
         if (incompleteConfig.getAddress() == null) {
             if (localAddress == null) {
                 localAddress = new InetSocketAddress(0);
             }
-            dtlsConfigBuilder.setAddress(localAddress);
         } else if (localAddress != null && !localAddress.equals(incompleteConfig.getAddress())) {
             throw new IllegalStateException(String.format(
                     "Configuration conflict between LeshanBuilder and DtlsConnectorConfig.Builder for address: %s != %s",
@@ -307,12 +308,12 @@ public class LeshanClientBuilder {
         // Handle active peers
         if (incompleteConfig.getMaxConnections() == null)
 			dtlsConfigBuilder.set(DtlsConfig.DTLS_MAX_CONNECTIONS, coapConfig.get(CoapConfig.MAX_ACTIVE_PEERS));
-        if (incompleteConfig.getStaleConnectionThreshold() == null)
+		if (incompleteConfig.get(DtlsConfig.DTLS_STALE_CONNECTION_THRESHOLD, TimeUnit.SECONDS) == null)
 			dtlsConfigBuilder.set(DtlsConfig.DTLS_STALE_CONNECTION_THRESHOLD,
-					coapConfig.get(CoapConfig.MAX_PEER_INACTIVITY_PERIOD));
+					coapConfig.get(CoapConfig.MAX_PEER_INACTIVITY_PERIOD, TimeUnit.SECONDS), TimeUnit.SECONDS);
 
         // Use only 1 thread to handle DTLS connection by default
-        if (incompleteConfig.getConnectionThreadCount() == null) {
+        if (incompleteConfig.get(DtlsConfig.DTLS_CONNECTOR_THREAD_COUNT) == null) {
 			dtlsConfigBuilder.set(DtlsConfig.DTLS_CONNECTOR_THREAD_COUNT, 1);
         }
         // Use only 1 thread to receive DTLS data by default
@@ -322,11 +323,19 @@ public class LeshanClientBuilder {
 
         // Deactivate SNI by default
         // TODO should we support SNI ?
-        if (incompleteConfig.isSniEnabled() == null) {
-            dtlsConfigBuilder.setSniEnabled(false);
+        if (incompleteConfig.get(DtlsConfig.DTLS_USE_SERVER_NAME_INDICATION) == null) {
+            dtlsConfigBuilder.set(DtlsConfig.DTLS_USE_SERVER_NAME_INDICATION, false);
         }
 
-        return createLeshanClient(endpoint, localAddress, objectEnablers, coapConfig, dtlsConfigBuilder,
+        DtlsConnectorConfig.Builder completeConfig = new DtlsConnectorConfig.Builder(dtlsConfigBuilder);
+        if (incompleteConfig.getAddress() == null) {
+            if (localAddress == null) {
+                localAddress = new InetSocketAddress(0);
+            }
+            completeConfig.setAddress(localAddress);
+        }
+        
+        return createLeshanClient(endpoint, localAddress, objectEnablers, coapConfig, completeConfig,
                 this.trustStore, endpointFactory, engineFactory, additionalAttributes, encoder, decoder, executor);
     }
 
