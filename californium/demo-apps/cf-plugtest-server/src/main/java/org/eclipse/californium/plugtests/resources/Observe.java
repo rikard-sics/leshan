@@ -44,10 +44,12 @@ public class Observe extends CoapResource {
 	// The current time represented as string
 	private String time;
 
-	/*
+	/**
 	 * Constructor for a new TimeResource
+	 * 
+	 * @param notifyIntervalMillis notify interval in milliseconds
 	 */
-	public Observe() {
+	public Observe(long notifyIntervalMillis) {
 		super("obs");
 		setObservable(true);
 		getAttributes().setTitle("Observable resource which changes every 5 seconds");
@@ -56,8 +58,8 @@ public class Observe extends CoapResource {
 		setObserveType(Type.CON);
 
 		// Set timer task scheduling
-		Timer timer = new Timer();
-		timer.schedule(new TimeTask(), 0, 5000);
+		Timer timer = new Timer("OBSERVE", true);
+		timer.schedule(new TimeTask(), 0, notifyIntervalMillis);
 	}
 
 	/*
@@ -117,9 +119,9 @@ public class Observe extends CoapResource {
 	@Override
 	public void handleDELETE(CoapExchange exchange) {
 		wasUpdated = false;
-		
+
 		clearAndNotifyObserveRelations(NOT_FOUND);
-		
+
 		exchange.respond(DELETED);
 	}
 	

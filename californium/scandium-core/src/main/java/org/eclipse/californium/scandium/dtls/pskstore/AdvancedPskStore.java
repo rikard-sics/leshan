@@ -26,7 +26,6 @@ import org.eclipse.californium.scandium.DTLSConnector;
 import org.eclipse.californium.scandium.dtls.ConnectionId;
 import org.eclipse.californium.scandium.dtls.HandshakeResultHandler;
 import org.eclipse.californium.scandium.dtls.PskSecretResult;
-import org.eclipse.californium.scandium.dtls.PskSecretResultHandler;
 import org.eclipse.californium.scandium.dtls.PskPublicInformation;
 import org.eclipse.californium.scandium.util.ServerNames;
 
@@ -38,7 +37,7 @@ import org.eclipse.californium.scandium.util.ServerNames;
  * Returns psk secret result instead of PSK's secret key. The secret must either
  * be a master secret (algorithm "MAC"), or a PSK secret key (algorithm "PSK").
  * If required, the psk secret result maybe returned asynchronously using a
- * {@link PskSecretResultHandler}.
+ * {@link HandshakeResultHandler}.
  * 
  * <p>
  * Synchronous example returning the PSK secret key:
@@ -47,7 +46,7 @@ import org.eclipse.californium.scandium.util.ServerNames;
  * <pre>
  * &#64;Override
  * public PskSecretResult generateMasterSecret(ConnectionId cid, ServerNames serverNames, PskPublicInformation identity,
- * 			String hmacAlgorithm, SecretKey otherSecret, byte[] seed) {
+ * 			String hmacAlgorithm, SecretKey otherSecret, byte[] seed, boolean useExtendedMasterSecret) {
  * 		SecretKey pskSecret = ... func ... identity ...; // identity maybe normalized!
  * 		return new PskSecretResult(cid, identity, pskSecret);
  * }
@@ -60,15 +59,15 @@ import org.eclipse.californium.scandium.util.ServerNames;
  * <pre>
  * &#64;Override
  * public PskSecretResult generateMasterSecret(ConnectionId cid, ServerNames serverNames, PskPublicInformation identity,
- * 			String hmacAlgorithm, SecretKey otherSecret, byte[] seed) {
+ * 			String hmacAlgorithm, SecretKey otherSecret, byte[] seed, boolean useExtendedMasterSecret) {
  * 	
- * 		start ... func ... cid, servernames, identity, otherSecret, seed 
+ * 		start ... func ... cid, servernames, identity, otherSecret, seed, useExtendedMasterSecret
  * 			// calls processResult with generate master secret asynchronous;
  * 		return null; // returns null for asynchronous processing
  * }
  * 
  * &#64;Override
- * public void setResultHandler(PskSecretResultHandler resultHandler) {
+ * public void setResultHandler(HandshakeResultHandler resultHandler) {
  * 		this.resultHandler = resultHandler;
  * }
  * 
@@ -82,7 +81,6 @@ import org.eclipse.californium.scandium.util.ServerNames;
  * 
  * @since 2.3
  */
-@SuppressWarnings("deprecation")
 public interface AdvancedPskStore {
 
 	/**
@@ -101,7 +99,7 @@ public interface AdvancedPskStore {
 	 * normalized identity and master secret or PSK secret key, if available. If
 	 * the result is not returned, it is passed asynchronously to the result
 	 * handler, provided during {@link DTLSConnector} initialization by
-	 * {@link #setResultHandler(PskSecretResultHandler)}.
+	 * {@link #setResultHandler(HandshakeResultHandler)}.
 	 * 
 	 * @param cid connection id for stateless asynchronous implementations.
 	 * @param serverName server names. Maybe {@code null}, if SNI is not enabled
@@ -111,14 +109,17 @@ public interface AdvancedPskStore {
 	 * @param hmacAlgorithm HMAC algorithm name for PRF.
 	 * @param otherSecret other secret from ECDHE, or {@code null}. Must be
 	 *            cloned for asynchronous use. See
-	 *            <a href="https://tools.ietf.org/html/rfc5489#page-4"> RFC
+	 *            <a href="https://tools.ietf.org/html/rfc5489#page-4" target="_blank"> RFC
 	 *            5489, other secret</a>
 	 * @param seed seed for PRF.
+	 * @param useExtendedMasterSecret If the master secret is created,
+	 *            {@code true}, creates extended master secret (RFC 7627),
+	 *            {@code false}, creates master secret (RFC 5246).
 	 * @return psk secret result, or {@code null}, if result is provided
 	 *         asynchronous.
 	 */
 	PskSecretResult requestPskSecretResult(ConnectionId cid, ServerNames serverName, PskPublicInformation identity,
-			String hmacAlgorithm, SecretKey otherSecret, byte[] seed);
+			String hmacAlgorithm, SecretKey otherSecret, byte[] seed, boolean useExtendedMasterSecret);
 
 	/**
 	 * Gets the <em>identity</em> to use for a PSK based handshake with a given
@@ -145,12 +146,10 @@ public interface AdvancedPskStore {
 	 * Called during initialization of the {@link DTLSConnector}. Synchronous
 	 * implementations may just ignore this using an empty implementation.
 	 * 
-	 * Note: the type of the handler will change to {@link HandshakeResultHandler} with 3.0.
-	 * 
 	 * @param resultHandler handler for asynchronous master secret results. This
 	 *            handler MUST NOT be called from the thread calling
-	 *            {@link #requestPskSecretResult(ConnectionId, ServerNames, PskPublicInformation, String, SecretKey, byte[])},
+	 *            {@link #requestPskSecretResult(ConnectionId, ServerNames, PskPublicInformation, String, SecretKey, byte[], boolean)},
 	 *            instead just return the result there.
 	 */
-	void setResultHandler(PskSecretResultHandler resultHandler);
+	void setResultHandler(HandshakeResultHandler resultHandler);
 }

@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -29,6 +30,8 @@ import java.util.Set;
 
 import org.eclipse.californium.cose.KeyKeys;
 import org.eclipse.californium.cose.OneKey;
+import org.eclipse.californium.elements.util.StringUtil;
+import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -36,8 +39,6 @@ import org.junit.Test;
 
 import com.upokecenter.cbor.CBORException;
 import com.upokecenter.cbor.CBORObject;
-
-import net.i2p.crypto.eddsa.Utils;
 
 /**
  * Class with JUnits to test the extended EDHOC test vectors from:
@@ -65,7 +66,7 @@ public class VectorsTxtTest {
 	static List<byte[]> initiatorEphemeralPublicList = new ArrayList<byte[]>();
 
 	static String connectionIdLabel = "Connection identifier chosen by Initiator";
-	static List<byte[]> connectionIdList = new ArrayList<byte[]>();
+	static List<CBORObject> connectionIdList = new ArrayList<CBORObject>();
 
 	static String message1Label = "message_1 (CBOR Sequence)";
 	static List<byte[]> message1List = new ArrayList<byte[]>();
@@ -104,29 +105,29 @@ public class VectorsTxtTest {
 			} else if (line.startsWith(initiatorEphemeralPrivateLabel)) {
 				line = br.readLine() + br.readLine();
 
-				byte[] initiatorEphemeralPrivate = Utils.hexToBytes(line.replace(" ", ""));
+				byte[] initiatorEphemeralPrivate = StringUtil.hex2ByteArray(line.replace(" ", ""));
 				initiatorEphemeralPrivateList.add(currentVector, initiatorEphemeralPrivate);
 
 			} else if (line.startsWith(initiatorEphemeralPublicLabel)) {
 				line = br.readLine() + br.readLine();
 
-				byte[] initiatorEphemeralPublic = Utils.hexToBytes(line.replace(" ", ""));
+				byte[] initiatorEphemeralPublic = StringUtil.hex2ByteArray(line.replace(" ", ""));
 				initiatorEphemeralPublicList.add(currentVector, initiatorEphemeralPublic);
 
 			} else if (line.startsWith(connectionIdLabel)) {
 				line = br.readLine();
 
-				byte[] connectionId = Utils.hexToBytes(line.replace(" ", ""));
-				connectionIdList.add(currentVector, connectionId);
+				byte[] connectionId = StringUtil.hex2ByteArray(line.replace(" ", ""));
+				connectionIdList.add(currentVector, CBORObject.DecodeFromBytes(connectionId));
 			} else if (line.startsWith(message1Label)) {
 				line = br.readLine() + br.readLine() + br.readLine();
 
-				byte[] message1 = Utils.hexToBytes(line.replace(" ", ""));
+				byte[] message1 = StringUtil.hex2ByteArray(line.replace(" ", ""));
 				message1List.add(currentVector, message1);
 			} else if (line.startsWith(ad1Label)) {
 				line = br.readLine();
 
-				byte[] ad1 = Utils.hexToBytes(line.replace(" ", ""));
+				byte[] ad1 = StringUtil.hex2ByteArray(line.replace(" ", ""));
 				ad1List.add(currentVector, ad1);
 
 			} else if (line.startsWith(newVectorSectionLabel)) {
@@ -156,7 +157,7 @@ public class VectorsTxtTest {
 	 * @return a list of integers contained
 	 */
 	private static List<Integer> parseUncompressedSuitesI(byte[] uncompressedSuitesI) {
-		System.out.println("Suites: " + Utils.bytesToHex(uncompressedSuitesI));
+		System.out.println("Suites: " + StringUtil.byteArray2HexString(uncompressedSuitesI));
 		CBORObject cborArray = CBORObject.DecodeFromBytes(uncompressedSuitesI);
 		List<Integer> outputList = new ArrayList<Integer>();
 
@@ -184,12 +185,14 @@ public class VectorsTxtTest {
 	private void testWriteMessage1Vector(int index) {
 
 		// Set up the session to use
-		OneKey ltk = Util.generateKeyPair(KeyKeys.OKP_Ed25519.AsInt32()); // Dummy
+		OneKey identityKey = Util.generateKeyPair(KeyKeys.OKP_Ed25519.AsInt32()); // Dummy
 		boolean initiator = true;
 		int methodCorr = methodCorrList.get(index);
-		byte[] connectionId = connectionIdList.get(index);
+		byte[] connectionId = connectionIdList.get(index).GetByteString();
 		List<Integer> cipherSuites = new ArrayList<Integer>();
 		cipherSuites.add(supportedCipherSuitesList.get(index)); // 1 suite only
+		Set<Integer> supportedEADs = new HashSet<>();
+		List<Integer> peerSupportedCipherSuites = new ArrayList<Integer>();
 		byte[] ead1 = ad1List.get(index);
 		if (ead1.length == 0) { // Consider len 0 ad as null
 			ead1 = null;
@@ -198,24 +201,41 @@ public class VectorsTxtTest {
 		// Just for method compatibility; it is not used for EDHOC Message 1
 		byte[] idCredKid = new byte[] {(byte) 0x24};
 		CBORObject idCred = Util.buildIdCredKid(idCredKid);
-		byte[] cred = Util.buildCredRawPublicKey(ltk, "");
+		byte[] cred = Util.buildCredRawPublicKey(identityKey, "");
 
-		// Set the applicability statement
-		// - Supported correlation 1 and 2		
+		// Set the application profile
 		// - Supported authentication methods
-		// - Use of the CBOR simple value Null (i.e., the 0xf6 byte), as first element of message_1
 		// - Use of message_4 as expected to be sent by the Responder
+		// - Use of EDHOC for keying OSCORE
+		// - Supporting for the EDHOC+OSCORE request
+		// - Method for converting from OSCORE Recipient/Sender ID to EDHOC Connection Identifier
 		//
 		Set<Integer> authMethods = new HashSet<Integer>();
 		for (int i = 0; i <= Constants.EDHOC_AUTH_METHOD_3; i++ )
 			authMethods.add(i);
-		AppStatement appStatement = new AppStatement(true, authMethods, false, false);
+		boolean useMessage4 = false;
+		boolean usedForOSCORE = true;
+		boolean supportCombinedRequest = false;
+		AppProfile appProfile = new AppProfile(authMethods, useMessage4, usedForOSCORE, supportCombinedRequest);
+		int trustModel = Constants.TRUST_MODEL_STRICT;
 		
-		// Specify the processor of External Authorization Data
-		KissEDP epd = new KissEDP();
+		// Specify the database of OSCORE Security Contexts
+		HashMapCtxDB db = new HashMapCtxDB();
 		
-		EdhocSession session = new EdhocSession(initiator, methodCorr, connectionId, ltk,
-				                                idCred, cred, cipherSuites, appStatement, epd);
+		HashMap<Integer, HashMap<Integer, OneKey>> keyPairs = new HashMap<Integer, HashMap<Integer, OneKey>>();
+		HashMap<Integer, HashMap<Integer, CBORObject>> creds = new HashMap<Integer, HashMap<Integer, CBORObject>>();
+		HashMap<Integer, HashMap<Integer, CBORObject>> idCreds = new HashMap<Integer, HashMap<Integer, CBORObject>>();
+		
+		keyPairs.get(Integer.valueOf(Constants.SIGNATURE_KEY)).
+				 put(Integer.valueOf(Constants.CURVE_Ed25519), identityKey);
+		creds.get(Integer.valueOf(Constants.SIGNATURE_KEY)).
+			     put(Integer.valueOf(Constants.CURVE_Ed25519), CBORObject.FromObject(cred));
+		idCreds.get(Integer.valueOf(Constants.SIGNATURE_KEY)).
+				 put(Integer.valueOf(Constants.CURVE_Ed25519), idCred);
+		
+		EdhocSession session = new EdhocSession(initiator, true, methodCorr, connectionId, keyPairs,
+				                                idCreds, creds, cipherSuites, peerSupportedCipherSuites,
+				                                supportedEADs, appProfile, trustModel, db);
 
 		// Force a specific ephemeral key
 		byte[] privateEkeyBytes = initiatorEphemeralPrivateList.get(index);
@@ -236,29 +256,32 @@ public class VectorsTxtTest {
 				System.out.println("Malformed or invalid CBOR sequence as EAD_1");
 			}
 		}
-		byte[] message1 = MessageProcessor.writeMessage1(session, ead1Array);
+		byte[] message1 = MessageProcessor.writeMessage1(session);
 
 		// Compare with the expected value from the test vectors
 		byte[] expectedMessage1 = message1List.get(index);
 
 		// Print parameters used
 		System.out.println("methodCorr " + methodCorr);
-		System.out.println("connectionId " + Utils.bytesToHex(connectionId));
-		System.out.println("ead1 " + Utils.bytesToHex(ead1));
-		System.out.println("privateEkeyBytes " + Utils.bytesToHex(privateEkeyBytes));
-		System.out.println("publicEkeyBytes " + Utils.bytesToHex(publicEkeyBytes));
+		System.out.println("connectionId " + StringUtil.byteArray2HexString(connectionId));
+		System.out.println("ead1 " + StringUtil.byteArray2HexString(ead1));
+		System.out.println("privateEkeyBytes " + StringUtil.byteArray2HexString(privateEkeyBytes));
+		System.out.println("publicEkeyBytes " + StringUtil.byteArray2HexString(publicEkeyBytes));
 		System.out.print("Cipher suites: ");
 		for (int i = 0; i < cipherSuites.size(); i++) {
 			System.out.print(cipherSuites.get(i) + " ");
 		}
 		System.out.println("");
 
-		System.out.println("Our message1      " + Utils.bytesToHex(message1));
-		System.out.println("Expected message1 " + Utils.bytesToHex(expectedMessage1));
+		System.out.println("Our message1      " + StringUtil.byteArray2HexString(message1));
+		System.out.println("Expected message1 " + StringUtil.byteArray2HexString(expectedMessage1));
 
 		Assert.assertArrayEquals("Failed on test vector " + index, expectedMessage1, message1);
 	}
 
+	
+	// TODO: Re-enable when new test vectors are available
+	/*
 	@Test
 	public void testWriteMessage1Vector00() {
 		testWriteMessage1Vector(0);
@@ -339,5 +362,6 @@ public class VectorsTxtTest {
 	public void testWriteMessage1Vector15() {
 		testWriteMessage1Vector(15);
 	}
+	*/
 
 }

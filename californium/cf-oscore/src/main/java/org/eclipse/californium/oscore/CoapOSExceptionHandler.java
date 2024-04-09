@@ -55,7 +55,7 @@ public class CoapOSExceptionHandler {
 
 		if (request != null) {
 			if (request.getType() != null) {
-				if (ResponseCode.isClientError(responseCode)) {
+				if (responseCode.isClientError()) {
 
 					error = Response.createResponse(request, responseCode);
 
@@ -78,13 +78,14 @@ public class CoapOSExceptionHandler {
 					
 					return error;
 				} else {
-					LOGGER.error(ErrorDescriptions.CANNOT_CREATE_ERROR_MESS + ": " + ErrorDescriptions.ERROR_MESS_NULL);
+					LOGGER.error("{} {}", ErrorDescriptions.CANNOT_CREATE_ERROR_MESS,
+							ErrorDescriptions.ERROR_MESS_NULL);
 				}
 			} else {
-				LOGGER.error(ErrorDescriptions.CANNOT_CREATE_ERROR_MESS + ": " + ErrorDescriptions.TYPE_NULL);
+				LOGGER.error("{} {}", ErrorDescriptions.CANNOT_CREATE_ERROR_MESS, ErrorDescriptions.TYPE_NULL);
 			}
 		} else {
-			LOGGER.error(ErrorDescriptions.CANNOT_CREATE_ERROR_MESS + ": " + ErrorDescriptions.REQUEST_NULL);
+			LOGGER.error("{} {}", ErrorDescriptions.CANNOT_CREATE_ERROR_MESS, ErrorDescriptions.REQUEST_NULL);
 		}
 		return null;
 	}
@@ -116,7 +117,7 @@ public class CoapOSExceptionHandler {
 			return null;
 		}
 		
-		LOGGER.info("Sending empty RST message");
+		LOGGER.debug("Sending empty RST message");
 		return EmptyMessage.newRST(response);
 	}
 }

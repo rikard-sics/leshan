@@ -60,10 +60,14 @@ import org.eclipse.californium.elements.util.DaemonThreadFactory;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.RawDataChannel;
+import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.config.TcpConfig;
 
 import java.io.IOException;
+import java.net.DatagramPacket;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -86,6 +90,12 @@ public class TcpClientConnector implements Connector {
 		TCP_THREAD_GROUP.setDaemon(false);
 	}
 
+	/**
+	 * The logger.
+	 * 
+	 * @deprecated scope will change to private.
+	 */
+	@Deprecated
 	protected final Logger LOGGER = LoggerFactory.getLogger(getClass());
 
 	private final int numberOfThreads;
@@ -100,21 +110,43 @@ public class TcpClientConnector implements Connector {
 	 * @see #getEndpointContextMatcher()
 	 */
 	private volatile EndpointContextMatcher endpointContextMatcher;
+
+	protected volatile boolean running;
+
 	private EventLoopGroup workerGroup;
 	private RawDataChannel rawDataChannel;
 	private AbstractChannelPoolMap<SocketAddress, ChannelPool> poolMap;
 
 	protected final TcpContextUtil contextUtil;
 
-	public TcpClientConnector(int numberOfThreads, int connectTimeoutMillis, int idleTimeout) {
-		this(numberOfThreads, connectTimeoutMillis, idleTimeout, new TcpContextUtil());
+	/**
+	 * Create TCP client.
+	 * 
+	 * @param configuration configuration with {@link TcpConfig} definitions.
+	 * @since 3.0
+	 */
+	public TcpClientConnector(Configuration configuration) {
+		this(configuration, new TcpContextUtil());
 	}
 
-	protected TcpClientConnector(int numberOfThreads, int connectTimeoutMillis, int idleTimeout, TcpContextUtil contextUtil) {
-		this.numberOfThreads = numberOfThreads;
-		this.connectionIdleTimeoutSeconds = idleTimeout;
-		this.connectTimeoutMillis = connectTimeoutMillis;
+	/**
+	 * Create TCP client with specific context utility.
+	 * 
+	 * @param configuration configuration with {@link TcpConfig} definitions.
+	 * @param contextUtil context utility
+	 * @since 3.0
+	 */
+	protected TcpClientConnector(Configuration configuration, TcpContextUtil contextUtil) {
+		this.numberOfThreads = configuration.get(TcpConfig.TCP_WORKER_THREADS);
+		this.connectionIdleTimeoutSeconds = configuration.getTimeAsInt(TcpConfig.TCP_CONNECTION_IDLE_TIMEOUT,
+				TimeUnit.SECONDS);
+		this.connectTimeoutMillis = configuration.getTimeAsInt(TcpConfig.TCP_CONNECT_TIMEOUT, TimeUnit.MILLISECONDS);
 		this.contextUtil = contextUtil;
+	}
+
+	@Override
+	public boolean isRunning() {
+		return running;
 	}
 
 	@Override
@@ -122,24 +154,19 @@ public class TcpClientConnector implements Connector {
 		if (rawDataChannel == null) {
 			throw new IllegalStateException("Cannot start without message handler.");
 		}
-
-		if (workerGroup != null) {
+		if (running || workerGroup != null) {
 			throw new IllegalStateException("Connector already started");
 		}
-
+		running = true;
 		workerGroup = new NioEventLoopGroup(numberOfThreads,
 				new DaemonThreadFactory("TCP-Client-" + THREAD_COUNTER.incrementAndGet() + "#", TCP_THREAD_GROUP));
 		poolMap = new AbstractChannelPoolMap<SocketAddress, ChannelPool>() {
 
 			@Override
 			protected ChannelPool newPool(SocketAddress key) {
-				Bootstrap bootstrap = new Bootstrap()
-						.group(workerGroup)
-						.channel(NioSocketChannel.class)
-						.option(ChannelOption.SO_KEEPALIVE, true)
-						.option(ChannelOption.AUTO_READ, true)
-						.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMillis)
-						.remoteAddress(key);
+				Bootstrap bootstrap = new Bootstrap().group(workerGroup).channel(NioSocketChannel.class)
+						.option(ChannelOption.SO_KEEPALIVE, true).option(ChannelOption.AUTO_READ, true)
+						.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMillis).remoteAddress(key);
 
 				// We multiplex over the same TCP connection, so don't acquire
 				// more than one connection per endpoint.
@@ -151,13 +178,18 @@ public class TcpClientConnector implements Connector {
 
 	@Override
 	public synchronized void stop() {
-		if (poolMap != null) {
-			poolMap.close();
-		}
-		if (workerGroup != null) {
-			// FixedChannelPool requires a quietPeriod be larger than 0
-			workerGroup.shutdownGracefully(50, 500, TimeUnit.MILLISECONDS).syncUninterruptibly();
-			workerGroup = null;
+		if (running) {
+			LOGGER.debug("Stopping {} client connector ...", getProtocol());
+			running = false;
+			if (poolMap != null) {
+				poolMap.close();
+			}
+			if (workerGroup != null) {
+				// FixedChannelPool requires a quietPeriod be larger than 0
+				workerGroup.shutdownGracefully(50, 500, TimeUnit.MILLISECONDS).syncUninterruptibly();
+				workerGroup = null;
+			}
+			LOGGER.debug("Stopped {} client connector", getProtocol());
 		}
 	}
 
@@ -167,12 +199,17 @@ public class TcpClientConnector implements Connector {
 	}
 
 	@Override
+	public void processDatagram(DatagramPacket datagram) {
+	}
+
+	@Override
 	public void send(final RawData msg) {
 		if (msg == null) {
 			throw new NullPointerException("Message must not be null");
 		}
 		if (msg.isMulticast()) {
-			LOGGER.warn("TcpConnector drops {} bytes to multicast {}:{}", msg.getSize(), msg.getAddress(), msg.getPort());
+			LOGGER.warn("TcpConnector drops {} bytes to multicast {}", msg.getSize(),
+					StringUtil.toLog(msg.getInetSocketAddress()));
 			msg.onError(new MulticastNotSupportedException("TCP doesn't support multicast!"));
 			return;
 		}
@@ -185,7 +222,8 @@ public class TcpClientConnector implements Connector {
 		final EndpointContextMatcher endpointMatcher = getEndpointContextMatcher();
 		/* check, if a new connection should be established */
 		if (endpointMatcher != null && !connected && !endpointMatcher.isToBeSent(msg.getEndpointContext(), null)) {
-			LOGGER.warn("TcpConnector drops {} bytes to new {}:{}", msg.getSize(), msg.getAddress(), msg.getPort());
+			LOGGER.warn("TcpConnector drops {} bytes to new {}", msg.getSize(),
+					StringUtil.toLog(msg.getInetSocketAddress()));
 			msg.onError(new EndpointMismatchException("no connection"));
 			return;
 		}
@@ -221,9 +259,20 @@ public class TcpClientConnector implements Connector {
 					if (cause instanceof ConnectTimeoutException) {
 						LOGGER.debug("{}", cause.getMessage());
 					} else if (cause instanceof CancellationException) {
-						LOGGER.debug("{}", cause.getMessage());
+						if (isRunning()) {
+							LOGGER.debug("{}", cause.getMessage());
+						} else {
+							LOGGER.trace("{}", cause.getMessage());
+						}
+					} else if (cause instanceof IllegalStateException) {
+						if (isRunning()) {
+							LOGGER.debug("{}", cause.getMessage());
+						} else {
+							LOGGER.trace("{}", cause.getMessage());
+						}
 					} else {
-						LOGGER.warn("Unable to open connection to {}", msg.getAddress(), future.cause());
+						LOGGER.warn("Unable to open connection to {}", StringUtil.toLog(msg.getInetSocketAddress()),
+								future.cause());
 					}
 					msg.onError(future.cause());
 				}
@@ -247,8 +296,9 @@ public class TcpClientConnector implements Connector {
 		 * check, if the message should be sent with the established connection
 		 */
 		if (endpointMatcher != null && !endpointMatcher.isToBeSent(msg.getEndpointContext(), context)) {
-			LOGGER.warn("TcpConnector drops {} bytes to {}:{}", msg.getSize(), msg.getAddress(), msg.getPort());
-			msg.onError(new EndpointMismatchException());
+			LOGGER.warn("TcpConnector drops {} bytes to {}", msg.getSize(),
+					StringUtil.toLog(msg.getInetSocketAddress()));
+			msg.onError(new EndpointMismatchException("TCP"));
 			return;
 		}
 		msg.onContextEstablished(context);
@@ -262,8 +312,20 @@ public class TcpClientConnector implements Connector {
 				} else if (future.isCancelled()) {
 					msg.onError(new CancellationException());
 				} else {
-					LOGGER.warn("TcpConnector drops {} bytes to {}:{} caused by", msg.getSize(), msg.getAddress(), msg.getPort(), future.cause());
-					msg.onError(future.cause());
+					Throwable cause = future.cause();
+					if (cause instanceof ClosedChannelException) {
+						if (isRunning()) {
+							LOGGER.debug("TcpConnector drops {} bytes to {}, connection closed!", msg.getSize(),
+									StringUtil.toLog(msg.getInetSocketAddress()));
+						} else {
+							LOGGER.trace("TcpConnector drops {} bytes to {}, connection closed!", msg.getSize(),
+									StringUtil.toLog(msg.getInetSocketAddress()));
+						}
+					} else {
+						LOGGER.warn("TcpConnector drops {} bytes to {} caused by", msg.getSize(),
+								StringUtil.toLog(msg.getInetSocketAddress()), cause);
+					}
+					msg.onError(cause);
 				}
 			}
 		});

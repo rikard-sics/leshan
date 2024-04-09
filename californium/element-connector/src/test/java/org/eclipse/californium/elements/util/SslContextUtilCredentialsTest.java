@@ -19,8 +19,8 @@ import static org.eclipse.californium.elements.util.TestCertificatesTools.*;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsNull.notNullValue;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assume.assumeTrue;
 
 import java.io.IOException;
@@ -31,10 +31,14 @@ import java.security.cert.X509Certificate;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.X509KeyManager;
+import javax.security.auth.x500.X500Principal;
 
+import org.eclipse.californium.elements.category.Small;
 import org.eclipse.californium.elements.util.SslContextUtil.Credentials;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
+@Category(Small.class)
 public class SslContextUtilCredentialsTest {
 
 	public static final String KEY_STORE_PASSWORD_HEX = "656E6450617373";
@@ -47,7 +51,7 @@ public class SslContextUtilCredentialsTest {
 	public static final String ALIAS_SERVER = "server";
 	public static final String ALIAS_CLIENT = "client";
 	public static final String ALIAS_MISSING = "missing";
-	public static final String DN_SERVER = "C=CA, L=Ottawa, O=Eclipse IoT, OU=Californium, CN=cf-server";
+	public static final X500Principal DN_SERVER = new X500Principal("C=CA, L=Ottawa, O=Eclipse IoT, OU=Californium, CN=cf-server");
 
 	@Test
 	public void testLoadCredentials() throws IOException, GeneralSecurityException {
@@ -60,7 +64,7 @@ public class SslContextUtilCredentialsTest {
 		assertThat(credentials.getCertificateChain()[0], is(instanceOf(X509Certificate.class)));
 		X509Certificate x509 = (X509Certificate) credentials.getCertificateChain()[0];
 		assertThat(x509.getPublicKey(), is(notNullValue()));
-		assertThat(x509.getSubjectDN().getName(), is(DN_SERVER));
+		assertThat(x509.getSubjectX500Principal(), is(DN_SERVER));
 	}
 
 	/**
@@ -141,7 +145,7 @@ public class SslContextUtilCredentialsTest {
 		assertThat(credentials.getCertificateChain()[0], is(instanceOf(X509Certificate.class)));
 		X509Certificate x509 = (X509Certificate) credentials.getCertificateChain()[0];
 		assertThat(x509.getPublicKey(), is(notNullValue()));
-		assertThat(x509.getSubjectDN().getName(), is(DN_SERVER));
+		assertThat(x509.getSubjectX500Principal(), is(DN_SERVER));
 	}
 
 	@Test
@@ -151,7 +155,7 @@ public class SslContextUtilCredentialsTest {
 		assertThat(chain, is(notNullValue()));
 		assertThat(chain.length, is(greaterThan(0)));
 		assertThat(chain[0].getPublicKey(), is(notNullValue()));
-		assertThat(chain[0].getSubjectDN().getName(), is(DN_SERVER));
+		assertThat(chain[0].getSubjectX500Principal(), is(DN_SERVER));
 	}
 
 	@Test(expected = NullPointerException.class)
@@ -224,7 +228,7 @@ public class SslContextUtilCredentialsTest {
 		assertThat(credentials.getCertificateChain()[0], is(instanceOf(X509Certificate.class)));
 		X509Certificate x509 = (X509Certificate) credentials.getCertificateChain()[0];
 		assertThat(x509.getPublicKey(), is(notNullValue()));
-		assertThat(x509.getSubjectDN().getName(), is(DN_SERVER));
+		assertThat(x509.getSubjectX500Principal(), is(DN_SERVER));
 	}
 
 	@Test
@@ -246,7 +250,7 @@ public class SslContextUtilCredentialsTest {
 		assertThat(credentials.getCertificateChain()[0], is(instanceOf(X509Certificate.class)));
 		X509Certificate x509 = (X509Certificate) credentials.getCertificateChain()[0];
 		assertThat(x509.getPublicKey(), is(notNullValue()));
-		assertThat(x509.getSubjectDN().getName(), is(DN_SERVER));
+		assertThat(x509.getSubjectX500Principal(), is(DN_SERVER));
 	}
 
 	@Test
@@ -290,46 +294,48 @@ public class SslContextUtilCredentialsTest {
 		Credentials credentials = SslContextUtil.loadCredentials(SslContextUtil.CLASSPATH_SCHEME + "certs/ec_private.pem", null, null, null);
 		assertThat(credentials, is(notNullValue()));
 		assertThat(credentials.getPrivateKey(), is(notNullValue()));
-		assertThat(credentials.getPubicKey(), is(notNullValue()));
-		assertSigning("PEMv2", credentials.getPrivateKey(), credentials.getPubicKey(), "SHA256withECDSA");
+		assertThat(credentials.getPublicKey(), is(notNullValue()));
+		assertSigning("PEMv2", credentials.getPrivateKey(), credentials.getPublicKey(), "SHA256withECDSA");
 	}
 
 	@Test
 	public void testLoadEdDsaCredentials() throws IOException, GeneralSecurityException {
-		assumeTrue("ED25519 requires JVM support!", Asn1DerDecoder.isSupported("Ed25519"));
+		assumeTrue("ED25519 requires JCE support!", JceProviderUtil.isSupported(JceNames.ED25519));
+		assumeTrue(EDDSA_KEY_STORE_URI + " missing!", SslContextUtil.isAvailableFromUri(EDDSA_KEY_STORE_URI));
+
 		Credentials credentials = SslContextUtil.loadCredentials(EDDSA_KEY_STORE_URI, "clienteddsa",
 				KEY_STORE_PASSWORD, KEY_STORE_PASSWORD);
 		assertThat(credentials, is(notNullValue()));
 		assertThat(credentials.getCertificateChain(), is(notNullValue()));
 		assertThat(credentials.getCertificateChain().length, is(greaterThan(0)));
 		assertThat(credentials.getCertificateChain()[0].getPublicKey(), is(notNullValue()));
-		assertSigning("JKS", credentials.getPrivateKey(), credentials.getPubicKey(), "ED25519");
+		assertSigning("JKS", credentials.getPrivateKey(), credentials.getPublicKey(), "ED25519");
 	}
 
 	@Test
 	public void testLoadPemPrivateKeyEd25519() throws IOException, GeneralSecurityException {
-		assumeTrue("ED25519 requires JVM support!", Asn1DerDecoder.isSupported("Ed25519"));
+		assumeTrue("ED25519 requires JCE support!", JceProviderUtil.isSupported(JceNames.ED25519));
 		PrivateKey privateKey = SslContextUtil.loadPrivateKey(SslContextUtil.CLASSPATH_SCHEME + "certs/ed25519_private.pem", null, null, null);
 		assertThat(privateKey, is(notNullValue()));
 	}
 
 	@Test
 	public void testLoadPemPublicKeyEd25519() throws IOException, GeneralSecurityException {
-		assumeTrue("ED25519 requires JVM support!", Asn1DerDecoder.isSupported("Ed25519"));
+		assumeTrue("ED25519 requires JCE support!", JceProviderUtil.isSupported(JceNames.ED25519));
 		PublicKey publicKey = SslContextUtil.loadPublicKey(SslContextUtil.CLASSPATH_SCHEME + "certs/ed25519_public.pem", null, null);
 		assertThat(publicKey, is(notNullValue()));
 	}
 
 	@Test
 	public void testLoadPemPrivateKeyEd448() throws IOException, GeneralSecurityException {
-		assumeTrue("ED448 requires JVM support!", Asn1DerDecoder.isSupported("Ed448"));
+		assumeTrue("ED448 requires JCE support!", JceProviderUtil.isSupported(JceNames.ED448));
 		PrivateKey privateKey = SslContextUtil.loadPrivateKey(SslContextUtil.CLASSPATH_SCHEME + "certs/ed448_private.pem", null, null, null);
 		assertThat(privateKey, is(notNullValue()));
 	}
 
 	@Test
 	public void testLoadPemPublicKeyEd448() throws IOException, GeneralSecurityException {
-		assumeTrue("ED448 requires JVM support!", Asn1DerDecoder.isSupported("Ed448"));
+		assumeTrue("ED448 requires JCE support!", JceProviderUtil.isSupported(JceNames.ED448));
 		PublicKey publicKey = SslContextUtil.loadPublicKey(SslContextUtil.CLASSPATH_SCHEME + "certs/ed448_public.pem", null, null);
 		assertThat(publicKey, is(notNullValue()));
 	}

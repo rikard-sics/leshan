@@ -16,7 +16,6 @@
  ******************************************************************************/
 package org.eclipse.californium.oscore;
 
-import java.io.IOException;
 import java.security.SecureRandom;
 import java.util.Arrays;
 
@@ -80,7 +79,7 @@ public class ContextRederivation {
 	{
 		try {
 			initiateRequest(db, uri);
-		} catch (ConnectorException | IOException | OSException e) {
+		} catch (ConnectorException | OSException e) {
 			LOGGER.error(ErrorDescriptions.CONTEXT_REGENERATION_FAILED);
 			throw new CoapOSException(ErrorDescriptions.CONTEXT_REGENERATION_FAILED, ResponseCode.BAD_REQUEST);
 		}
@@ -93,11 +92,12 @@ public class ContextRederivation {
 	 * initiates the context re-derivation procedure. This request is identified
 	 * as request #1 in Appendix B.2.
 	 * 
-	 * @throws IOException
-	 * @throws ConnectorException
-	 * @throws OSException
+	 * @param db context db
+	 * @param uri uri
+	 * @throws ConnectorException if send/receiving messages failed
+	 * @throws OSException if context re-derivation fails
 	 */
-	private static void initiateRequest(OSCoreCtxDB db, String uri) throws ConnectorException, IOException, OSException {
+	private static void initiateRequest(OSCoreCtxDB db, String uri) throws ConnectorException, OSException {
 
 		// Retrieve the context for the target URI
 		OSCoreCtx ctx = db.getContext(uri);
@@ -119,6 +119,8 @@ public class ContextRederivation {
 		// In the request include ID1 as a CBOR byte string (bstr)
 		newCtx.setIncludeContextId(encodeToCborBstrBytes(contextID1));
 		newCtx.setContextRederivationPhase(ContextRederivation.PHASE.CLIENT_PHASE_1);
+		newCtx.setNonceHandover(ctx.getNonceHandover());
+
 		db.removeContext(ctx);
 		db.addContext(uri, newCtx);
 	}
@@ -166,6 +168,7 @@ public class ContextRederivation {
 
 			// Generate a new context with the concatenated Context ID
 			OSCoreCtx newCtx = rederiveWithContextID(ctx, verifyContextID);
+			newCtx.setNonceHandover(ctx.getNonceHandover());
 
 			// Add the new context to the context DB (replacing the old)
 			newCtx.setContextRederivationPhase(PHASE.CLIENT_PHASE_2);
@@ -191,6 +194,9 @@ public class ContextRederivation {
 				return ctx;
 			}
 
+			String supplemental = "client received response with server initiated re-derivation";
+			LOGGER.debug("Context re-derivation phase: {} ({})", PHASE.INACTIVE, supplemental);
+
 			// The Context ID in the incoming response is identified as R2
 			// It is first decoded as it is a CBOR byte string
 			byte[] contextR2 = decodeFromCborBstrBytes(contextID);
@@ -206,8 +212,11 @@ public class ContextRederivation {
 
 			// Add the new context to the context DB (replacing the old)
 			newCtx.setContextRederivationPhase(PHASE.CLIENT_PHASE_2);
+			
+			newCtx.setNonceHandover(ctx.getNonceHandover());
 			db.removeContext(ctx);
 			db.addContext(SCHEME + ctx.getUri(), newCtx);
+
 			return newCtx;
 		}
 
@@ -267,7 +276,7 @@ public class ContextRederivation {
 	 * @param db db the context db
 	 * @param ctx the context
 	 * @param contextID the context ID in the incoming request
-	 * @param RID the RID in the incoming request
+	 * @param rid the RID in the incoming request
 	 * @return an updated context
 	 * @throws OSException if context re-derivation fails
 	 */
@@ -287,7 +296,7 @@ public class ContextRederivation {
 
 		// Check if context re-derivation is enabled for this context
 		if (ctx.getContextRederivationEnabled() == false) {
-			LOGGER.debug("Context re-derivation not initiated due to it being disabled for this context");
+			LOGGER.debug("Context re-derivation not considered due to it being disabled for this context");
 			return ctx;
 		 }
 
@@ -445,15 +454,12 @@ public class ContextRederivation {
 
 			// Generate a new context with the concatenated Context ID
 			OSCoreCtx newCtx = rederiveWithContextID(ctx, protectContextID);
-			newCtx.setReceiverSeq(0);
+			newCtx.setNonceHandover(ctx.getNonceHandover());
 
 			// Outgoing response from this context only uses R2 as
 			// Context ID (not concatenated one used to generate the context).
 			// It will be encoded as a CBOR byte string.
 			newCtx.setIncludeContextId(encodeToCborBstrBytes(contextR2));
-
-			// Respond with new partial IV
-			newCtx.setResponsesIncludePartialIV(true);
 
 			// Indicate that the context re-derivation procedure is ongoing
 			newCtx.setContextRederivationPhase(PHASE.SERVER_PHASE_2);
@@ -474,10 +480,12 @@ public class ContextRederivation {
 	 * @param ctx the OSCORE context to re-derive
 	 * @param contextID the new context ID to use
 	 * @return the new re-derived context
+	 * @throws OSException if the KDF is not supported
 	 */
 	private static OSCoreCtx rederiveWithContextID(OSCoreCtx ctx, byte[] contextID) throws OSException {
 		OSCoreCtx newCtx = new OSCoreCtx(ctx.getMasterSecret(), true, ctx.getAlg(), ctx.getSenderId(),
-				ctx.getRecipientId(), ctx.getKdf(), ctx.getRecipientReplaySize(), ctx.getSalt(), contextID);
+				ctx.getRecipientId(), ctx.getKdf(), ctx.getRecipientReplaySize(), ctx.getSalt(),
+				contextID, ctx.getMaxUnfragmentedSize());
 		newCtx.setContextRederivationKey(ctx.getContextRederivationKey());
 		newCtx.setContextRederivationEnabled(ctx.getContextRederivationEnabled());
 		return newCtx;
@@ -508,6 +516,7 @@ public class ContextRederivation {
 	 * byte string is returned.
 	 * 
 	 * @param array the input Java byte array to encode
+	 * @return encoded bytes
 	 */
 	private static byte[] encodeToCborBstrBytes(byte[] array) {
 		CBORObject arrayBstr = CBORObject.FromObject(array);
@@ -521,6 +530,7 @@ public class ContextRederivation {
 	 * CBOR byte string is returned.
 	 * 
 	 * @param bstr a byte array containing the encoded CBOR byte string
+	 * @return decoded bytes
 	 */
 	private static byte[] decodeFromCborBstrBytes(byte[] bstr) {
 		CBORObject arrayBstr = CBORObject.DecodeFromBytes(bstr);
@@ -534,6 +544,11 @@ public class ContextRederivation {
 	 * @param ctx the OSCORE context in use
 	 */
 	private static void printStateLogging(OSCoreCtx ctx) {
+
+		if (!LOGGER.isDebugEnabled()) {
+			return;
+		}
+
 		PHASE currentPhase = ctx.getContextRederivationPhase();
 
 		String supplemental = "";
@@ -570,11 +585,10 @@ public class ContextRederivation {
 			break;
 		}
 
-		String output = "Context re-derivation phase: " + currentPhase + " (" + supplemental + ")";
 		if (currentPhase == PHASE.INACTIVE) {
-			LOGGER.debug(output);
+			LOGGER.trace("Context re-derivation phase: {} ({})", currentPhase, supplemental);
 		} else {
-			LOGGER.info(output);
+			LOGGER.debug("Context re-derivation phase: {} ({})", currentPhase, supplemental);
 		}
 	}
 

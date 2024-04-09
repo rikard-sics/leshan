@@ -37,7 +37,6 @@
 ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
-import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -45,13 +44,39 @@ import org.eclipse.californium.elements.util.NoPublicAPI;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertDescription;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertLevel;
+import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
+import org.eclipse.californium.scandium.util.SecretUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The resuming client handshaker executes a abbreviated handshake by adding a
- * valid session identifier into its ClientHello message. The message flow is
- * depicted in <a href="http://tools.ietf.org/html/rfc5246#section-7.3">Figure
+ * valid session identifier into its ClientHello message.
+ * 
+ * The message flow is depicted in
+ * <a href="https://tools.ietf.org/html/rfc6347#page-21" target="_blank">Figure
  * 2</a>. The new keys will be generated from the master secret established from
  * a previous full handshake.
+ * 
+ * <pre>
+ *   Client                                          Server
+ *   ------                                          ------
+ *
+ *   ClientHello             --------&gt;                          Flight 1
+ *
+ *                                              ServerHello    \
+ *                                       [ChangeCipherSpec]     Flight 2
+ *                           &lt;--------             Finished    /
+ *
+ *   [ChangeCipherSpec]                                        \Flight 3
+ *   Finished                --------&gt;                         /
+ * </pre>
+ * 
+ * If the server denies to resume the session with
+ * the provided session id, the handshaker falls back to a full-handshake,
+ * depicted in
+ * <a href="https://tools.ietf.org/html/rfc6347#page-21" target="_blank">Figure
+ * 1</a>, see {@link ClientHandshaker}.
  * 
  * <p>
  * This implementation offers a probing mode.
@@ -76,7 +101,7 @@ import org.eclipse.californium.scandium.dtls.AlertMessage.AlertLevel;
  * With probing mode, the handshake starts without removing the session. If some
  * data is received, the session is removed and the handshake gets completed. If
  * no data is received, the peer assumes, that the connectivity is lost (even if
- * it's own state indicates connectivity) and just timesout the request. if the
+ * it's own state indicates connectivity) and just timesout the request. If the
  * connectivity is established again, just a new request could be send without a
  * handshake.
  * </p>
@@ -84,14 +109,14 @@ import org.eclipse.californium.scandium.dtls.AlertMessage.AlertLevel;
 @NoPublicAPI
 public class ResumingClientHandshaker extends ClientHandshaker {
 
-	private static HandshakeState[] RESUME = { new HandshakeState(HandshakeType.HELLO_VERIFY_REQUEST, true),
-			new HandshakeState(HandshakeType.SERVER_HELLO), new HandshakeState(ContentType.CHANGE_CIPHER_SPEC),
+	private static final Logger LOGGER = LoggerFactory.getLogger(ResumingClientHandshaker.class);
+
+	private static final HandshakeState[] ABBREVIATED_HANDSHAKE = { 
+			new HandshakeState(ContentType.CHANGE_CIPHER_SPEC),
 			new HandshakeState(HandshakeType.FINISHED) };
 
 	// flag to indicate if we must do a full handshake or an abbreviated one
-	private boolean fullHandshake = false;
-
-	// Constructor ////////////////////////////////////////////////////
+	private volatile boolean fullHandshake = false;
 
 	/**
 	 * Creates a new handshaker for resuming an existing session with a server.
@@ -110,23 +135,21 @@ public class ResumingClientHandshaker extends ClientHandshaker {
 	 *            {@code false}, not probing handshake.
 	 * @throws IllegalArgumentException
 	 *            if the given session does not contain an identifier.
-	 * @throws IllegalStateException
-	 *            if the message digest required for computing the FINISHED message hash cannot be instantiated.
-	 * @throws NullPointerException
-	 *            if session, recordLayer or config is <code>null</code>
+	 * @throws NullPointerException if any of the provided parameter is
+	 *             {@code null}
 	 */
 	public ResumingClientHandshaker(DTLSSession session, RecordLayer recordLayer, ScheduledExecutorService timer, Connection connection,
 			DtlsConnectorConfig config, boolean probe) {
-		super(session, recordLayer, timer, connection, config, probe);
-		if (session.getSessionIdentifier() == null) {
+		super(null, recordLayer, timer, connection, config, probe);
+		SessionId sessionId = session.getSessionIdentifier();
+		if (sessionId == null || sessionId.isEmpty()) {
 			throw new IllegalArgumentException("Session must contain the ID of the session to resume");
 		}
+		getSession().set(session);
 	}
 
-	// Methods ////////////////////////////////////////////////////////
-
 	@Override
-	protected void doProcessMessage(HandshakeMessage message) throws HandshakeException, GeneralSecurityException {
+	protected void doProcessMessage(HandshakeMessage message) throws HandshakeException {
 		if (fullHandshake){
 			// handshake resumption was refused by the server
 			// we do a full handshake
@@ -150,57 +173,64 @@ public class ResumingClientHandshaker extends ClientHandshaker {
 
 		default:
 			throw new HandshakeException(
-					String.format("Received unexpected handshake message [%s] from peer %s", message.getMessageType(), message.getPeer()),
-					new AlertMessage(AlertLevel.FATAL, AlertDescription.UNEXPECTED_MESSAGE, message.getPeer()));
+					String.format("Received unexpected handshake message [%s] from peer %s", message.getMessageType(), peerToLog),
+					new AlertMessage(AlertLevel.FATAL, AlertDescription.UNEXPECTED_MESSAGE));
 		}
 	}
 
 	/**
+	 * Check, if the server want an abbreviated or full handshake.
+	 * 
 	 * Stores the negotiated security parameters.
 	 * 
-	 * @param message
-	 *            the {@link ServerHello} message.
-	 * @throws HandshakeException if the ServerHello message cannot be processed,
-	 * 	e.g. because the server selected an unknown or unsupported cipher suite
+	 * @param message the {@link ServerHello} message.
+	 * @throws HandshakeException if the ServerHello message cannot be
+	 *             processed, e.g. because the server selected an unknown or
+	 *             unsupported cipher suite
 	 */
 	protected void receivedServerHello(ServerHello message) throws HandshakeException {
-		if (!session.getSessionIdentifier().equals(message.getSessionId()))
-		{
+		DTLSSession session = getSession();
+		if (!session.getSessionIdentifier().equals(message.getSessionId())) {
 			LOGGER.debug(
 					"Server [{}] refuses to resume session [{}], performing full handshake instead...",
-					message.getPeer(), session.getSessionIdentifier());
+					peerToLog, session.getSessionIdentifier());
 			// Server refuse to resume the session, go for a full handshake
 			fullHandshake  = true;
-			states = SEVER_CERTIFICATE;
+			SecretUtil.destroy(session);
 			super.receivedServerHello(message);
 		} else if (!message.getCompressionMethod().equals(session.getCompressionMethod())) {
 			throw new HandshakeException(
 					"Server wants to change compression method in resumed session",
 					new AlertMessage(
 							AlertLevel.FATAL,
-							AlertDescription.ILLEGAL_PARAMETER,
-							message.getPeer()));
+							AlertDescription.ILLEGAL_PARAMETER));
 		} else if (!message.getCipherSuite().equals(session.getCipherSuite())) {
 			throw new HandshakeException(
 					"Server wants to change cipher suite in resumed session",
 					new AlertMessage(
 							AlertLevel.FATAL,
-							AlertDescription.ILLEGAL_PARAMETER,
-							message.getPeer()));
+							AlertDescription.ILLEGAL_PARAMETER));
+		} else if (session.useExtendedMasterSecret() && !message.hasExtendedMasterSecretExtension()) {
+			throw new HandshakeException(
+					"Server wants to change extended master secret in resumed session",
+					new AlertMessage(
+							AlertLevel.FATAL,
+							AlertDescription.ILLEGAL_PARAMETER));
+		} else if (!session.getProtocolVersion().equals(message.getProtocolVersion())) {
+			throw new HandshakeException(
+					"Server wants to change protocol version in resumed session",
+					new AlertMessage(
+							AlertLevel.FATAL,
+							AlertDescription.ILLEGAL_PARAMETER));
 		} else {
 			verifyServerHelloExtensions(message);
 			serverRandom = message.getRandom();
-			if (connectionIdGenerator != null) {
-				ConnectionIdExtension extension = message.getConnectionIdExtension();
-				if (extension != null) {
-					ConnectionId connectionId = extension.getConnectionId();
-					session.setWriteConnectionId(connectionId);
-					session.setReadConnectionId(getReadConnectionId());
-				}
+			if (supportsConnectionId()) {
+				receivedConnectionIdExtension(message.getConnectionIdExtension());
 			}
+			setExpectedStates(ABBREVIATED_HANDSHAKE);
 			expectChangeCipherSpecMessage();
-			masterSecret = session.getMasterSecret();
-			calculateKeys(masterSecret);
+			resumeMasterSecret();
 		}
 	}
 
@@ -221,59 +251,62 @@ public class ResumingClientHandshaker extends ClientHandshaker {
 
 		// update the handshake hash
 		MessageDigest md = getHandshakeMessageDigest();
-
-		MessageDigest mdWithServerFinish;
-		try {
-			// the client's finished verify_data must also contain the server's
-			// finished message
-			mdWithServerFinish = (MessageDigest) md.clone();
-		} catch (CloneNotSupportedException e) {
-			throw new HandshakeException(
-					"Cannot create FINISHED message hash",
-					new AlertMessage(
-							AlertLevel.FATAL,
-							AlertDescription.INTERNAL_ERROR,
-							message.getPeer()));
-		}
+		MessageDigest mdWithServerFinish = cloneMessageDigest(md);
 
 		// the handshake hash to check the server's verify_data (without the
 		// server's finished message included)
-		message.verifyData(session.getCipherSuite().getThreadLocalPseudoRandomFunctionMac(), masterSecret, false, md.digest());
+		verifyFinished(message, md.digest());
 
-		ChangeCipherSpecMessage changeCipherSpecMessage = new ChangeCipherSpecMessage(message.getPeer());
+		ChangeCipherSpecMessage changeCipherSpecMessage = new ChangeCipherSpecMessage();
 		wrapMessage(flight, changeCipherSpecMessage);
 		setCurrentWriteState();
 
-		mdWithServerFinish.update(message.getRawMessage());
-		handshakeHash = mdWithServerFinish.digest();
-		Finished finished = new Finished(session.getCipherSuite().getThreadLocalPseudoRandomFunctionMac(), masterSecret, isClient, handshakeHash, message.getPeer());
+		mdWithServerFinish.update(message.toByteArray());
+		Finished finished = createFinishedMessage(mdWithServerFinish.digest());
 		wrapMessage(flight, finished);
 		sendLastFlight(flight);
-		sessionEstablished();
+		contextEstablished();
 	}
 
 	@Override
 	public void startHandshake() throws HandshakeException {
 		handshakeStarted();
+
+		DTLSSession session = getSession();
 		ClientHello message = new ClientHello(ProtocolVersion.VERSION_DTLS_1_2, session, supportedSignatureAlgorithms,
 				supportedClientCertificateTypes, supportedServerCertificateTypes, supportedGroups);
+		if (CipherSuite.containsEccBasedCipherSuite(message.getCipherSuites())) {
+			expectEcc();
+		}
 
 		clientRandom = message.getRandom();
 
-		message.addCompressionMethod(session.getCompressionMethod());
+		if (session.useExtendedMasterSecret()) {
+			// https://tools.ietf.org/html/rfc7627#section-5.3
+			// "When offering an abbreviated handshake, the client
+			// MUST send the "extended_master_secret" extension in
+			// its ClientHello."
+			// For "MUST", configure extended master secret required
+			message.addExtension(ExtendedMasterSecretExtension.INSTANCE);
+		}
 
 		addConnectionId(message);
 		addRecordSizeLimit(message);
 		addMaxFragmentLength(message);
 		addServerNameIndication(message);
 
+		// keep client_hello for a hello_verify_request.
 		clientHello = message;
 
 		flightNumber = 1;
 		DTLSFlight flight = createFlight();
 		wrapMessage(flight, message);
 		sendFlight(flight);
-		states = RESUME;
-		statesIndex = 0;
+		setExpectedStates(INIT);
+	}
+
+	@Override
+	public boolean isFullHandshake() {
+		return fullHandshake;
 	}
 }

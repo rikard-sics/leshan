@@ -45,11 +45,32 @@ public class Response extends Message {
 
 	/** The response code. */
 	private final CoAP.ResponseCode code;
+	/**
+	 * Indicates, if the response is created internal.
+	 * 
+	 * @since 3.4
+	 */
+	private final boolean internal;
 
 	/**
-	 * RTT (round trip time) in milliseconds.
+	 * Application RTT (round trip time) in nanoseconds.
+	 * 
+	 * Includes delays for congestion control and multiple requests for
+	 * blockwise transfers.
+	 * 
+	 * @since 3.0 (was rtt in milliseconds)
 	 */
-	private volatile Long rtt;
+	private volatile Long applicationRttNanos;
+
+	/**
+	 * Transmission RTT (round trip time) in nanoseconds.
+	 * 
+	 * Excludes delays for congestion control and applies to the last single
+	 * exchange, for a request or a con-response.
+	 * 
+	 * @since 3.0
+	 */
+	private volatile Long transmissionRttNanos;
 
 	/**
 	 * Creates a response to the provided received request with the specified
@@ -87,10 +108,23 @@ public class Response extends Message {
 	 *             that this was thrown delayed, when accessing the code)
 	 */
 	public Response(ResponseCode code) {
+		this(code, false);
+	}
+
+	/**
+	 * Instantiates a new response with the specified response code.
+	 *
+	 * @param code the response code
+	 * @param internal internal created response
+	 * @throws NullPointerException if code is {@code null}
+	 * @since 3.4
+	 */
+	public Response(ResponseCode code, boolean internal) {
 		if (code == null) {
 			throw new NullPointerException("ResponseCode must not be null!");
 		}
 		this.code = code;
+		this.internal = internal;
 	}
 
 	/**
@@ -108,26 +142,80 @@ public class Response extends Message {
 	}
 
 	@Override
+	public void assertPayloadMatchsBlocksize() {
+		BlockOption block2 = getOptions().getBlock2();
+		if (block2 != null) {
+			block2.assertPayloadSize(getPayloadSize());
+		}
+	}
+
+	@Override
 	public String toString() {
 		return toTracingString(code.toString());
 	}
 
 	/**
-	 * Return RTT (round trip time).
+	 * Checks, if this response is internally created.
 	 * 
-	 * @return RTT in milliseconds, or {@code null}, if not set.
+	 * e.g 4.08 {@link ResponseCode#REQUEST_ENTITY_INCOMPLETE}.
+	 *
+	 * @return {@code true}, for internal response, {@code false}, otherwise.
+	 * @since 3.4
 	 */
-	public Long getRTT() {
-		return rtt;
+	public boolean isInternal() {
+		return internal;
 	}
 
 	/**
-	 * Set RTT (round trip time) .
+	 * Return application RTT (round trip time).
 	 * 
-	 * @param rtt round trip time of response in milliseconds
+	 * Includes delays for congestion control and multiple requests for
+	 * blockwise transfers.
+	 * 
+	 * @return application RTT in nanoseconds, or {@code null}, if not set.
+	 * @since 3.0 (was getRTT in milliseconds)
 	 */
-	public void setRTT(long rtt) {
-		this.rtt = rtt;
+	public Long getApplicationRttNanos() {
+		return applicationRttNanos;
+	}
+
+	/**
+	 * Set application RTT (round trip time) .
+	 * 
+	 * Includes delays for congestion control and multiple requests for
+	 * blockwise transfers.
+	 * 
+	 * @param rttNanos application round trip time of response in nanoseconds
+	 * @since 3.0 (was setRTT with milliseconds)
+	 */
+	public void setApplicationRttNanos(long rttNanos) {
+		this.applicationRttNanos = rttNanos;
+	}
+
+	/**
+	 * Return transmission RTT (round trip time).
+	 * 
+	 * Excludes delays for congestion control and applies to the last single
+	 * exchange, for a request or a con-response.
+	 * 
+	 * @return transmission RTT in nanoseconds, or {@code null}, if not set.
+	 * @since 3.0
+	 */
+	public Long getTransmissionRttNanos() {
+		return transmissionRttNanos;
+	}
+
+	/**
+	 * Set transmission RTT (round trip time).
+	 * 
+	 * Excludes delays for congestion control and applies to the last single
+	 * exchange, for a request or a con-response.
+	 * 
+	 * @param rtt transmission round trip time of response in nanoseconds
+	 * @since 3.0
+	 */
+	public void setTransmissionRttNanos(long rtt) {
+		this.transmissionRttNanos = rtt;
 	}
 
 	/**
@@ -165,6 +253,21 @@ public class Response extends Message {
 		return getOptions().hasBlock1() || getOptions().hasBlock2();
 	}
 
+	@Override
+	public boolean hasBlock(final BlockOption block) {
+		return hasBlock(block, getOptions().getBlock2());
+	}
+
+	/**
+	 * Checks whether this response's code indicates an success.
+	 * 
+	 * @return {@code true} if <em>code</em> indicates an success.
+	 * @since 3.0
+	 */
+	public final boolean isSuccess() {
+		return code.isSuccess();
+	}
+
 	/**
 	 * Checks whether this response's code indicates an error.
 	 * 
@@ -180,7 +283,7 @@ public class Response extends Message {
 	 * @return {@code true} if <em>code</em> indicates a client error.
 	 */
 	public final boolean isClientError() {
-		return ResponseCode.isClientError(code);
+		return code.isClientError();
 	}
 
 	/**
@@ -189,6 +292,6 @@ public class Response extends Message {
 	 * @return {@code true} if <em>code</em> indicates a server error.
 	 */
 	public final boolean isServerError() {
-		return ResponseCode.isServerError(code);
+		return code.isServerError();
 	}
 }

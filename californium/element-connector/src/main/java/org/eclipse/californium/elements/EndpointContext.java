@@ -23,6 +23,8 @@ import java.net.InetSocketAddress;
 import java.security.Principal;
 import java.util.Map;
 
+import org.eclipse.californium.elements.util.Bytes;
+
 /**
  * A container for storing transport specific information about the context in
  * which a message has been sent or received.
@@ -51,17 +53,37 @@ import java.util.Map;
  * <td>With new or resumed DTLS session not long-term-stable</td>
  * </tr>
  * </table>
+ * 
+ * Note: with 3.0 the implementation is enhanced to support not only
+ * {@link String} as attributes value, {@link Integer}, {@link Long},
+ * {@link Boolean}, {@link InetSocketAddress} and {@link Bytes} are also
+ * supported.
  */
 public interface EndpointContext {
 
 	/**
 	 * Gets a value from this context.
 	 * 
-	 * @param key the key to retrieve the value for.
-	 * @return the value or {@code null} if this context does not contain a
-	 *         value for the given key.
+	 * @param <T> value type
+	 * @param definition the definition to retrieve the value for.
+	 * @return the value, or {@code null} if, this context does not contain a
+	 *         value for the given definition.
+	 * @since 3.0
 	 */
-	String get(String key);
+	<T> T get(Definition<T> definition);
+
+	/**
+	 * Gets a {@link String} value from this context.
+	 * 
+	 * @param <T> value type
+	 * @param definition the key to retrieve the value for.
+	 * @return the value as {@link String}, or {@code null}, if this context
+	 *         does not contain a value for the given definition. If the value
+	 *         is a {@link Bytes}, {@link Bytes#getAsString()} is returned,
+	 *         otherwise {@link Object#toString()} will be returned.
+	 * @since 3.0
+	 */
+	<T> String getString(Definition<T> definition);
 
 	/**
 	 * Gets a Set of a Map.Entry which contains the key-value pair of the
@@ -70,8 +92,9 @@ public interface EndpointContext {
 	 * The Set is intended to be "unmodifiable".
 	 *
 	 * @return A set of a map entry containing the key value pair.
+	 * @since 3.0 (changed types of Map)
 	 */
-	Map<String, String> entries();
+	Map<Definition<?>, Object> entries();
 
 	/**
 	 * Check, if the correlation information contained, contains critical
@@ -100,10 +123,10 @@ public interface EndpointContext {
 	InetSocketAddress getPeerAddress();
 
 	/**
-	 * Gets the name of the virtual host that this endpoint
-	 * is scoped to.
+	 * Gets the name of the virtual host that this endpoint is scoped to.
 	 * 
 	 * @return the name or {@code null} if no virtual host is set.
 	 */
 	String getVirtualHost();
+
 }

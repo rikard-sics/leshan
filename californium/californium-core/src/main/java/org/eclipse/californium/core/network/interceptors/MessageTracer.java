@@ -30,9 +30,10 @@ import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 
 /**
- * The MessageTracer logs all incoming and outgoing messages. MessageInterceptor
- * are located between the serializer/parser and the matcher. Each message comes
- * or goes through a connector is logged.
+ * The MessageTracer logs all incoming and outgoing messages.
+ * 
+ * MessageInterceptor are located between the serializer/parser and the matcher.
+ * Each well-formed message comes or goes through a connector is logged.
  */
 public class MessageTracer implements MessageInterceptor {
 
@@ -40,31 +41,31 @@ public class MessageTracer implements MessageInterceptor {
 
 	@Override
 	public void sendRequest(Request request) {
-		LOGGER.info("{} <== req {}", new Object[]{request.getDestinationContext(), request});
+		LOGGER.info("{} <== req {}", request.getDestinationContext(), request);
 	}
 
 	@Override
 	public void sendResponse(Response response) {
-		LOGGER.info("{} <== res {}", new Object[]{response.getDestinationContext(), response});
+		LOGGER.info("{} <== res {}", response.getDestinationContext(), response);
 	}
 
 	@Override
 	public void sendEmptyMessage(EmptyMessage message) {
-		LOGGER.info("{} <== emp {}", new Object[]{message.getDestinationContext(), message});
+		LOGGER.info("{} <== emp {}", message.getDestinationContext(), message);
 	}
 
 	@Override
 	public void receiveRequest(Request request) {
-		LOGGER.info("{} ==> req {}", new Object[]{request.getSourceContext(), request});
+		LOGGER.info("{} ==> req {}", request.getSourceContext(), request);
 	}
 
 	@Override
 	public void receiveResponse(Response response) {
-		LOGGER.info("{} ==> res {}", new Object[]{response.getSourceContext(), response});
+		LOGGER.info("{} ==> res {}", response.getSourceContext(), response);
 	}
 
 	@Override
 	public void receiveEmptyMessage(EmptyMessage message) {
-		LOGGER.info("{} ==> emp {}", new Object[]{message.getSourceContext(), message});
+		LOGGER.info("{} ==> emp {}", message.getSourceContext(), message);
 	}
 }

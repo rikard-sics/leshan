@@ -25,16 +25,17 @@
 package org.eclipse.californium.core.network.stack;
 
 import org.eclipse.californium.core.network.Outbox;
-import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.server.MessageDeliverer;
 import org.eclipse.californium.elements.Connector;
+import org.eclipse.californium.elements.EndpointContextMatcher;
+import org.eclipse.californium.elements.config.Configuration;
 
 /**
  * The CoapTcpStack builds up the stack of CoAP layers that process the CoAP
  * protocol when running over TCP connection.
  * <p>
  * The complete process for incoming and outgoing messages is visualized below.
- * The class <code>CoapStack</code> builds up the part between the Stack Top and
+ * The class {@link CoapStack} builds up the part between the Stack Top and
  * Bottom.
  * <hr><blockquote><pre>
  * +--------------------------+
@@ -77,20 +78,38 @@ public class CoapTcpStack extends BaseCoapStack {
 	/**
 	 * Creates a new stack using TCP as the transport.
 	 * 
+	 * @param tag logging tag
 	 * @param config The configuration values to use.
-	 * @param outbox The adapter for submitting outbound messages to the transport.
+	 * @param matchingStrategy endpoint context matcher to relate responses with
+	 *            requests
+	 * @param outbox The adapter for submitting outbound messages to the
+	 *            transport.
+	 * @since 3.1
 	 */
-	public CoapTcpStack(final NetworkConfig config, final Outbox outbox) {
+	public CoapTcpStack(String tag, Configuration config, EndpointContextMatcher matchingStrategy, Outbox outbox) {
 		super(outbox);
 
-		Layer layers[] = new Layer[] {
-				new TcpExchangeCleanupLayer(),
-				new TcpObserveLayer(config),
-				new BlockwiseLayer(config),
-				new TcpAdaptionLayer() };
+		Layer layers[] = new Layer[] { new TcpExchangeCleanupLayer(), new TcpObserveLayer(config),
+				new BlockwiseLayer(tag, true, config, matchingStrategy), new TcpAdaptionLayer() };
 
 		setLayers(layers);
 
 		// make sure the endpoint sets a MessageDeliverer
+	}
+
+	/**
+	 * Creates a new stack using TCP as the transport.
+	 * 
+	 * @param tag logging tag
+	 * @param config The configuration values to use.
+	 * @param outbox The adapter for submitting outbound messages to the
+	 *            transport.
+	 * @deprecated use
+	 *             {@link #CoapTcpStack(String, Configuration, EndpointContextMatcher, Outbox)}
+	 *             instead.
+	 * @since 3.0 (logging tag added and changed parameter to Configuration)
+	 */
+	public CoapTcpStack(String tag, Configuration config, Outbox outbox) {
+		this(tag, config, null, outbox);
 	}
 }

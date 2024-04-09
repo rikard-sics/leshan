@@ -12,17 +12,17 @@
  * 
  * Contributors:
  *    Tobias Andersson (RISE SICS)
+ *    Rikard Höglund (RISE)
  *    
  ******************************************************************************/
 package org.eclipse.californium.oscore;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 import org.eclipse.californium.core.coap.Token;
 import org.eclipse.californium.cose.AlgorithmID;
+import org.eclipse.californium.elements.util.ExpectedExceptionWrapper;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -45,10 +45,10 @@ public class HashMapCtxDBTest {
 	private final byte[] modifiedRid = new byte[] { 0x01, 0x65, 0x72, 0x76, 0x65, 0x72 };
 	private final byte[] context_id = { 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74 };
 	private final byte[] context_id_2 = {  0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11 };
-	private final Integer seq = 42;
+	private final static int MAX_UNFRAGMENTED_SIZE = 4096;
 
 	@Rule
-	public final ExpectedException exception = ExpectedException.none();
+	public final ExpectedException exception = ExpectedExceptionWrapper.none();
 
 	@Before
 	public void setUp() throws Exception {
@@ -71,7 +71,7 @@ public class HashMapCtxDBTest {
 	public void testAddGetContextRid() throws OSException {
 		HashMapCtxDB db = new HashMapCtxDB();
 		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, AlgorithmID.HKDF_HMAC_SHA_256, 32, null,
-				null);
+				null, MAX_UNFRAGMENTED_SIZE);
 		db.addContext(ctx);
 
 		assertEquals(ctx, db.getContext(rid));
@@ -84,13 +84,13 @@ public class HashMapCtxDBTest {
 	 * Get a context using both RID and ID Context. Only a single context is
 	 * added to the context DB.
 	 * 
-	 * @throws OSException
+	 * @throws OSException on test failure
 	 */
 	@Test
 	public void testAddGetContextRidIDContext() throws OSException {
 		HashMapCtxDB db = new HashMapCtxDB();
 		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, AlgorithmID.HKDF_HMAC_SHA_256, 32, null,
-				context_id);
+				context_id, MAX_UNFRAGMENTED_SIZE);
 		db.addContext(ctx);
 
 		assertEquals(ctx, db.getContext(rid, ctx.getIdContext()));
@@ -103,15 +103,15 @@ public class HashMapCtxDBTest {
 	 * Get a context using both RID and ID Context. Multiple contexts are added
 	 * to the context DB.
 	 * 
-	 * @throws OSException
+	 * @throws OSException on test failure
 	 */
 	@Test
 	public void testAddGetContextRidIDContextMultiple() throws OSException {
 		HashMapCtxDB db = new HashMapCtxDB();
 		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, AlgorithmID.HKDF_HMAC_SHA_256, 32, null,
-				context_id);
+				context_id, MAX_UNFRAGMENTED_SIZE);
 		OSCoreCtx ctx2 = new OSCoreCtx(master_secret, true, alg, sid, rid, AlgorithmID.HKDF_HMAC_SHA_256, 32, null,
-				context_id_2);
+				context_id_2, MAX_UNFRAGMENTED_SIZE);
 		db.addContext(ctx);
 		db.addContext(ctx2);
 
@@ -126,15 +126,15 @@ public class HashMapCtxDBTest {
 	 * Get a context using only RID. Multiple contexts are added to the context
 	 * DB. But since only one matches the RID it is returned.
 	 * 
-	 * @throws OSException
+	 * @throws OSException on test failure
 	 */
 	@Test
 	public void testAddGetContextRidMultipleSuccess() throws OSException {
 		HashMapCtxDB db = new HashMapCtxDB();
 		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, AlgorithmID.HKDF_HMAC_SHA_256, 32, null,
-				context_id);
+				context_id, MAX_UNFRAGMENTED_SIZE);
 		OSCoreCtx ctx2 = new OSCoreCtx(master_secret, true, alg, sid, rid_2, AlgorithmID.HKDF_HMAC_SHA_256, 32, null,
-				context_id_2);
+				context_id_2, MAX_UNFRAGMENTED_SIZE);
 
 		db.addContext(ctx);
 		db.addContext(ctx2);
@@ -145,26 +145,23 @@ public class HashMapCtxDBTest {
 		assertNull(db.getContextByToken(token));
 	}
 
-	@Rule
-	public ExpectedException exceptionRule = ExpectedException.none();
-
 	/**
 	 * Get a context using only RID. Multiple contexts are added to the context
 	 * DB. Since both of them have the same RID, the retrieval fails since it's
 	 * not unique and the ID Context is not used to disambiguate.
 	 * 
-	 * @throws OSException
+	 * @throws OSException on test failure
 	 */
 	@Test
 	public void testAddGetContextRidMultipleFail() throws OSException {
-		exceptionRule.expect(CoapOSException.class);
-		exceptionRule.expectMessage(ErrorDescriptions.CONTEXT_NOT_FOUND_IDCONTEXT);
+		exception.expect(CoapOSException.class);
+		exception.expectMessage(ErrorDescriptions.CONTEXT_NOT_FOUND_IDCONTEXT);
 
 		HashMapCtxDB db = new HashMapCtxDB();
 		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, AlgorithmID.HKDF_HMAC_SHA_256, 32, null,
-				context_id);
+				context_id, MAX_UNFRAGMENTED_SIZE);
 		OSCoreCtx ctx2 = new OSCoreCtx(master_secret, true, alg, sid, rid, AlgorithmID.HKDF_HMAC_SHA_256, 32, null,
-				context_id_2);
+				context_id_2, MAX_UNFRAGMENTED_SIZE);
 
 		db.addContext(ctx);
 		db.addContext(ctx2);
@@ -181,17 +178,19 @@ public class HashMapCtxDBTest {
 	 * RID. In such case this RID must be unique. If a RID is used that is not
 	 * unique an exception should be thrown.
 	 * 
+	 * @throws OSException on test failure
+	 * 
 	 */
 	@Test
 	public void testRetrieveNonUniqueRID() throws OSException {
-		exceptionRule.expect(RuntimeException.class);
-		exceptionRule.expectMessage("Attempting to retrieve context with only non-unique RID.");
+		exception.expect(RuntimeException.class);
+		exception.expectMessage("Attempting to retrieve context with only non-unique RID.");
 
 		HashMapCtxDB db = new HashMapCtxDB();
 		OSCoreCtx ctx1 = new OSCoreCtx(master_secret, true, alg, sid, rid, AlgorithmID.HKDF_HMAC_SHA_256, 32, null,
-				context_id);
+				context_id, MAX_UNFRAGMENTED_SIZE);
 		OSCoreCtx ctx2 = new OSCoreCtx(master_secret, true, alg, sid, rid, AlgorithmID.HKDF_HMAC_SHA_256, 32, null,
-				context_id_2);
+				context_id_2, MAX_UNFRAGMENTED_SIZE);
 
 		db.addContext(ctx1);
 		db.addContext(ctx2);
@@ -203,7 +202,7 @@ public class HashMapCtxDBTest {
 	public void testAddGetContextUri() throws OSException {
 		HashMapCtxDB db = new HashMapCtxDB();
 		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, AlgorithmID.HKDF_HMAC_SHA_256, 32, null,
-				null);
+				null, MAX_UNFRAGMENTED_SIZE);
 		db.addContext(uri, ctx);
 
 		assertEquals(ctx, db.getContext(rid));
@@ -217,7 +216,7 @@ public class HashMapCtxDBTest {
 	public void testAddGetContextToken() throws OSException {
 		HashMapCtxDB db = new HashMapCtxDB();
 		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, AlgorithmID.HKDF_HMAC_SHA_256, 32, null,
-				null);
+				null, MAX_UNFRAGMENTED_SIZE);
 		db.addContext(token, ctx);
 
 		assertEquals(ctx, db.getContext(rid));
@@ -227,68 +226,4 @@ public class HashMapCtxDBTest {
 		assertNull(db.getContextByToken(modifiedToken));
 	}
 
-	@Test
-	public void testNullSeqByToken() throws OSException {
-		HashMapCtxDB db = new HashMapCtxDB();
-		exception.expect(NullPointerException.class);
-
-		db.addSeqByToken(token, null);
-	}
-
-	@Test
-	public void testSeqByNullToken() throws OSException {
-		HashMapCtxDB db = new HashMapCtxDB();
-		exception.expect(NullPointerException.class);
-
-		db.addSeqByToken(null, seq);
-	}
-
-	@Test
-	public void testSeqBytToken() throws OSException {
-		HashMapCtxDB db = new HashMapCtxDB();
-		db.addSeqByToken(token, seq);
-
-		assertEquals(seq, db.getSeqByToken(token));
-		assertNull(db.getSeqByToken(modifiedToken));
-	}
-
-	@Test
-	public void testRemoveSeqBytToken() throws OSException {
-		HashMapCtxDB db = new HashMapCtxDB();
-		db.addSeqByToken(token, seq);
-		db.removeSeqByToken(token);
-
-		assertNull(db.getSeqByToken(token));
-		assertFalse(db.tokenExist(token));
-	}
-
-	@Test
-	public void testUpdateNonExistentSeqByToken() {
-		HashMapCtxDB db = new HashMapCtxDB();
-
-		try {
-			db.updateSeqByToken(null, seq);
-			db.updateSeqByToken(token, 44);
-		} catch (NullPointerException e) {
-			assertEquals(ErrorDescriptions.TOKEN_NULL, e.getMessage());
-		}
-
-		try {
-			db.updateSeqByToken(token, -5);
-		} catch (Exception e) {
-			assertEquals(ErrorDescriptions.SEQ_NBR_INVALID, e.getMessage());
-		}
-
-		assertFalse(db.tokenExist(token));
-		assertNull(db.getSeqByToken(token));
-	}
-
-	@Test
-	public void testTokenExists() throws OSException {
-		HashMapCtxDB db = new HashMapCtxDB();
-		db.addSeqByToken(token, seq);
-
-		assertTrue(db.tokenExist(token));
-		assertFalse(db.tokenExist(modifiedToken));
-	}
 }

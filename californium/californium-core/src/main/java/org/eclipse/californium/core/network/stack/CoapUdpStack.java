@@ -24,20 +24,19 @@
  ******************************************************************************/
 package org.eclipse.californium.core.network.stack;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import org.eclipse.californium.core.network.ExtendedCoapStackFactory;
 import org.eclipse.californium.core.network.Outbox;
-import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.server.MessageDeliverer;
 import org.eclipse.californium.elements.Connector;
+import org.eclipse.californium.elements.EndpointContextMatcher;
+import org.eclipse.californium.elements.config.Configuration;
 
 /**
  * The CoAPStack builds up the stack of CoAP layers that process the CoAP
  * protocol.
  * <p>
  * The complete process for incoming and outgoing messages is visualized below.
- * The class <code>CoapStack</code> builds up the part between the Stack Top and
+ * The class {@link CoapStack} builds up the part between the Stack Top and
  * Bottom.
  * <hr><blockquote><pre>
  * +--------------------------+
@@ -74,49 +73,106 @@ import org.eclipse.californium.elements.Connector;
  * | {@link Connector}                |
  * +--------------------------+
  * </pre></blockquote><hr>
+ * 
+ * Note: since 3.1 the create-layer methods have been deprecated. If your usage
+ * requires to have custom layers, please implement a own {@link CoapStack} and
+ * use the {@link ExtendedCoapStackFactory} to provide instances of that custom
+ * implementation.
  */
 public class CoapUdpStack extends BaseCoapStack {
-
-	/** The LOGGER. */
-	private final static Logger LOGGER = LoggerFactory.getLogger(CoapStack.class);
 
 	/**
 	 * Creates a new stack for UDP as the transport.
 	 * 
+	 * Note: in order to match blockwise follow up requests, this constructor is
+	 * required. It doesn't longer call the create-layer functions. If that is
+	 * required, please use a own custom implementation of the {@link CoapStack}
+	 * and the {@link ExtendedCoapStackFactory} to provide instances of that
+	 * custom implementation.
+	 * 
+	 * @param tag logging tag
 	 * @param config The configuration values to use.
-	 * @param outbox The adapter for submitting outbound messages to the transport.
+	 * @param matchingStrategy endpoint context matcher to relate responses with
+	 *            requests
+	 * @param outbox The adapter for submitting outbound messages to the
+	 *            transport.
+	 * @since 3.1
 	 */
-	public CoapUdpStack(final NetworkConfig config, final Outbox outbox) {
+	public CoapUdpStack(String tag, Configuration config, EndpointContextMatcher matchingStrategy, Outbox outbox) {
 		super(outbox);
-		Layer layers[] = new Layer[] {
-				createExchangeCleanupLayer(config),
-				createObserveLayer(config),
-				createBlockwiseLayer(config),
-				createReliabilityLayer(config)};
+		Layer[] layers = new Layer[] { new ExchangeCleanupLayer(config), new ObserveLayer(config),
+				new BlockwiseLayer(tag, false, config, matchingStrategy),
+				CongestionControlLayer.newImplementation(tag, config) };
+		setLayers(layers);
+	}
+
+	/**
+	 * Creates a new stack for UDP as the transport.
+	 * 
+	 * @param tag logging tag
+	 * @param config The configuration values to use.
+	 * @param outbox The adapter for submitting outbound messages to the
+	 *            transport.
+	 * @deprecated use
+	 *             {@link #CoapUdpStack(String, Configuration, EndpointContextMatcher, Outbox)}
+	 *             instead
+	 * @since 3.0 (logging tag added and changed parameter to Configuration)
+	 */
+	public CoapUdpStack(String tag, Configuration config, Outbox outbox) {
+		super(outbox);
+		Layer layers[] = new Layer[] { createExchangeCleanupLayer(config), createObserveLayer(config),
+				createBlockwiseLayer(tag, config), createReliabilityLayer(tag, config) };
 
 		setLayers(layers);
 	}
 
-	protected Layer createExchangeCleanupLayer(NetworkConfig config) {
+	/**
+	 * Create exchange cleanup layer.
+	 * 
+	 * @param config configuration
+	 * @return exchange cleanup layer
+	 * @deprecated use a custom implementation of the {@link CoapStack} and the
+	 *             {@link ExtendedCoapStackFactory} instead.
+	 */
+	protected Layer createExchangeCleanupLayer(Configuration config) {
 		return new ExchangeCleanupLayer(config);
 	}
 
-	protected Layer createObserveLayer(NetworkConfig config) {
+	/**
+	 * Create observe layer.
+	 * 
+	 * @param config configuration
+	 * @return observe layer
+	 * @deprecated use a custom implementation of the {@link CoapStack} and the
+	 *             {@link ExtendedCoapStackFactory} instead.
+	 */
+	protected Layer createObserveLayer(Configuration config) {
 		return new ObserveLayer(config);
 	}
 
-	protected Layer createBlockwiseLayer(NetworkConfig config) {
-		return new BlockwiseLayer(config);
+	/**
+	 * Create blockwise layer.
+	 * 
+	 * @param tag logging tag
+	 * @param config configuration
+	 * @return blockwise layer
+	 * @deprecated use a custom implementation of the {@link CoapStack} and the
+	 *             {@link ExtendedCoapStackFactory} instead.
+	 */
+	protected Layer createBlockwiseLayer(String tag, Configuration config) {
+		return new BlockwiseLayer(tag, false, config);
 	}
 
-	protected Layer createReliabilityLayer(NetworkConfig config) {
-		ReliabilityLayer reliabilityLayer;
-		if (config.getBoolean(NetworkConfig.Keys.USE_CONGESTION_CONTROL) == true) {
-			reliabilityLayer = CongestionControlLayer.newImplementation(config);
-			LOGGER.info("Enabling congestion control: {}", reliabilityLayer.getClass().getSimpleName());
-		} else {
-			reliabilityLayer = new ReliabilityLayer(config);
-		}
-		return reliabilityLayer;
+	/**
+	 * Create reliability layer.
+	 * 
+	 * @param tag logging tag
+	 * @param config configuration
+	 * @return reliability layer
+	 * @deprecated use a custom implementation of the {@link CoapStack} and the
+	 *             {@link ExtendedCoapStackFactory} instead.
+	 */
+	protected Layer createReliabilityLayer(String tag, Configuration config) {
+		return CongestionControlLayer.newImplementation(tag, config);
 	}
 }

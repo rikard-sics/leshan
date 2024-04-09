@@ -16,14 +16,14 @@
 package org.eclipse.californium.scandium.dtls;
 
 import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.fail;
-
-import java.net.InetSocketAddress;
 
 import org.eclipse.californium.elements.category.Small;
 import org.eclipse.californium.elements.util.DatagramReader;
+import org.eclipse.californium.elements.util.DatagramWriter;
 import org.eclipse.californium.scandium.dtls.HelloExtension.ExtensionType;
+import org.eclipse.californium.scandium.dtls.MaxFragmentLengthExtension.Length;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -74,13 +74,15 @@ public class MaxFragmentLengthExtensionTest {
 		// when serializing the extension
 		HelloExtensions helloExtensions = new HelloExtensions();
 		helloExtensions.addExtension(extension);
-		maxFragmentLengthStructure = helloExtensions.toByteArray();
+		DatagramWriter writer = new DatagramWriter();
+		helloExtensions.writeTo(writer);
+		maxFragmentLengthStructure = writer.toByteArray();
 
 		assertThat(maxFragmentLengthStructure, is(EXT_512_BYTES));
 	}
 
 	private void givenA512ByteMaxFragmentLengthExtension() {
-		extension = new MaxFragmentLengthExtension(1);
+		extension = new MaxFragmentLengthExtension(Length.BYTES_512);
 	}
 
 	private void givenAMaxFragmentLengthStruct(byte code) {
@@ -92,8 +94,8 @@ public class MaxFragmentLengthExtensionTest {
 	}
 
 	private void whenParsingTheExtensionStruct() throws HandshakeException {
-		HelloExtensions helloExtions = HelloExtensions.fromReader(new DatagramReader(maxFragmentLengthStructure), new InetSocketAddress(0));
-		extension = (MaxFragmentLengthExtension) 
+		HelloExtensions helloExtions = HelloExtensions.fromReader(new DatagramReader(maxFragmentLengthStructure));
+		extension = (MaxFragmentLengthExtension)
 				helloExtions.getExtension(ExtensionType.MAX_FRAGMENT_LENGTH);
 	}
 }

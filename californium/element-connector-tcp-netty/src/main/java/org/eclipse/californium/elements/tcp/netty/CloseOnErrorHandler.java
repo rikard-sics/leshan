@@ -20,6 +20,7 @@ package org.eclipse.californium.elements.tcp.netty;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.security.GeneralSecurityException;
 import java.util.concurrent.RejectedExecutionException;
 
@@ -29,8 +30,9 @@ import org.eclipse.californium.elements.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.netty.channel.ChannelHandlerAdapter;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.handler.ssl.NotSslRecordException;
 
 /**
  * Channel handler that closes connection if an exception was raised. Use the
@@ -43,9 +45,11 @@ import io.netty.channel.ChannelHandlerContext;
  * all other exceptions are logged as ERROR with a stack trace of the provided
  * cause.
  */
-class CloseOnErrorHandler extends ChannelHandlerAdapter {
+class CloseOnErrorHandler extends ChannelInboundHandlerAdapter {
 
 	private final static Logger LOGGER = LoggerFactory.getLogger(CloseOnErrorHandler.class);
+
+	private final static Logger LOGGER_BAN = LoggerFactory.getLogger("org.eclipse.californium.ban");
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
@@ -57,9 +61,13 @@ class CloseOnErrorHandler extends ChannelHandlerAdapter {
 			Throwable rootCause = cause;
 			while (null != rootCause.getCause()) {
 				rootCause = rootCause.getCause();
+				if (rootCause instanceof SSLException || rootCause instanceof GeneralSecurityException
+						|| rootCause instanceof RejectedExecutionException) {
+					break;
+				}
 			}
 			String error = rootCause.toString();
-			String remote = StringUtil.toString((InetSocketAddress) ctx.channel().remoteAddress());
+			String remote = StringUtil.toString(ctx.channel().remoteAddress());
 			if (rootCause instanceof SSLException || rootCause instanceof GeneralSecurityException
 					|| rootCause instanceof RejectedExecutionException) {
 				if (LOGGER.isDebugEnabled()) {
@@ -72,6 +80,17 @@ class CloseOnErrorHandler extends ChannelHandlerAdapter {
 				LOGGER.warn("{} in channel handler chain for endpoint {}. Closing connection.", error, remote);
 			} else {
 				LOGGER.error("{} in channel handler chain for endpoint {}. Closing connection.", error, cause);
+			}
+
+			if (LOGGER_BAN.isInfoEnabled()) {
+				boolean ban = rootCause instanceof NotSslRecordException;
+				if (ban) {
+					SocketAddress remoteAddress = ctx.channel().remoteAddress();
+					if (remoteAddress instanceof InetSocketAddress) {
+						remote = ((InetSocketAddress) remoteAddress).getAddress().getHostAddress();
+						LOGGER_BAN.info("TLS Ban: {}", remote);
+					}
+				}
 			}
 		} finally {
 			ctx.close();

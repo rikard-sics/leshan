@@ -49,29 +49,31 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import javax.crypto.SecretKey;
+
 import org.eclipse.californium.cli.ClientConfig;
 import org.eclipse.californium.cli.ClientInitializer;
 import org.eclipse.californium.cli.ConnectorConfig;
 import org.eclipse.californium.cli.ConnectorConfig.AuthenticationMode;
 import org.eclipse.californium.core.CoapClient;
 import org.eclipse.californium.core.CoapHandler;
+import org.eclipse.californium.core.CoapObserveRelation;
 import org.eclipse.californium.core.CoapResponse;
 import org.eclipse.californium.core.CoapServer;
 import org.eclipse.californium.core.Utils;
+import org.eclipse.californium.core.coap.BlockOption;
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.CoAP.Code;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
 import org.eclipse.californium.core.coap.EndpointContextTracer;
+import org.eclipse.californium.core.coap.Message.OffloadMode;
 import org.eclipse.californium.core.coap.MessageObserver;
 import org.eclipse.californium.core.coap.MessageObserverAdapter;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.ResponseTimeout;
-import org.eclipse.californium.core.coap.Message.OffloadMode;
+import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.Endpoint;
-import org.eclipse.californium.core.network.config.NetworkConfig;
-import org.eclipse.californium.core.network.config.NetworkConfig.Keys;
-import org.eclipse.californium.core.network.config.NetworkConfigDefaultHandler;
 import org.eclipse.californium.core.network.interceptors.HealthStatisticLogger;
 import org.eclipse.californium.core.network.interceptors.MessageTracer;
 import org.eclipse.californium.core.observe.ObserveRelation;
@@ -81,13 +83,23 @@ import org.eclipse.californium.elements.Connector;
 import org.eclipse.californium.elements.DtlsEndpointContext;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.MapBasedEndpointContext;
+import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.config.Configuration.DefinitionsProvider;
+import org.eclipse.californium.elements.config.IntegerDefinition;
+import org.eclipse.californium.elements.config.SystemConfig;
+import org.eclipse.californium.elements.config.TcpConfig;
+import org.eclipse.californium.elements.config.TimeDefinition;
+import org.eclipse.californium.elements.config.UdpConfig;
 import org.eclipse.californium.elements.util.ClockUtil;
 import org.eclipse.californium.elements.util.DaemonThreadFactory;
 import org.eclipse.californium.elements.util.ExecutorsUtil;
+import org.eclipse.californium.elements.util.FilteredLogger;
 import org.eclipse.californium.elements.util.NamedThreadFactory;
 import org.eclipse.californium.elements.util.StringUtil;
+import org.eclipse.californium.elements.util.TimeStatistic;
 import org.eclipse.californium.extplugtests.resources.Feed;
 import org.eclipse.californium.scandium.DTLSConnector;
+import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.dtls.cipher.RandomManager;
 import org.eclipse.californium.scandium.dtls.cipher.ThreadLocalKeyPairGenerator;
 import org.eclipse.californium.unixhealth.NetStatLogger;
@@ -96,7 +108,10 @@ import org.slf4j.LoggerFactory;
 
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.ParameterException;
+import picocli.CommandLine.Spec;
 
 /**
  * Simple benchmark client.
@@ -109,26 +124,17 @@ public class BenchmarkClient {
 	/** The logger. */
 	private static final Logger LOGGER = LoggerFactory.getLogger(BenchmarkClient.class);
 
-	private static final Logger STATISTIC_LOGGER = LoggerFactory.getLogger("org.eclipse.californium.extplugtests.statistics");
+	private static final Logger STATISTIC_LOGGER = LoggerFactory
+			.getLogger("org.eclipse.californium.extplugtests.statistics");
 
 	/**
-	 * File name for network configuration.
+	 * File name for configuration.
 	 */
-	private static final File CONFIG_FILE = new File("CaliforniumBenchmark.properties");
+	private static final File CONFIG_FILE = new File("CaliforniumBenchmark3.properties");
 	/**
-	 * File name for reverse server network configuration. Used for reverse
-	 * request including observes.
-	 */
-	private static final File REVERSE_SERVER_CONFIG_FILE = new File("CaliforniumReverseServer.properties");
-	/**
-	 * Header for network configuration.
+	 * Header for configuration.
 	 */
 	private static final String CONFIG_HEADER = "Californium CoAP Properties file for Benchmark Client";
-	/**
-	 * Header for reverse server network configuration. Used for reverse request
-	 * including observes.
-	 */
-	private static final String REVERSE_SERVER_CONFIG_HEADER = "Californium CoAP Properties file for Reverse-Server in Client";
 	/**
 	 * Default maximum resource size.
 	 */
@@ -137,11 +143,6 @@ public class BenchmarkClient {
 	 * Default block size.
 	 */
 	private static final int DEFAULT_BLOCK_SIZE = 1024;
-	/**
-	 * Default block size for reverse server. Used for reverse request including
-	 * observes.
-	 */
-	private static final int DEFAULT_REVERSE_SERVER_BLOCK_SIZE = 64;
 	/**
 	 * Default number of clients.
 	 */
@@ -152,8 +153,8 @@ public class BenchmarkClient {
 	private static final String DEFAULT_REQUESTS = "100";
 
 	/**
-	 * NetworkConfig key for number of threads used per client. {@code 0} to use
-	 * a shared thread pool.
+	 * Definition for number of threads used per client. {@code 0} to use a
+	 * shared thread pool.
 	 * <p>
 	 * Default: {@code 0}, use shared thread pool
 	 * <p>
@@ -161,86 +162,109 @@ public class BenchmarkClient {
 	 * least it's own receiver thread. So the number of threads is considered to
 	 * be used for the other components used by a client.
 	 */
-	private static final String KEY_BENCHMARK_CLIENT_THREADS = "BENCHMARK_CLIENT_THREADS";
+	private static final IntegerDefinition BENCHMARK_CLIENT_THREADS = new IntegerDefinition("BENCHMARK_CLIENT_THREADS",
+			"Number of threads used per client. 0 to use a shared thread pool.");
+	/**
+	 * Response timeout for requests.
+	 * 
+	 * NON request may be limited by a smaller {@link CoapConfig#NON_LIFETIME}.
+	 * 
+	 * @since 3.1
+	 */
+	private static final TimeDefinition BENCHMARK_RESPONSE_TIMEOUT = new TimeDefinition("BENCHMARK_RESPONSE_TIMEOUT",
+			"Response timeout.", 30, TimeUnit.SECONDS);
 
 	private static final ThreadGroup CLIENT_THREAD_GROUP = new ThreadGroup("Client"); //$NON-NLS-1$
 
 	private static final NamedThreadFactory threadFactory = new DaemonThreadFactory("Client#", CLIENT_THREAD_GROUP);
 	/**
-	 * Special network configuration defaults handler.
+	 * Special configuration defaults handler.
 	 */
-	private static NetworkConfigDefaultHandler DEFAULTS = new NetworkConfigDefaultHandler() {
+	private static DefinitionsProvider DEFAULTS = new DefinitionsProvider() {
 
 		@Override
-		public void applyDefaults(NetworkConfig config) {
-			config.setInt(Keys.MAX_RESOURCE_BODY_SIZE, DEFAULT_MAX_RESOURCE_SIZE);
-			config.setInt(Keys.MAX_MESSAGE_SIZE, DEFAULT_BLOCK_SIZE);
-			config.setInt(Keys.PREFERRED_BLOCK_SIZE, DEFAULT_BLOCK_SIZE);
-			config.setInt(Keys.MAX_ACTIVE_PEERS, 10);
-			config.setInt(Keys.PEERS_MARK_AND_SWEEP_MESSAGES, 16);
-			config.setString(Keys.DEDUPLICATOR, Keys.DEDUPLICATOR_PEERS_MARK_AND_SWEEP);
-			config.setInt(Keys.NON_LIFETIME, 15 * 1000); // lifetime / timeout for non-requests
-			config.setInt(Keys.DTLS_AUTO_RESUME_TIMEOUT, 0);
-			config.setInt(Keys.DTLS_CONNECTION_ID_LENGTH, 0); // support it, but don't use it
-			config.setInt(Keys.MAX_PEER_INACTIVITY_PERIOD, 60 * 60 * 24); // 24h
-			config.setInt(Keys.TCP_CONNECTION_IDLE_TIMEOUT, 60 * 60 * 12); // 12h
-			config.setInt(Keys.TCP_CONNECT_TIMEOUT, 30 * 1000); // 20s
-			config.setInt(Keys.TLS_HANDSHAKE_TIMEOUT, 30 * 1000); // 20s
-			config.setInt(Keys.TCP_WORKER_THREADS, 2);
-			config.setInt(Keys.NETWORK_STAGE_RECEIVER_THREAD_COUNT, 1);
-			config.setInt(Keys.NETWORK_STAGE_SENDER_THREAD_COUNT, 1);
-			config.setInt(Keys.PROTOCOL_STAGE_THREAD_COUNT, 1);
-			config.setInt(Keys.UDP_CONNECTOR_RECEIVE_BUFFER, 8192);
-			config.setInt(Keys.UDP_CONNECTOR_SEND_BUFFER, 8192);
-			config.setInt(Keys.HEALTH_STATUS_INTERVAL, 0);
-			config.setInt(KEY_BENCHMARK_CLIENT_THREADS, 0);
-			config.setInt(ClientInitializer.KEY_DTLS_RETRANSMISSION_TIMEOUT, 2000);
-			config.setInt(ClientInitializer.KEY_DTLS_RETRANSMISSION_MAX, 2);
+		public void applyDefinitions(Configuration config) {
+			config.set(BENCHMARK_CLIENT_THREADS, 0);
+			config.set(BENCHMARK_RESPONSE_TIMEOUT, 30, TimeUnit.SECONDS);
+			config.set(CoapConfig.MAX_RESOURCE_BODY_SIZE, DEFAULT_MAX_RESOURCE_SIZE);
+			config.set(CoapConfig.MAX_MESSAGE_SIZE, DEFAULT_BLOCK_SIZE);
+			config.set(CoapConfig.PREFERRED_BLOCK_SIZE, DEFAULT_BLOCK_SIZE);
+			config.set(CoapConfig.MAX_ACTIVE_PEERS, 10);
+			config.set(CoapConfig.PEERS_MARK_AND_SWEEP_MESSAGES, 16);
+			config.set(CoapConfig.DEDUPLICATOR, CoapConfig.DEDUPLICATOR_PEERS_MARK_AND_SWEEP);
+			config.set(CoapConfig.MAX_PEER_INACTIVITY_PERIOD, 24, TimeUnit.HOURS);
+			config.set(CoapConfig.PROTOCOL_STAGE_THREAD_COUNT, 1);
+			// enabled by cli option, see "--bertblocks".
+			config.set(CoapConfig.TCP_NUMBER_OF_BULK_BLOCKS, 1);
+			config.set(TcpConfig.TCP_CONNECTION_IDLE_TIMEOUT, 12, TimeUnit.HOURS);
+			config.set(TcpConfig.TCP_CONNECT_TIMEOUT, 30, TimeUnit.SECONDS);
+			config.set(TcpConfig.TLS_HANDSHAKE_TIMEOUT, 30, TimeUnit.SECONDS);
+			config.set(TcpConfig.TLS_VERIFY_SERVER_CERTIFICATES_SUBJECT, false);
+			config.set(TcpConfig.TCP_WORKER_THREADS, 1);
+			config.set(UdpConfig.UDP_RECEIVER_THREAD_COUNT, 1);
+			config.set(UdpConfig.UDP_SENDER_THREAD_COUNT, 1);
+			config.set(UdpConfig.UDP_RECEIVE_BUFFER_SIZE, 8192);
+			config.set(UdpConfig.UDP_SEND_BUFFER_SIZE, 8192);
+			config.set(DtlsConfig.DTLS_RECEIVER_THREAD_COUNT, 1);
+			config.set(DtlsConfig.DTLS_MAX_CONNECTIONS, 10);
+			config.set(DtlsConfig.DTLS_MAX_RETRANSMISSIONS, 2);
+			config.set(DtlsConfig.DTLS_AUTO_HANDSHAKE_TIMEOUT, null, TimeUnit.SECONDS);
+			// support CID, but don't use for received records
+			config.set(DtlsConfig.DTLS_CONNECTION_ID_LENGTH, 0);
+			config.set(DtlsConfig.DTLS_RECEIVE_BUFFER_SIZE, 8192);
+			config.set(DtlsConfig.DTLS_SEND_BUFFER_SIZE, 8192);
+			config.set(DtlsConfig.DTLS_VERIFY_SERVER_CERTIFICATES_SUBJECT, false);
+			config.set(DtlsConfig.DTLS_REMOVE_STALE_DOUBLE_PRINCIPALS, false);
+			config.set(SystemConfig.HEALTH_STATUS_INTERVAL, 0, TimeUnit.SECONDS); // disabled
 		}
 
 	};
 
-	/**
-	 * Special reverse server network configuration defaults handler. Used for
-	 * reverse request including observes.
-	 */
-	private static NetworkConfigDefaultHandler REVERSE_DEFAULTS = new NetworkConfigDefaultHandler() {
-
-		@Override
-		public void applyDefaults(NetworkConfig config) {
-			DEFAULTS.applyDefaults(config);
-			config.setInt(Keys.MAX_MESSAGE_SIZE, DEFAULT_REVERSE_SERVER_BLOCK_SIZE);
-			config.setInt(Keys.PREFERRED_BLOCK_SIZE, DEFAULT_REVERSE_SERVER_BLOCK_SIZE);
-		}
-	};
-
-	@Command(name = "BenchmarkClient", version = "(c) 2018-2020, Bosch.IO GmbH and others.",
-			footer = {
-					"",
-					"Examples:",
-					"  BenchmarkClient coap://localhost:5783/benchmark?rlen=200 \\",
-					"     --clients 500 --requests 2000",
-					"  (Benchmark 500 clients each sending about 2000 request",
-					"   and the response should have 200 bytes payload.)",
-					"",
-					"  BenchmarkClient coap://localhost:5783/reverse-observe?\\",
-					"     obs=25&res=feed-CON&timeout=10&rlen=400 \\",
-					"     --clients 50 --requests 2 --reverse 500 --min 2000",
-					"  (Reverse-observe benchmark using 50 clients each sending 2 requests",
-					"   and waiting for about 500 notifies each client. The notifies are",
-					"   sent as CON every 2000ms and have 400 bytes payload.",
-					"   A blocksize of 64 bytes is used, as defined in",
-					"   \"CaliforniumReverseServer.properties\".)",
-					"",
-					"Note: californium.eclipseprojects.io doesn't support a benchmark",
-					"      and will response with 5.01, NOT_IMPLEMENTED!"
-			})
+	@Command(name = "BenchmarkClient", version = "(c) 2018-2020, Bosch.IO GmbH and others.", footer = { "", "Examples:",
+			"  BenchmarkClient coap://localhost:5783/benchmark?rlen=200 \\", "     --clients 500 --requests 2000",
+			"  (Benchmark 500 clients each sending about 2000 request",
+			"   and the response should have 200 bytes payload.)", "",
+			"  BenchmarkClient coap://localhost:5783/reverse-observe?\\",
+			"     obs=25&res=feed-CON&timeout=10&rlen=400 \\",
+			"     --clients 50 --requests 2 --reverse 500 --min 2000",
+			"  (Reverse-observe benchmark using 50 clients each sending 2 requests",
+			"   and waiting for about 500 notifies each client. The notifies are",
+			"   sent as CON every 2000ms and have 400 bytes payload.",
+			"   A blocksize of 64 bytes is used, as defined in", "   \"CaliforniumReverseServer.properties\".)", "",
+			"Note: californium.eclipseprojects.io doesn't support a benchmark",
+			"      and will response with 5.01, NOT_IMPLEMENTED!" })
 	private static class Config extends ClientConfig {
+
 		@Option(names = "--clients", defaultValue = DEFAULT_CLIENTS, description = "number of clients. Default ${DEFAULT-VALUE}.")
 		public int clients;
 
 		@Option(names = "--requests", defaultValue = DEFAULT_REQUESTS, description = "number of requests. Default ${DEFAULT-VALUE}.")
 		public int requests;
+
+		/**
+		 * Command spec for {@link ParameterException}.
+		 * 
+		 * @since 3.0
+		 */
+		@Spec
+		CommandSpec spec; // injected by picocli
+
+		/**
+		 * Blockwise options.
+		 * 
+		 * @since 3.0
+		 */
+		@ArgGroup(exclusive = true)
+		BlockwiseOptions blockwiseOptions;
+
+		static class BlockwiseOptions {
+
+			@Option(names = "--blocksize", description = "use blocksize [16, 32, ..., 1024]. Default according CaliforniumBenchmark.properties.")
+			public Integer blocksize;
+
+			@Option(names = "--bertblocks", description = "number of block used for bert-blockwise (TCP only). Default according CaliforniumBenchmark.properties.")
+			public Integer bertBlocks;
+		}
 
 		@Option(names = "--timeout", description = "timeout of requests in milliseconds.")
 		public Integer timeout;
@@ -263,18 +287,20 @@ public class BenchmarkClient {
 		@Option(names = "--handshakes-burst", description = "number of closes or full-handshakes in sequence.")
 		public Integer bursts;
 
-		@ArgGroup(exclusive = false)
-		Reverse reverse;
+		@Option(names = "--nstart", description = "number of concurrent requests.")
+		public Integer nstart;
 
 		static class Reverse {
 
 			@Option(names = "--reverse", required = true, description = "number of reverse responses.")
 			public Integer responses;
 
-			@Option(names = { "--min", "--mininterval" }, required = false, description = "minimal interval of reverse responses.")
+			@Option(names = { "--min",
+					"--mininterval" }, required = false, description = "minimal interval of reverse responses.")
 			public Integer min;
 
-			@Option(names = { "--max", "--maxinterval" }, required = false, description = "maximal interval of reverse responses.")
+			@Option(names = { "--max",
+					"--maxinterval" }, required = false, description = "maximal interval of reverse responses.")
 			public Integer max;
 
 			void defaults() {
@@ -295,10 +321,60 @@ public class BenchmarkClient {
 			}
 		}
 
+		static class Observe {
+
+			@Option(names = "--notifies", required = true, description = "number of notify responses.")
+			public int notifies;
+
+			@Option(names = "--reregister", required = false, description = "number of notify responses to reregister observe.")
+			public int reregister = 0;
+
+			@Option(names = "--register", required = false, description = "number of notify responses to register observe.")
+			public int register = 0;
+
+			@Option(names = "--cancel-proactive", required = false, description = "cancel observe relation proactive. Default is reactive.")
+			public boolean proactive = false;
+		}
+
+		@ArgGroup(exclusive = true)
+		Mode mode;
+
+		static class Mode {
+			@ArgGroup(exclusive = false)
+			Observe observe_;
+
+			@ArgGroup(exclusive = false)
+			Reverse reverse_;
+
+		}
+
+		Observe observe;
+
+		Reverse reverse;
+
+		boolean multipleObserveRequests;
+
 		public void defaults() {
 			super.defaults();
-			if (reverse != null) {
-				reverse.defaults();
+			if (blockwiseOptions != null && blockwiseOptions.blocksize != null) {
+				if (blockwiseOptions.blocksize > 1024
+						|| blockwiseOptions.blocksize != Integer.highestOneBit(blockwiseOptions.blocksize)) {
+					throw new ParameterException(spec.commandLine(),
+							String.format(
+									"Invalid value '%s' for option '--blocksize': value is not [16, 32, ..., 1024].",
+									blockwiseOptions.blocksize));
+				}
+			}
+
+			if (mode != null) {
+				if (mode.reverse_ != null) {
+					reverse = mode.reverse_;
+					reverse.defaults();
+				} else if (mode.observe_ != null) {
+					observe = mode.observe_;
+					requests = 1;
+					multipleObserveRequests = mode.observe_.register > 0;
+				}
 			}
 			if (hono == null) {
 				String honoMode = StringUtil.getConfiguration("COAP_HONO");
@@ -320,6 +396,9 @@ public class BenchmarkClient {
 				Long value = StringUtil.getConfigurationLong("COAPS_HANDSHAKES_BURST");
 				bursts = value != null ? value.intValue() : 0;
 			}
+			if (requests < 1) {
+				requests = 1;
+			}
 		}
 	}
 
@@ -332,6 +411,10 @@ public class BenchmarkClient {
 	private static final long DEFAULT_TIMEOUT_SECONDS = 10;
 	private static final long DEFAULT_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(DEFAULT_TIMEOUT_SECONDS);
 	private static final long DTLS_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(120);
+
+	private static final FilteredLogger errorResponseFilter = new FilteredLogger(LOGGER.getName(), 5, DEFAULT_TIMEOUT_NANOS);
+	private static final FilteredLogger errorFilter = new FilteredLogger(LOGGER.getName(), 3, DEFAULT_TIMEOUT_NANOS);
+
 	/**
 	 * Atomic down-counter for overall requests.
 	 */
@@ -345,17 +428,35 @@ public class BenchmarkClient {
 	 */
 	private static final CountDownLatch overallRequestsDone = new CountDownLatch(1);
 	/**
-	 * Overall reverse responses down-counter.
+	 * Done indicator for overall reverse responses.
 	 */
-	private static CountDownLatch overallReverseResponsesDownCounter;
+	private static final CountDownLatch overallReveresResponsesDone = new CountDownLatch(1);
+	/**
+	 * Atomic down-counter for overall reverse responses.
+	 */
+	private static final AtomicLong overallReverseResponsesDownCounter = new AtomicLong();
+	/**
+	 * Done indicator for overall notifies.
+	 */
+	private static final CountDownLatch overallNotifiesDone = new CountDownLatch(1);
+	/**
+	 * Atomic down-counter for overall notifies.
+	 */
+	private static final AtomicLong overallNotifiesDownCounter = new AtomicLong();
 	/**
 	 * Client counter.
 	 */
 	private static final AtomicInteger clientCounter = new AtomicInteger();
 	/**
-	 * Client counter.
+	 * Initial connect counter. On success, matches client counter.
 	 */
-	private static final AtomicInteger connectDownCounter = new AtomicInteger();
+	private static final AtomicInteger initialConnectDownCounter = new AtomicInteger();
+	/**
+	 * Overall transmission counter.
+	 * 
+	 * Counts per block request.
+	 */
+	private static final AtomicLong transmissionCounter = new AtomicLong();
 	/**
 	 * Overall retransmission counter.
 	 */
@@ -364,6 +465,13 @@ public class BenchmarkClient {
 	 * Message observer to detect retransmissions.
 	 */
 	private static final MessageObserver retransmissionDetector = new MessageObserverAdapter() {
+
+		@Override
+		public void onSent(boolean retransmission) {
+			if (!retransmission) {
+				transmissionCounter.incrementAndGet();
+			}
+		}
 
 		@Override
 		public void onRetransmission() {
@@ -417,9 +525,8 @@ public class BenchmarkClient {
 		public void removedObserveRelation(ObserveRelation relation) {
 			super.removedObserveRelation(relation);
 			int counter = observerCounter.decrementAndGet();
-			if (counter == 0 && overallResponsesDownCounter.get() == 0
-					&& overallReverseResponsesDownCounter.getCount() == 0) {
-				stop();
+			if (counter == 0) {
+				checkStop();
 			}
 		}
 	}
@@ -450,6 +557,31 @@ public class BenchmarkClient {
 	 * Close handshake bursts counter.
 	 */
 	private static final AtomicLong handshakeCloseBursts = new AtomicLong();
+
+	private static final TimeStatistic connectRttStatistic = new TimeStatistic(10000, 5, TimeUnit.MILLISECONDS);
+
+	private static final TimeStatistic rttStatistic = new TimeStatistic(10000, 5, TimeUnit.MILLISECONDS);
+
+	private static final TimeStatistic errorRttStatistic = new TimeStatistic(10000, 5, TimeUnit.MILLISECONDS);
+
+	private static final TimeStatistic transmissionRttStatistic = new TimeStatistic(10000, 5, TimeUnit.MILLISECONDS);
+
+	private static volatile String[] args;
+	private static volatile int clients;
+	private static volatile int overallRequests;
+	private static volatile int overallReverseResponses;
+	private static volatile int overallNotifies;
+	private static volatile long startRequestNanos;
+	private static volatile long timeRequestNanos;
+	private static volatile long startReverseResponseNanos;
+	private static volatile long timeReverseResponseNanos;
+	private static volatile long startNotifiesNanos;
+	private static volatile long timeNotifiesNanos;
+	private static volatile HealthStatisticLogger health;
+	private static volatile NetStatLogger netstat4;
+	private static volatile NetStatLogger netstat6;
+	private static volatile boolean done;
+
 	/**
 	 * Offload messages.
 	 */
@@ -485,6 +617,23 @@ public class BenchmarkClient {
 	 */
 	private final AtomicInteger observerCounter = new AtomicInteger();
 	/**
+	 * Per client request down counter. Used,if only a few requests per client
+	 * is expected.
+	 */
+	private final AtomicInteger requestsDownCounter = new AtomicInteger();
+	/**
+	 * Per client notifies counter.
+	 */
+	private final AtomicInteger notifiesCounter = new AtomicInteger();
+	/**
+	 * Indicate that the next notification counts as response.
+	 */
+	private final AtomicBoolean notifyResponse = new AtomicBoolean();
+	/**
+	 * Indicate that client is pending to connect.
+	 */
+	private final AtomicBoolean connect = new AtomicBoolean(true);
+	/**
 	 * Indicate that client has stopped.
 	 * 
 	 * @see #stop()
@@ -496,26 +645,33 @@ public class BenchmarkClient {
 	private final String id;
 
 	private final boolean secure;
+	private final boolean tcp;
 
 	private final DTLSConnector dtlsConnector;
 
 	private final long ackTimeout;
-	private final long nonTimeout;
+	private final long responseTimeout;
+	private final BlockOption block2;
+
+	private volatile CoapObserveRelation clientObserveRelation;
 
 	private Request prepareRequest(CoapClient client, long c) {
-		if (overallRequestsDownCounter.get() == 0) {
+		if (!config.multipleObserveRequests && overallRequestsDownCounter.get() <= 0) {
 			return null;
 		}
 		countDown(overallRequestsDownCounter);
 		Request request;
 		int accept = TEXT_PLAIN;
-		byte[] payload = config.payloadBytes;
+		byte[] payload = config.payload == null ? null : config.payload.payloadBytes;
 		if (config.hono) {
 			request = secure ? Request.newPost() : Request.newPut();
 			if (payload == null) {
 				accept = APPLICATION_JSON;
 				payload = "{\"temp\": %1$d }".getBytes();
 			}
+		} else if (config.observe != null) {
+			request = Request.newGet();
+			request.setObserve();
 		} else {
 			request = Request.newPost();
 		}
@@ -523,17 +679,20 @@ public class BenchmarkClient {
 			accept = config.contentType.contentType;
 		}
 		request.getOptions().setAccept(accept);
-		request.getOptions().setContentFormat(accept);
 		if (config.messageType != null) {
 			request.setConfirmable(config.messageType.con);
 		}
-		if (payload != null) {
-			if (config.payloadFormat) {
-				String text = new String(payload, CoAP.UTF8_CHARSET);
-				text = String.format(text, c, System.currentTimeMillis() / 1000);
-				request.setPayload(text);
-			} else {
-				request.setPayload(payload);
+		request.getOptions().setBlock2(block2);
+		if (request.isIntendedPayload()) {
+			request.getOptions().setContentFormat(accept);
+			if (payload != null) {
+				if (config.payloadFormat) {
+					String text = new String(payload, CoAP.UTF8_CHARSET);
+					text = String.format(text, c, System.currentTimeMillis() / 1000);
+					request.setPayload(text);
+				} else {
+					request.setPayload(payload);
+				}
 			}
 		}
 		if (config.proxy != null) {
@@ -542,16 +701,21 @@ public class BenchmarkClient {
 				request.getOptions().setProxyScheme(config.proxy.scheme);
 			}
 		}
-		request.setURI(client.getURI());
-		ResponseTimeout timeout = new ResponseTimeout(request, request.isConfirmable() ? nonTimeout : nonTimeout,
-				executorService);
+		EndpointContext destinationContext = client.getDestinationContext();
+		if (destinationContext != null) {
+			request.setDestinationContext(destinationContext);
+		}
+		request.setURI(uri);
+		ResponseTimeout timeout = new ResponseTimeout(request, responseTimeout, executorService);
 		request.addMessageObserver(timeout);
+		request.addMessageObserver(retransmissionDetector);
 		return request;
 	}
 
 	private class TestHandler implements CoapHandler {
 
 		private final Request post;
+		private final long start = ClockUtil.nanoRealtime();
 
 		private TestHandler(final Request post) {
 			this.post = post;
@@ -559,6 +723,7 @@ public class BenchmarkClient {
 
 		@Override
 		public void onLoad(CoapResponse response) {
+			addToStatistic(response);
 			if (response.isSuccess()) {
 				if (!stop.get()) {
 					String cmd = null;
@@ -599,7 +764,7 @@ public class BenchmarkClient {
 							LOGGER.debug("{}: cmd {}", id, cmd);
 						}
 					}
-					next(config.interval, response.advanced().isConfirmable() ? -ackTimeout * 2 : 0, true, true);
+					next(config.interval, response.advanced().isConfirmable() ? -ackTimeout * 2 : 0, true, true, response.advanced().isNotification());
 				}
 				long c = overallResponsesDownCounter.get();
 				LOGGER.trace("{}: Received response: {} {}", id, response.advanced(), c);
@@ -607,21 +772,24 @@ public class BenchmarkClient {
 				long delay = TimeUnit.SECONDS.toMillis(response.getOptions().getMaxAge());
 				int unavailable = overallServiceUnavailable.incrementAndGet();
 				long c = overallResponsesDownCounter.get();
-				LOGGER.debug("{}: {}, Received error response: {} {}", id, unavailable, response.advanced(), c);
+				LOGGER.debug("{}: Received {} unavailabe response: {} {}", id, unavailable, response.advanced(), c);
 				if (!stop.get()) {
-					next(delay < 1000L ? 1000L : delay, -ackTimeout * 2, true, true);
+					next(delay < 1000L ? 1000L : delay, -ackTimeout * 2, true, true, false);
 				}
 			} else if (!config.stop) {
+				String type = post.isConfirmable() ? "CON" : "NON";
 				long c = requestsCounter.get();
 				transmissionErrorCounter.incrementAndGet();
-				LOGGER.warn("{}: Error after {} requests. {} - {}", id, c, response.advanced().getCode(),
-						response.advanced().getPayloadString());
+				errorResponseFilter.warn("{}: Error response after {} {}-requests. {} - {}", id, c, type,
+						response.advanced().getCode(), response.advanced().getPayloadString());
 				if (!stop.get()) {
-					next(1000, -ackTimeout * 2, true, true);
+					next(1000, -ackTimeout * 2, true, true, false);
 				}
 			} else {
+				String type = post.isConfirmable() ? "CON" : "NON";
 				long c = requestsCounter.get();
-				LOGGER.warn("{}: Received error response: {} {} ({} successful)", id, endpoint.getUri(), response.advanced(), c);
+				LOGGER.warn("{}: Received error response: {} {} ({} {} successful)", id, endpoint.getUri(),
+						response.advanced(), c, type);
 				checkReady(true, true);
 				stop();
 			}
@@ -634,71 +802,134 @@ public class BenchmarkClient {
 		@Override
 		public void onError() {
 			if (!stop.get()) {
-				boolean non = false;
+				boolean non = !post.isConfirmable();
+				String type = non ? "NON" : "CON";
 				long c = requestsCounter.get();
+				long time = ClockUtil.nanoRealtime() - start;
 				String msg = "";
 				if (post.getSendError() != null) {
 					msg = post.getSendError().getMessage();
 				} else if (post.isTimedOut()) {
-					non = !post.isConfirmable();
-					msg = "timeout";
+					msg = "timeout (" + TimeUnit.NANOSECONDS.toSeconds(time) + "s)";
 				} else if (post.isRejected()) {
 					msg = "rejected";
 				}
 				if (!config.stop || non) {
-					if (non) {
-						overallRequestsDownCounter.incrementAndGet();
-						retransmissionCounter.incrementAndGet();
-						LOGGER.debug("{}: Error after {} requests. {}", id, c, msg);
-					} else {
-						transmissionErrorCounter.incrementAndGet();
-						LOGGER.info("{}: Error after {} requests. {}", id, c, msg);
+					if (requestsDownCounter.get() > 0) {
+						requestsDownCounter.incrementAndGet();
 					}
-					if (!next(1000, secure && !non ? 1000 : 0, c > 0, false)) {
-						LOGGER.warn("{}: stopped by error after {} requests. {}", id, c, msg);
+					overallRequestsDownCounter.incrementAndGet();
+					transmissionErrorCounter.incrementAndGet();
+					if (next(1000, secure && !non ? 1000 : 0, c > 0, false, false)) {
+						errorFilter.info("{}: Error after {} {}-requests. {}", id, c, type, msg);
+					} else {
+						LOGGER.warn("{}: stopped by error after {} {}-requests. {}", id, c, type, msg);
 						stop();
 					}
 				} else {
-					LOGGER.error("{}: failed after {} requests! {}", id, c, msg);
+					LOGGER.error("{}: failed after {} {}-requests! {}", id, c, type, msg);
 					checkReady(true, false);
 					stop();
 				}
 			}
 		}
 
-		public boolean next(long delayMillis, long forceHandshake, boolean connected, boolean response) {
-			final long c = checkOverallRequests(connected, response);
-			if (c == 0) {
-				return false;
-			}
-			boolean close = false;
-			boolean full = false;
-			boolean force = forceHandshake > 0;
-			if (!force) {
-				close = (config.closes != 0 && (c % config.closes == 0));
-				full = (config.handshakes != 0 && (c % config.handshakes == 0));
-				if (config.bursts > 0) {
-					if (close) {
-						handshakeCloseBursts.compareAndSet(0, config.bursts);
-					} else {
-						close = countDown(handshakeCloseBursts) > 0;
+		public boolean next(long delayMillis, long forceHandshake, boolean connected, boolean response, boolean notify) {
+			long responses;
+			if (notify && post.isObserve() && config.observe != null) {
+				int notifies = notifiesCounter.incrementAndGet();
+				if (notifyResponse.compareAndSet(true, false)) {
+					responses = checkOverallRequests(connected, response);
+				} else {
+					responses = overallResponsesDownCounter.get();
+				}
+				if (overallNotifiesDownCounter.decrementAndGet() <= 0) {
+					overallNotifiesDone.countDown();
+					if (checkStop()) {
+						return false;
 					}
-					if (full) {
-						handshakeFullBursts.compareAndSet(0, config.bursts);
+				}
+				LOGGER.trace("{}: receive notify {}/{}", id, notifies, overallNotifiesDownCounter.get());
+				CoapObserveRelation relation = clientObserveRelation;
+				if (relation != null && !relation.isCanceled()) {
+					if (config.observe.register > 0 && (notifies % config.observe.register) == 0) {
+						clientObserveRelation = null;
+						if (config.observe.proactive || tcp) {
+							relation.proactiveCancel();
+							LOGGER.trace("{}: cancel proactive, register again {}/{}", id, notifies, overallNotifiesDownCounter.get());
+							return true;
+						} else {
+							relation.reactiveCancel();
+							LOGGER.trace("{}: register again {}/{}", id, notifies, overallNotifiesDownCounter.get());
+							// send next request for new registration
+						}
+					} else if (config.observe.reregister > 0 && (notifies % config.observe.reregister) == 0) {
+						notifyResponse.set(true);
+						try {
+							relation.reregister();
+							overallRequestsDownCounter.decrementAndGet();
+							LOGGER.trace("{}: reregister {}/{}", id, notifies, overallNotifiesDownCounter.get());
+						} catch (IllegalStateException ex) {
+						}
+						return true;
 					} else {
-						full = countDown(handshakeFullBursts) > 0;
+						// notify without new request
+						return true;
+					}
+				} else {
+					// notify too fast
+					return true;
+				}
+			} else {
+				responses = checkOverallRequests(connected, response);
+			}
+			if (!config.multipleObserveRequests) {
+				if (responses <= 0) {
+					return false;
+				}
+				if (requestsDownCounter.get() > 0) {
+					if (requestsDownCounter.decrementAndGet() == 0) {
+						return false;
 					}
 				}
 			}
-			final boolean reconnect = dtlsConnector != null && (close || full || force);
-			final Request request = prepareRequest(client, c);
+
+			boolean close = false;
+			boolean dtlsReconnect = false;
+			if (dtlsConnector != null) {
+				boolean full = false;
+				boolean force = forceHandshake > 0;
+				if (!force) {
+					close = (config.closes != 0 && (responses % config.closes == 0));
+					full = (config.handshakes != 0 && (responses % config.handshakes == 0));
+					if (config.bursts > 0) {
+						if (close) {
+							handshakeCloseBursts.compareAndSet(0, config.bursts);
+						} else {
+							close = countDown(handshakeCloseBursts) > 0;
+						}
+						if (full) {
+							handshakeFullBursts.compareAndSet(0, config.bursts);
+						} else {
+							full = countDown(handshakeFullBursts) > 0;
+						}
+					}
+				}
+				dtlsReconnect = close || full || force;
+			}
+			if (dtlsReconnect) {
+				// reset destination context
+				client.setDestinationContext(null);
+			}
+			final boolean reconnect = dtlsReconnect;
+			final Request request = prepareRequest(client, responses);
+			final long responseCounter = responses;
 			if (request == null) {
 				return false;
 			}
-			request.addMessageObserver(retransmissionDetector);
 			if (reconnect) {
+				connect.set(true);
 				EndpointContext destinationContext = request.getDestinationContext();
-				client.setDestinationContext(null);
 				if (forceHandshake < 0) {
 					forceHandshake = -forceHandshake;
 				}
@@ -713,7 +944,7 @@ public class BenchmarkClient {
 						@Override
 						public void run() {
 							dtlsConnector.close(destination);
-							LOGGER.trace("{}: close {} {}", id, c, delay);
+							LOGGER.trace("{}: close {} {}", id, responseCounter, delay);
 						}
 					}, delayMillis, TimeUnit.MILLISECONDS);
 					if (delayMillis < 500) {
@@ -722,8 +953,8 @@ public class BenchmarkClient {
 						delayMillis *= 2;
 					}
 				} else {
-					destinationContext = MapBasedEndpointContext.addEntries(destinationContext,
-							DtlsEndpointContext.KEY_HANDSHAKE_MODE, DtlsEndpointContext.HANDSHAKE_MODE_FORCE_FULL);
+					destinationContext = MapBasedEndpointContext.setEntries(destinationContext,
+							DtlsEndpointContext.ATTRIBUE_HANDSHAKE_MODE_FORCE_FULL);
 					request.setDestinationContext(destinationContext);
 				}
 			}
@@ -734,13 +965,13 @@ public class BenchmarkClient {
 
 					@Override
 					public void run() {
-						client.advanced(new TestHandler(request), request);
-						LOGGER.trace("{}: sent request {} {} {}", id, c, delay, reconnect);
+						send(request);
+						LOGGER.trace("{}: sent request {} {} {}", id, responseCounter, delay, reconnect);
 					}
 				}, delay, TimeUnit.MILLISECONDS);
 			} else {
-				client.advanced(new TestHandler(request), request);
-				LOGGER.trace("{}: sent request {} {} {}", id, c, delayMillis, reconnect);
+				send(request);
+				LOGGER.trace("{}: sent request {} {} {}", id, responseCounter, delayMillis, reconnect);
 			}
 			return true;
 		}
@@ -750,43 +981,52 @@ public class BenchmarkClient {
 	 * Create client.
 	 * 
 	 * @param index index of client. used for thread names.
-	 * @param intervalMin minimum notifies interval in milliseconds
-	 * @param intervalMax maximum notifies interval in milliseconds
+	 * @param reverse reverse configuration with minimum and maxium notifies
+	 *            interval
 	 * @param uri destination URI
 	 * @param endpoint local endpoint to exchange messages
-	 * @param executor
-	 * @param secondaryExecutor intended to be used for rare executing timers (e.g. cleanup tasks). 
+	 * @param executor executor for client
+	 * @param secondaryExecutor intended to be used for rare executing timers
+	 *            (e.g. cleanup tasks).
 	 */
-	public BenchmarkClient(int index, Config.Reverse reverse, URI uri, Endpoint endpoint,
+	public BenchmarkClient(int index, Config.Reverse reverse, URI uri, CoapEndpoint endpoint,
 			ScheduledExecutorService executor, ScheduledThreadPoolExecutor secondaryExecutor) {
 		this.secure = CoAP.isSecureScheme(uri.getScheme());
-		Connector connector = ((CoapEndpoint)endpoint).getConnector();
+		this.tcp = CoAP.isTcpScheme(uri.getScheme());
+		Connector connector = endpoint.getConnector();
 		this.dtlsConnector = secure && connector instanceof DTLSConnector ? (DTLSConnector) connector : null;
-		this.id = "client-" + index;
+		this.id = endpoint.getTag();
 		this.uri = uri;
-		int maxResourceSize = endpoint.getConfig().getInt(Keys.MAX_RESOURCE_BODY_SIZE);
+		Configuration configuration = endpoint.getConfig();
+		int maxResourceSize = configuration.get(CoapConfig.MAX_RESOURCE_BODY_SIZE);
 		if (executor == null) {
-			int threads = endpoint.getConfig().getInt(KEY_BENCHMARK_CLIENT_THREADS);
+			int threads = configuration.get(BENCHMARK_CLIENT_THREADS);
 			this.executorService = ExecutorsUtil.newScheduledThreadPool(threads, threadFactory);
 			this.shutdown = true;
 		} else {
 			this.executorService = executor;
 			this.shutdown = false;
 		}
-		NetworkConfig config = endpoint.getConfig();
-		this.ackTimeout =  config.getLong(Keys.ACK_TIMEOUT);
-		this.nonTimeout =  config.getLong(Keys.NON_LIFETIME);
+		this.ackTimeout = configuration.getTimeAsInt(CoapConfig.ACK_TIMEOUT, TimeUnit.MILLISECONDS);
+		this.responseTimeout = configuration.getTimeAsInt(BENCHMARK_RESPONSE_TIMEOUT, TimeUnit.MILLISECONDS);
+
+		if (config.blockwiseOptions != null && config.blockwiseOptions.blocksize != null) {
+			block2 = new BlockOption(BlockOption.size2Szx(config.blockwiseOptions.blocksize), false, 0);
+		} else {
+			block2 = null;
+		}
+
 		endpoint.addInterceptor(new MessageTracer());
 		endpoint.setExecutors(this.executorService, secondaryExecutor);
 		this.client = new CoapClient(uri);
-		this.server = new CoapServer(config);
+		this.server = new CoapServer(configuration);
 		if (reverse != null) {
 			Feed feed = new Feed(CoAP.Type.NON, index, maxResourceSize, reverse.min, reverse.max, this.executorService,
-					overallReverseResponsesDownCounter, notifiesCompleteTimeouts);
+					overallReveresResponsesDone, overallReverseResponsesDownCounter, notifiesCompleteTimeouts, stop);
 			feed.addObserver(feedObserver);
 			this.server.add(feed);
 			feed = new Feed(CoAP.Type.CON, index, maxResourceSize, reverse.min, reverse.max, this.executorService,
-					overallReverseResponsesDownCounter, notifiesCompleteTimeouts);
+					overallReveresResponsesDone, overallReverseResponsesDownCounter, notifiesCompleteTimeouts, stop);
 			feed.addObserver(feedObserver);
 			this.server.add(feed);
 		}
@@ -805,6 +1045,23 @@ public class BenchmarkClient {
 		server.start();
 	}
 
+	private void addToStatistic(CoapResponse response) {
+		Long rtt = response.advanced().getApplicationRttNanos();
+		if (rtt != null) {
+			TimeStatistic statistic = errorRttStatistic;
+			if (connect.compareAndSet(true, false)) {
+				statistic = connectRttStatistic;
+			} else {
+				statistic = rttStatistic;
+				Long transmissionRttNanos = response.advanced().getTransmissionRttNanos();
+				if (transmissionRttNanos != null && !transmissionRttNanos.equals(rtt)) {
+					transmissionRttStatistic.add(transmissionRttNanos, TimeUnit.NANOSECONDS);
+				}
+			}
+			statistic.add(rtt, TimeUnit.NANOSECONDS);
+		}
+	}
+
 	/**
 	 * Test request.
 	 * 
@@ -814,15 +1071,14 @@ public class BenchmarkClient {
 		final Request request = prepareRequest(client, 12);
 		try {
 			request.addMessageObserver(new EndpointContextTracer() {
+
+				private final AtomicBoolean ready = new AtomicBoolean();
 				private final AtomicInteger counter = new AtomicInteger();
 
 				@Override
 				public void onReadyToSend() {
-					int count = counter.getAndIncrement();
-					if (count == 0) {
+					if (ready.compareAndSet(false, true)) {
 						LOGGER.info("Request:{}{}", StringUtil.lineSeparator(), Utils.prettyPrint(request));
-					} else {
-						LOGGER.info("Request: {} retransmissions{}{}", count, StringUtil.lineSeparator(), Utils.prettyPrint(request));
 					}
 				}
 
@@ -834,6 +1090,13 @@ public class BenchmarkClient {
 				@Override
 				public void onDtlsRetransmission(int flight) {
 					LOGGER.info(">>> DTLS retransmission, flight  {}", flight);
+				}
+
+				@Override
+				public void onRetransmission() {
+					int count = counter.incrementAndGet();
+					LOGGER.info("Request: {} retransmissions{}{}", count, StringUtil.lineSeparator(),
+							Utils.prettyPrint(request));
 				}
 
 				@Override
@@ -851,9 +1114,16 @@ public class BenchmarkClient {
 					LOGGER.info(">>> TIMEOUT <<<");
 				}
 			});
-
-			CoapResponse response = client.advanced(request);
+			CoapResponse response = null;
+			;
+			if (request.isObserve()) {
+				clientObserveRelation = client.observeAndWait(new TestHandler(request));
+				response = clientObserveRelation.getCurrent();
+			} else {
+				response = client.advanced(request);
+			}
 			if (response != null) {
+				addToStatistic(response);
 				if (response.isSuccess()) {
 					if (LOGGER.isInfoEnabled()) {
 						LOGGER.info("Received response:{}{}", StringUtil.lineSeparator(), Utils.prettyPrint(response));
@@ -879,7 +1149,12 @@ public class BenchmarkClient {
 	 * Prepare first request and follow-up request on response handler calls.
 	 * Must be called after {@link #start()}
 	 */
-	public void startBenchmark() {
+	public void startBenchmark(int requestPerClient) {
+		requestsDownCounter.set(requestPerClient);
+		if (clientObserveRelation != null) {
+			LOGGER.trace("{}: observation already started!", id);
+			return;
+		}
 		long c = checkOverallRequests(false, false);
 		if (c > 0) {
 			if (requestsCounter.get() == 0) {
@@ -887,34 +1162,72 @@ public class BenchmarkClient {
 			}
 			Request request = prepareRequest(client, c);
 			if (request != null) {
-				request.addMessageObserver(retransmissionDetector);
-				client.advanced(new TestHandler(request), request);
+				LOGGER.trace("{}: sent initial request", id);
+				send(request);
 			}
+			if (config.nstart != null) {
+				for (int counter = 1; counter < config.nstart; ++counter) {
+					request = prepareRequest(client, c);
+					if (request != null) {
+						request.addMessageObserver(retransmissionDetector);
+						client.advanced(new TestHandler(request), request);
+					}
+				}
+			}
+		} else {
+			LOGGER.trace("{}: {} requests and {} responses reached, not started", id, overallRequestsDownCounter.get(),
+					overallResponsesDownCounter.get());
+		}
+	}
+
+	public void send(Request request) {
+		TestHandler handler = new TestHandler(request);
+		if (request.isObserve()) {
+			CoapObserveRelation relation = clientObserveRelation;
+			if (relation != null) {
+				relation.reactiveCancel();
+			}
+			notifyResponse.set(true);
+			clientObserveRelation = client.observe(request, handler);
+		} else {
+			client.advanced(handler, request);
 		}
 	}
 
 	public boolean checkReady(boolean connected, boolean response) {
-		return checkOverallRequests(connected, response) == 0;
+		return checkOverallRequests(connected, response) <= 0;
 	}
 
 	public long checkOverallRequests(boolean connected, boolean response) {
-		boolean allConnected = connectDownCounter.get() <= 0;
 		if (connected) {
 			if (requestsCounter.get() == 0) {
-				allConnected = connectDownCounter.decrementAndGet() <= 0;
+				initialConnectDownCounter.decrementAndGet();
 			}
 			if (response) {
 				requestsCounter.getAndIncrement();
 			}
 		}
 		long c = response ? countDown(overallResponsesDownCounter) : overallResponsesDownCounter.get();
-		if (c == 0 && allConnected) {
+		if (c <= 0 && initialConnectDownCounter.get() <= 0) {
 			overallRequestsDone.countDown();
-			if (overallReverseResponsesDownCounter.getCount() == 0) {
-				stop();
-			}
+			checkStop();
 		}
 		return c;
+	}
+
+	/**
+	 * Check, if all counters have reached the expected value.
+	 * 
+	 * @return {@code true}, if client is stopped, {@code false}, otherwise
+	 * @since 3.6
+	 */
+	public boolean checkStop() {
+		if (initialConnectDownCounter.get() <= 0 && overallResponsesDownCounter.get() <= 0 && observerCounter.get() <= 0
+				&& overallReverseResponsesDownCounter.get() <= 0 && overallNotifiesDownCounter.get() <= 0) {
+			stop();
+			return true;
+		}
+		return false;
 	}
 
 	/**
@@ -922,6 +1235,9 @@ public class BenchmarkClient {
 	 */
 	public void stop() {
 		if (stop.compareAndSet(false, true)) {
+			if (clientObserveRelation != null) {
+				clientObserveRelation.reactiveCancel();
+			}
 			clientCounter.decrementAndGet();
 		}
 	}
@@ -945,23 +1261,27 @@ public class BenchmarkClient {
 	}
 
 	public static long countDown(AtomicLong downCounter) {
-		long c = downCounter.get();
-		while (c > 0) {
-			if (downCounter.compareAndSet(c, c - 1)) {
-				--c;
-				break;
+		if (config.multipleObserveRequests) {
+			return downCounter.decrementAndGet();
+		} else {
+			long c = downCounter.get();
+			while (c > 0) {
+				if (downCounter.compareAndSet(c, c - 1)) {
+					return c - 1;
+				}
+				c = downCounter.get();
 			}
-			c = downCounter.get();
+			return 0;
 		}
-		return c;
 	}
 
 	public static void main(String[] args) throws InterruptedException, IOException {
-
+		TcpConfig.register();
+		BenchmarkClient.args = args;
 		startManagamentStatistic();
-		config.networkConfigHeader = CONFIG_HEADER;
-		config.networkConfigDefaultHandler = DEFAULTS;
-		config.networkConfigFile = CONFIG_FILE;
+		config.configurationHeader = CONFIG_HEADER;
+		config.customConfigurationDefaultsProvider = DEFAULTS;
+		config.configurationFile = CONFIG_FILE;
 		ClientInitializer.init(args, config, false);
 
 		if (config.helpRequested) {
@@ -973,20 +1293,33 @@ public class BenchmarkClient {
 		final byte[] id = new byte[8];
 
 		final int clients = config.clients;
-		int requests = config.requests;
+		BenchmarkClient.clients = clients;
 		int reverseResponses = 0;
+		int notifies = 0;
+
+		if (config.blockwiseOptions != null) {
+			if (config.blockwiseOptions.bertBlocks != null && config.blockwiseOptions.bertBlocks > 0) {
+				config.configuration.set(CoapConfig.MAX_MESSAGE_SIZE, 1024);
+				config.configuration.set(CoapConfig.PREFERRED_BLOCK_SIZE, 1024);
+				config.configuration.set(CoapConfig.TCP_NUMBER_OF_BULK_BLOCKS, config.blockwiseOptions.bertBlocks);
+			} else if (config.blockwiseOptions.blocksize != null) {
+				config.configuration.set(CoapConfig.MAX_MESSAGE_SIZE, config.blockwiseOptions.blocksize);
+				config.configuration.set(CoapConfig.PREFERRED_BLOCK_SIZE, config.blockwiseOptions.blocksize);
+			}
+		}
 
 		if (config.reverse != null) {
-			config.networkConfig = NetworkConfig.createWithFile(REVERSE_SERVER_CONFIG_FILE,
-					REVERSE_SERVER_CONFIG_HEADER, REVERSE_DEFAULTS);
 			reverseResponses = config.reverse.responses;
+		}
+		if (config.observe != null) {
+			notifies = config.observe.notifies;
 		}
 
 		if (config.timeout != null) {
-			config.networkConfig.setLong(Keys.NON_LIFETIME, config.timeout);
+			config.configuration.set(CoapConfig.NON_LIFETIME, config.timeout, TimeUnit.MILLISECONDS);
 		}
 
-		offload = config.networkConfig.getBoolean(Keys.USE_MESSAGE_OFFLOADING);
+		offload = config.configuration.get(CoapConfig.USE_MESSAGE_OFFLOADING);
 
 		URI tempUri;
 		try {
@@ -998,8 +1331,9 @@ public class BenchmarkClient {
 		}
 		final URI uri = tempUri;
 
-		int overallRequests = (requests * clients);
-		int overallReverseResponses = (reverseResponses * clients);
+		overallRequests = (config.requests * clients);
+		overallReverseResponses = (reverseResponses * clients);
+		overallNotifies = (notifies * clients);
 		if (overallRequests < 0) {
 			// overflow
 			overallRequests = Integer.MAX_VALUE;
@@ -1008,15 +1342,22 @@ public class BenchmarkClient {
 			// overflow
 			overallReverseResponses = Integer.MAX_VALUE;
 		}
+		if (overallNotifies < 0) {
+			// overflow
+			overallNotifies = Integer.MAX_VALUE;
+		}
 		overallRequestsDownCounter.set(overallRequests);
 		overallResponsesDownCounter.set(overallRequests);
-		overallReverseResponsesDownCounter = new CountDownLatch(overallReverseResponses);
+		overallReverseResponsesDownCounter.set(overallReverseResponses);
+		overallNotifiesDownCounter.set(overallNotifies);
 
 		final List<BenchmarkClient> clientList = Collections.synchronizedList(new ArrayList<BenchmarkClient>(clients));
 		ScheduledExecutorService executor = ExecutorsUtil
 				.newScheduledThreadPool(Runtime.getRuntime().availableProcessors(), new DaemonThreadFactory("Aux#"));
 
-		final ScheduledExecutorService connectorExecutor = config.networkConfig.getInt(KEY_BENCHMARK_CLIENT_THREADS) == 0 ? executor : null;
+		final ScheduledExecutorService connectorExecutor = config.configuration.get(BENCHMARK_CLIENT_THREADS) == 0
+				? executor
+				: null;
 		final boolean secure = CoAP.isSecureScheme(uri.getScheme());
 		final boolean dtls = secure && !CoAP.isTcpScheme(uri.getScheme());
 
@@ -1030,24 +1371,29 @@ public class BenchmarkClient {
 		System.out.format("Create %d %s%sbenchmark clients, expect to send %d requests overall %sto %s%n", clients,
 				!config.stop ? "none-stop " : "", secure ? "secure " : "", overallRequests, proxyMessage, uri);
 
-		if (config.reverse != null && overallReverseResponses > 0) {
+		if (overallReverseResponses > 0) {
 			if (config.reverse.min.equals(config.reverse.max)) {
-				System.out.format("Expect %d notifies, interval %d [ms]%n", overallReverseResponses,
+				System.out.format("Expect %d notifies sent, interval %d [ms]%n", overallReverseResponses,
 						config.reverse.min);
 			} else {
-				System.out.format("Expect %d notifies, interval %d ... %d [ms]%n", overallReverseResponses,
+				System.out.format("Expect %d notifies sent, interval %d ... %d [ms]%n", overallReverseResponses,
 						config.reverse.min, config.reverse.max);
 			}
 		}
-		connectDownCounter.set(clients);
+		if (overallNotifies > 0) {
+			System.out.format("Expect %d notifies received, reregister every %d and register every %d notify%n", overallNotifies,
+						config.observe.reregister, config.observe.register);
+		}
+		initialConnectDownCounter.set(clients);
 		final boolean psk = config.authenticationModes.contains(AuthenticationMode.PSK)
 				|| config.authenticationModes.contains(AuthenticationMode.ECDHE_PSK);
 		final boolean rpk = config.authenticationModes.contains(AuthenticationMode.RPK);
 		long startupNanos = System.nanoTime();
-		final AuthenticationMode authentication = config.authenticationModes.isEmpty() ? null : config.authenticationModes.get(0);
+		final AuthenticationMode authentication = config.authenticationModes.isEmpty() ? null
+				: config.authenticationModes.get(0);
 		final CountDownLatch start = new CountDownLatch(clients);
 		if (secure && authentication != null) {
-			switch(authentication) {
+			switch (authentication) {
 			case NONE:
 				System.out.println("No authentication.");
 				break;
@@ -1068,25 +1414,29 @@ public class BenchmarkClient {
 		final ThreadLocalKeyPairGenerator keyPairGenerator = rpk ? createKeyPairGenerator() : null;
 		// Create & start clients
 		final AtomicBoolean errors = new AtomicBoolean();
-		final HealthStatisticLogger health = new HealthStatisticLogger(uri.getScheme(), !CoAP.isTcpScheme(uri.getScheme()));
-		final NetStatLogger netstat = new NetStatLogger("udp");
+		health = new HealthStatisticLogger(uri.getScheme(), CoAP.isUdpScheme(uri.getScheme()));
+		if (CoAP.isUdpScheme(uri.getScheme())) {
+			netstat4 = new NetStatLogger("udp4", false);
+			netstat6 = new NetStatLogger("udp6", true);
+		}
+		final String tag = config.tag == null ? "client-" : config.tag;
 		final int pskOffset = config.pskIndex != null ? config.pskIndex : 0;
 		for (int index = 0; index < clients; ++index) {
 			final int currentIndex = index;
 			final String identity;
-			final byte[] secret;
+			final SecretKey secret;
 			if (secure && psk) {
 				if (config.pskStore != null) {
 					int pskIndex = (pskOffset + index) % config.pskStore.size();
 					identity = config.pskStore.getIdentity(pskIndex);
-					secret = config.pskStore.getSecrets(pskIndex);
-				} else if (index == 0){
+					secret = config.pskStore.getSecret(pskIndex);
+				} else if (index == 0) {
 					identity = config.identity;
-					secret = config.secretKey;
+					secret = config.getPskSecretKey();
 				} else {
 					random.nextBytes(id);
-					identity= ConnectorConfig.PSK_IDENTITY_PREFIX + StringUtil.byteArray2Hex(id);
-					secret = config.secretKey;
+					identity = ConnectorConfig.PSK_IDENTITY_PREFIX + StringUtil.byteArray2Hex(id);
+					secret = config.getPskSecretKey();
 				}
 			} else {
 				identity = null;
@@ -1099,17 +1449,17 @@ public class BenchmarkClient {
 					if (errors.get()) {
 						return;
 					}
-					CoapEndpoint.Builder endpointBuilder = new CoapEndpoint.Builder();
-					endpointBuilder.setNetworkConfig(config.networkConfig);
 					ClientConfig connectionConfig = config;
 					if (secure) {
 						if (rpk) {
 							if (keyPairGenerator != null) {
 								try {
 									KeyPairGenerator generator = keyPairGenerator.current();
-									generator.initialize(new ECGenParameterSpec("secp256r1"), RandomManager.currentSecureRandom());
+									generator.initialize(new ECGenParameterSpec("secp256r1"),
+											RandomManager.currentSecureRandom());
 									KeyPair keyPair = generator.generateKeyPair();
-									connectionConfig = connectionConfig.create(keyPair.getPrivate(), keyPair.getPublic());
+									connectionConfig = connectionConfig.create(keyPair.getPrivate(),
+											keyPair.getPublic());
 								} catch (GeneralSecurityException ex) {
 									if (!errors.getAndSet(true)) {
 										ex.printStackTrace();
@@ -1124,12 +1474,16 @@ public class BenchmarkClient {
 							connectionConfig = connectionConfig.create(identity, secret);
 						}
 					}
+					if (connectionConfig == config) {
+						connectionConfig = config.create();
+					}
+					connectionConfig.tag = tag + currentIndex;
 					CoapEndpoint coapEndpoint = ClientInitializer.createEndpoint(connectionConfig, connectorExecutor);
 					if (health.isEnabled()) {
 						coapEndpoint.addPostProcessInterceptor(health);
 					}
-					BenchmarkClient client = new BenchmarkClient(currentIndex, config.reverse, uri,
-							coapEndpoint, connectorExecutor, secondaryExecutor);
+					BenchmarkClient client = new BenchmarkClient(currentIndex, config.reverse, uri, coapEndpoint,
+							connectorExecutor, secondaryExecutor);
 					clientList.add(client);
 					try {
 						client.start();
@@ -1144,7 +1498,7 @@ public class BenchmarkClient {
 							}
 							// ensure to use ephemeral port for other clients
 							config.localPort = null;
-						} 
+						}
 					} catch (RuntimeException e) {
 						if (!errors.getAndSet(true)) {
 							e.printStackTrace();
@@ -1162,7 +1516,7 @@ public class BenchmarkClient {
 					if (secret == null) {
 						System.out.println("ID: " + identity);
 					} else {
-						System.out.println("ID: " + identity + ", " + new String(secret));
+						System.out.println("ID: " + identity + ", " + new String(secret.getEncoded()));
 					}
 				}
 				run.run();
@@ -1182,48 +1536,61 @@ public class BenchmarkClient {
 
 		// Start Test
 		boolean stale = false;
-		long requestNanos = System.nanoTime();
-		long reverseResponseNanos = requestNanos;
-		long lastRequestsCountDown = overallResponsesDownCounter.get();
+		startRequestNanos = System.nanoTime();
+		startReverseResponseNanos = startRequestNanos;
+		startNotifiesNanos = startRequestNanos;
+		long lastRequestsCountDown = overallRequestsDownCounter.get();
+		long lastResponsesCountDown = overallResponsesDownCounter.get();
+		long lastTransmissions = transmissionCounter.get();
 		long lastRetransmissions = retransmissionCounter.get();
 		long lastTransmissionErrrors = transmissionErrorCounter.get();
 		int lastUnavailable = overallServiceUnavailable.get();
 		int lastHonoCmds = overallHonoCmds.get();
-
+		int requestsPerClient = config.requests <= 10 ? config.requests : -1;
 		for (int index = clients - 1; index >= 0; --index) {
 			BenchmarkClient client = clientList.get(index);
-			client.startBenchmark();
+			if (index == 0) {
+				--requestsPerClient;
+			}
+			client.startBenchmark(requestsPerClient);
 		}
+		registerShutdown();
 		System.out.println("Benchmark started.");
 
-		long dtlsTime = System.nanoTime();
+		long staleTime = System.nanoTime();
+		long interval = config.interval == null ? 0 : TimeUnit.MILLISECONDS.toNanos(config.interval);
+		if (dtls) {
+			interval = Math.max(interval, DTLS_TIMEOUT_NANOS);
+		}
+		long staleTimeout = DEFAULT_TIMEOUT_NANOS + interval;
+		int count = 0;
 		// Wait with timeout or all requests send.
 		while (!overallRequestsDone.await(DEFAULT_TIMEOUT_NANOS, TimeUnit.NANOSECONDS)) {
-			long currentRequestsCountDown = overallResponsesDownCounter.get();
+			long currentRequestsCountDown = overallRequestsDownCounter.get();
+			long currentResponsesCountDown = overallResponsesDownCounter.get();
 			int numberOfClients = clientCounter.get();
-			int connectsPending = connectDownCounter.get();
-			long requestDifference = (lastRequestsCountDown - currentRequestsCountDown);
+			int connectsPending = initialConnectDownCounter.get();
+			long requestsDifference = (lastRequestsCountDown - currentRequestsCountDown);
+			long responsesDifference = (lastResponsesCountDown - currentResponsesCountDown);
 			long currentOverallSentRequests = overallRequests - currentRequestsCountDown;
-			if ((requestDifference == 0 && currentRequestsCountDown < overallRequests)
-					|| (numberOfClients == 0)) {
+			if ((responsesDifference == 0 && currentResponsesCountDown < overallRequests) || (numberOfClients == 0)) {
 				// no new requests, clients are stale, or no clients left
 				// adjust start time with timeout
-				long dtlsTimeout = System.nanoTime() - dtlsTime;
-				if (!dtls || (dtlsTimeout - DTLS_TIMEOUT_NANOS) > 0) {
-					if (dtls) {
-						requestNanos += dtlsTimeout;
-					} else {
-						requestNanos += DEFAULT_TIMEOUT_NANOS;
-					}
-					reverseResponseNanos = requestNanos;
+				long timeout = System.nanoTime() - staleTime;
+				if ((timeout - staleTimeout) > 0) {
+					startRequestNanos += timeout;
+					startReverseResponseNanos = startRequestNanos;
+					startNotifiesNanos = startRequestNanos;
 					stale = true;
-					System.out.format("%d requests, stale (%d clients, %d pending)%n", currentOverallSentRequests,
-							numberOfClients, connectsPending);
+					System.out.format("[%04d]: %d requests, stale (%d clients, %d pending)%n", ++count,
+							currentOverallSentRequests, numberOfClients, connectsPending);
 					break;
 				}
 			} else {
-				dtlsTime = System.nanoTime();
+				staleTime = System.nanoTime();
 			}
+			long transmissions = transmissionCounter.get();
+			long transmissionsDifference = transmissions - lastTransmissions;
 			long retransmissions = retransmissionCounter.get();
 			long retransmissionsDifference = retransmissions - lastRetransmissions;
 			long transmissionErrors = transmissionErrorCounter.get();
@@ -1235,21 +1602,26 @@ public class BenchmarkClient {
 			int honoCmdsDifference = honoCmds - lastHonoCmds;
 
 			lastRequestsCountDown = currentRequestsCountDown;
+			lastResponsesCountDown = currentResponsesCountDown;
+			lastTransmissions = transmissions;
 			lastRetransmissions = retransmissions;
 			lastTransmissionErrrors = transmissionErrors;
 			lastUnavailable = unavailable;
 			lastHonoCmds = honoCmds;
 
 			StringBuilder line = new StringBuilder();
+			line.append(String.format("[%04d]: ", ++count));
 			line.append(String.format("%d requests (%d reqs/s", currentOverallSentRequests,
-					roundDiv(requestDifference, DEFAULT_TIMEOUT_SECONDS)));
-			line.append(", ").append(formatRetransmissions(retransmissionsDifference, requestDifference));
-			line.append(", ").append(formatTransmissionErrors(transmissionErrorsDifference, requestDifference));
+					roundDiv(responsesDifference, DEFAULT_TIMEOUT_SECONDS)));
+			line.append(", ").append(
+					formatRetransmissions(retransmissionsDifference, transmissionsDifference, responsesDifference));
+			line.append(", ").append(
+					formatTransmissionErrors(transmissionErrorsDifference, requestsDifference, responsesDifference));
 			if (unavailable > 0) {
-				line.append(", ").append(formatUnavailable(unavailableDifference, requestDifference));
+				line.append(", ").append(formatUnavailable(unavailableDifference, responsesDifference));
 			}
 			if (honoCmds > 0) {
-				line.append(", ").append(formatHonoCmds(honoCmdsDifference, requestDifference));
+				line.append(", ").append(formatHonoCmds(honoCmdsDifference, responsesDifference));
 			}
 			line.append(String.format(", %d clients", numberOfClients));
 			if (connectsPending > 0) {
@@ -1258,16 +1630,15 @@ public class BenchmarkClient {
 			line.append(")");
 			System.out.println(line);
 		}
-		long overallSentRequests = overallRequests - overallResponsesDownCounter.get();
-		requestNanos = System.nanoTime() - requestNanos;
+		timeRequestNanos = System.nanoTime() - startRequestNanos;
 
 		boolean observe = false;
-		long lastReverseResponsesCountDown = overallReverseResponsesDownCounter.getCount();
+		long lastReverseResponsesCountDown = overallReverseResponsesDownCounter.get();
 		if (config.reverse != null && lastReverseResponsesCountDown > 0) {
-			System.out.println("Requests send.");
+			System.out.println("Requests sent.");
 			long lastChangeNanoRealtime = ClockUtil.nanoRealtime();
-			while (!overallReverseResponsesDownCounter.await(DEFAULT_TIMEOUT_NANOS, TimeUnit.NANOSECONDS)) {
-				long currentReverseResponsesCountDown = overallReverseResponsesDownCounter.getCount();
+			while (!overallReveresResponsesDone.await(DEFAULT_TIMEOUT_NANOS, TimeUnit.NANOSECONDS)) {
+				long currentReverseResponsesCountDown = overallReverseResponsesDownCounter.get();
 				int numberOfClients = clientCounter.get();
 				int observers = overallObserverCounter.get();
 				long reverseResponsesDifference = (lastReverseResponsesCountDown - currentReverseResponsesCountDown);
@@ -1283,42 +1654,91 @@ public class BenchmarkClient {
 						lastChangeNanoRealtime = ClockUtil.nanoRealtime();
 					}
 				} else {
-					// wait extra DEFAULT_TIMEOUT_NANOS for start of reverse responses.
+					// wait extra DEFAULT_TIMEOUT_NANOS for start of reverse
+					// responses.
 					time = ClockUtil.nanoRealtime() - lastChangeNanoRealtime - DEFAULT_TIMEOUT_NANOS;
 				}
-				if ((config.reverse.max < TimeUnit.NANOSECONDS.toMillis(time - DEFAULT_TIMEOUT_NANOS)) || (numberOfClients == 0)) {
-					// no new notifies for interval max, clients are stale, or no clients left
+				if (config.reverse.max < TimeUnit.NANOSECONDS.toMillis(time - DEFAULT_TIMEOUT_NANOS)
+						|| (numberOfClients == 0)) {
+					// no new notifies for interval max, clients are stale, or
+					// no clients left
 					// adjust start time with timeout
-					reverseResponseNanos += time;
+					startReverseResponseNanos += time;
 					stale = true;
 					if (observe) {
-						System.out.format("%d notifies, stale (%d clients, %d observes)%n",
+						System.out.format("[%04d]: %d notifies, stale (%d clients, %d observes)%n", ++count,
 								currentOverallReverseResponses, numberOfClients, observers);
 					} else {
-						System.out.format("%d reverse-responses, stale (%d clients)%n", currentOverallReverseResponses,
-								numberOfClients);
+						System.out.format("[%04d]: %d reverse-responses, stale (%d clients)%n", ++count,
+								currentOverallReverseResponses, numberOfClients);
 					}
 					break;
 				}
 				lastReverseResponsesCountDown = currentReverseResponsesCountDown;
 				if (observe) {
-					System.out.format("%d notifies (%d notifies/s, %d clients, %d observes)%n",
+					System.out.format("[%04d]: %d notifies (%d notifies/s, %d clients, %d observes)%n", ++count,
 							currentOverallReverseResponses,
-							roundDiv(reverseResponsesDifference, DEFAULT_TIMEOUT_SECONDS),
-							numberOfClients, observers);
+							roundDiv(reverseResponsesDifference, DEFAULT_TIMEOUT_SECONDS), numberOfClients, observers);
 				} else {
-					System.out.format("%d reverse-responses (%d reverse-responses/s, %d clients)%n",
+					System.out.format("[%04d]: %d reverse-responses (%d reverse-responses/s, %d clients)%n", ++count,
 							currentOverallReverseResponses,
-							roundDiv(reverseResponsesDifference, DEFAULT_TIMEOUT_SECONDS),
-							numberOfClients);
+							roundDiv(reverseResponsesDifference, DEFAULT_TIMEOUT_SECONDS), numberOfClients);
 				}
 			}
 		}
-		long overallSentReverseResponses = overallReverseResponses - overallReverseResponsesDownCounter.getCount();
-		reverseResponseNanos = System.nanoTime() - reverseResponseNanos;
+
+		timeReverseResponseNanos = System.nanoTime() - startReverseResponseNanos;
+
+		long lastNotifiesCountDown = overallNotifiesDownCounter.get();
+		if (config.observe != null && lastNotifiesCountDown > 0) {
+			System.out.println("Observe-Requests sent.");
+			long currentOverallSentRequests = overallRequests - overallRequestsDownCounter.get();
+			long lastChangeNanoRealtime = ClockUtil.nanoRealtime();
+			while (!overallNotifiesDone.await(DEFAULT_TIMEOUT_NANOS, TimeUnit.NANOSECONDS)) {
+				long currentRequestsCountDown = overallRequestsDownCounter.get();
+				long requestsDifference = (lastRequestsCountDown - currentRequestsCountDown);
+				currentOverallSentRequests += requestsDifference;
+
+				long currentNotifiesCountDown = overallNotifiesDownCounter.get();
+				int numberOfClients = clientCounter.get();
+				long notifiesDifference = (lastNotifiesCountDown - currentNotifiesCountDown);
+				long currentOverallNotifies = overallNotifies - currentNotifiesCountDown;
+				long time = 0;
+				if (currentNotifiesCountDown < overallNotifies) {
+					if (notifiesDifference == 0) {
+						time = ClockUtil.nanoRealtime() - lastChangeNanoRealtime;
+					} else {
+						lastChangeNanoRealtime = ClockUtil.nanoRealtime();
+					}
+				} else {
+					// wait extra DEFAULT_TIMEOUT_NANOS for start of reverse
+					// responses.
+					time = ClockUtil.nanoRealtime() - lastChangeNanoRealtime - DEFAULT_TIMEOUT_NANOS;
+				}
+				if (0 < TimeUnit.NANOSECONDS.toMillis(time - DEFAULT_TIMEOUT_NANOS) || (numberOfClients == 0)) {
+					// no new notifies for interval max, clients are stale, or
+					// no clients left
+					// adjust start time with timeout
+					startNotifiesNanos += time;
+					stale = true;
+					System.out.format("[%04d]: %d notifies, %d request, stale (%d clients)%n", ++count,
+							currentOverallNotifies, currentOverallSentRequests, numberOfClients);
+					break;
+				}
+				lastRequestsCountDown = currentRequestsCountDown;
+				lastNotifiesCountDown = currentNotifiesCountDown;
+				System.out.format("[%04d]: %d notifies, %d request (%d notifies/s, %d clients)%n", ++count,
+						currentOverallNotifies, currentOverallSentRequests,
+						roundDiv(notifiesDifference, DEFAULT_TIMEOUT_SECONDS), numberOfClients);
+			}
+		}
+
+		timeNotifiesNanos = System.nanoTime() - startNotifiesNanos;
+
+		// long overallSentReverseResponses = overallReverseResponses -
+		// overallReverseResponsesDownCounter.getCount();
 
 		System.out.format("%d benchmark clients %s.%n", clients, stale ? "stopped" : "finished");
-		Logger statisticsLogger = printManagamentStatistic(args, reverseResponseNanos);
 
 		// stop and collect per client requests
 		final int statistic[] = new int[clients];
@@ -1342,48 +1762,7 @@ public class BenchmarkClient {
 		stop.await();
 		Thread.sleep(1000);
 		executor.shutdown();
-		statisticsLogger.info("{} requests sent, {} expected", overallSentRequests, overallRequests);
-		statisticsLogger.info("{} requests in {} ms{}", overallSentRequests, TimeUnit.NANOSECONDS.toMillis(requestNanos),
-				formatPerSecond("reqs", overallSentRequests, requestNanos));
-		if (overallReverseResponses > 0) {
-			if (observe) {
-				statisticsLogger.info("{} notifies sent, {} expected, {} observe request", overallSentReverseResponses,
-						overallReverseResponses, overallObservationRegistrationCounter.get());
-				statisticsLogger.info("{} notifies in {} ms{}", overallSentReverseResponses,
-						TimeUnit.NANOSECONDS.toMillis(reverseResponseNanos),
-						formatPerSecond("notifies", overallSentReverseResponses, reverseResponseNanos));
-				statisticsLogger.info("{} notifies could not be completed", notifiesCompleteTimeouts.get());
-			} else {
-				statisticsLogger.info("{} reverse-responses sent, {} expected", overallSentReverseResponses,
-						overallReverseResponses);
-				statisticsLogger.info("{} reverse-responses in {} ms{}", overallSentReverseResponses,
-						TimeUnit.NANOSECONDS.toMillis(reverseResponseNanos),
-						formatPerSecond("reverse-responses", overallSentReverseResponses, reverseResponseNanos));
-			}
-		}
-		long retransmissions = retransmissionCounter.get();
-		if (retransmissions > 0) {
-			statisticsLogger.info("{}", formatRetransmissions(retransmissions, overallSentRequests));
-		}
-		long transmissionErrors = transmissionErrorCounter.get();
-		if (transmissionErrors > 0) {
-			statisticsLogger.info("{}", formatTransmissionErrors(transmissionErrors, overallSentRequests));
-		}
-		if (overallSentRequests < overallRequests) {
-			statisticsLogger.info("Stale at {} messages ({}%)", overallSentRequests,
-					(overallSentRequests * 100L) / overallRequests);
-		}
-		int unavailables = overallServiceUnavailable.get();
-		if (unavailables > 0) {
-			System.out.println(formatUnavailable(unavailables, overallSentRequests));
-			long successfullRequest = overallSentRequests - unavailables;
-			System.out.format("%d successful requests in %dms%s%n", successfullRequest,
-					TimeUnit.NANOSECONDS.toMillis(requestNanos),
-					formatPerSecond("reqs", successfullRequest, requestNanos));
-		}
 
-		health.dump();
-		netstat.dump();
 		if (1 < clients) {
 			synchronized (statistic) {
 				Arrays.sort(statistic);
@@ -1401,6 +1780,7 @@ public class BenchmarkClient {
 			}
 			System.out.println(formatClientRequests(statistic, clients, last));
 		}
+		done = true;
 	}
 
 	private static ThreadLocalKeyPairGenerator createKeyPairGenerator() {
@@ -1480,27 +1860,125 @@ public class BenchmarkClient {
 		return logger;
 	}
 
-	private static String formatRetransmissions(long retransmissions, long requests) {
+	private static void printResults() {
+		long now = System.nanoTime();
+		if (timeRequestNanos == 0) {
+			timeRequestNanos = now - startRequestNanos;
+		}
+		if (timeReverseResponseNanos == 0) {
+			timeReverseResponseNanos = now - startReverseResponseNanos;
+		}
+		if (timeNotifiesNanos == 0) {
+			timeNotifiesNanos = now - startNotifiesNanos;
+		}
+		if (!done) {
+			System.out.format("%n%d benchmark clients interrupted.%n", clients);
+		}
+
+		Logger statisticsLogger = printManagamentStatistic(args, timeReverseResponseNanos);
+		long overallSentRequests = overallRequests - overallResponsesDownCounter.get();
+		statisticsLogger.info("{} requests sent, {} expected", overallSentRequests, overallRequests);
+		overallSentRequests = overallRequests - Math.max(0,  overallResponsesDownCounter.get());
+		statisticsLogger.info("{} requests in {} ms{}", overallSentRequests,
+				TimeUnit.NANOSECONDS.toMillis(timeRequestNanos),
+				formatPerSecond("reqs", overallSentRequests, timeRequestNanos));
+		if (overallReverseResponses > 0) {
+			long overallSentReverseResponses = overallReverseResponses - overallReverseResponsesDownCounter.get();
+			if (overallObservationRegistrationCounter.get() > 0) {
+				statisticsLogger.info("{} notifies sent, {} expected, {} observe request", overallSentReverseResponses,
+						overallReverseResponses, overallObservationRegistrationCounter.get());
+				statisticsLogger.info("{} notifies sent in {} ms{}", overallSentReverseResponses,
+						TimeUnit.NANOSECONDS.toMillis(timeReverseResponseNanos),
+						formatPerSecond("notifies", overallSentReverseResponses, timeReverseResponseNanos));
+				statisticsLogger.info("{} sent notifies could not be completed", notifiesCompleteTimeouts.get());
+			} else {
+				statisticsLogger.info("{} reverse-responses sent, {} expected", overallSentReverseResponses,
+						overallReverseResponses);
+				statisticsLogger.info("{} reverse-responses in {} ms{}", overallSentReverseResponses,
+						TimeUnit.NANOSECONDS.toMillis(timeReverseResponseNanos),
+						formatPerSecond("reverse-responses", overallSentReverseResponses, timeReverseResponseNanos));
+			}
+		}
+		if (overallNotifies > 0) {
+			long overallReceivedNotifies = overallNotifies - overallNotifiesDownCounter.get();
+			statisticsLogger.info("{} notifies received, {} expected", overallReceivedNotifies, overallNotifies);
+			statisticsLogger.info("{} notifies received in {} ms{}", overallReceivedNotifies,
+					TimeUnit.NANOSECONDS.toMillis(timeNotifiesNanos),
+					formatPerSecond("notifies", overallReceivedNotifies, timeNotifiesNanos));
+		}
+		long retransmissions = retransmissionCounter.get();
+		if (retransmissions > 0) {
+			statisticsLogger.info("{}",
+					formatRetransmissions(retransmissions, overallSentRequests, overallSentRequests));
+		}
+		long transmissionErrors = transmissionErrorCounter.get();
+		if (transmissionErrors > 0) {
+			statisticsLogger.info("{}",
+					formatTransmissionErrors(transmissionErrors, overallSentRequests, overallSentRequests));
+		}
+		if (overallSentRequests < overallRequests) {
+			if (done) {
+				statisticsLogger.info("Stale at {} messages ({}%)", overallSentRequests,
+						(overallSentRequests * 100L) / overallRequests);
+			} else {
+				statisticsLogger.info("Interrupted at {} messages ({}%)", overallSentRequests,
+						(overallSentRequests * 100L) / overallRequests);
+			}
+		}
+		int unavailables = overallServiceUnavailable.get();
+		if (unavailables > 0) {
+			System.out.println(formatUnavailable(unavailables, overallSentRequests));
+			long successfullRequest = overallSentRequests - unavailables;
+			System.out.format("%d successful requests in %dms%s%n", successfullRequest,
+					TimeUnit.NANOSECONDS.toMillis(timeRequestNanos),
+					formatPerSecond("reqs", successfullRequest, timeRequestNanos));
+		}
+
+		statisticsLogger.info("connects          : {}", connectRttStatistic.getSummaryAsText());
+		statisticsLogger.info("success-responses : {}", rttStatistic.getSummaryAsText());
+		statisticsLogger.info("errors-responses  : {}", errorRttStatistic.getSummaryAsText());
+		statisticsLogger.info("single-blocks     : {}", transmissionRttStatistic.getSummaryAsText());
+
+		health.dump();
+		if (netstat4 != null) {
+			netstat4.dump();
+		}
+		if (netstat6 != null) {
+			netstat6.dump();
+		}
+	}
+
+	private static void registerShutdown() {
+		LOGGER.info("register shutdown hook.");
+		Runtime.getRuntime().addShutdownHook(new Thread("SHUTDOWN") {
+
+			@Override
+			public void run() {
+				printResults();
+			}
+		});
+	}
+
+	private static String formatRetransmissions(long retransmissions, long requests, long responses) {
 		try (Formatter formatter = new Formatter()) {
 			if (requests > 0) {
-				return formatter
-						.format("%d retransmissions (%4.2f%%)", retransmissions, ((retransmissions * 100D) / requests))
-						.toString();
+				String amend = responses == 0 ? ", no responses received!" : "";
+				return formatter.format("%d retransmissions (%4.2f%%%s)", retransmissions,
+						((retransmissions * 100D) / requests), amend).toString();
 			} else {
-				return formatter.format("%d retransmissions (no response-messages received!)", retransmissions)
-						.toString();
+				return formatter.format("%d retransmissions", retransmissions).toString();
 			}
 		}
 	}
 
-	private static String formatTransmissionErrors(long transmissionErrors, long requests) {
+	private static String formatTransmissionErrors(long transmissionErrors, long requests, long responses) {
 		try (Formatter formatter = new Formatter()) {
 			if (requests > 0) {
-				return formatter.format("%d transmission errors (%4.2f%%)", transmissionErrors,
-						((transmissionErrors * 100D) / requests)).toString();
+				String amend = responses == 0 ? ", no responses received!" : "";
+				return formatter.format("%d transmission errors (%4.2f%%%s)", transmissionErrors,
+						((transmissionErrors * 100D) / requests), amend).toString();
 			} else {
-				return formatter.format("%d transmission errors (no response-messages received!)", transmissionErrors)
-						.toString();
+				return formatter.format("%d transmission errors", transmissionErrors).toString();
 			}
 		}
 	}
@@ -1529,8 +2007,7 @@ public class BenchmarkClient {
 	private static String formatHonoCmds(int honoCmds, long requests) {
 		try (Formatter formatter = new Formatter()) {
 			if (requests > 0) {
-				return formatter.format("%d hono-cmds (%4.2f%%)", honoCmds, ((honoCmds * 100D) / requests))
-						.toString();
+				return formatter.format("%d hono-cmds (%4.2f%%)", honoCmds, ((honoCmds * 100D) / requests)).toString();
 			} else {
 				return formatter.format("%d hono-cmds (no response-messages received!)", honoCmds).toString();
 			}

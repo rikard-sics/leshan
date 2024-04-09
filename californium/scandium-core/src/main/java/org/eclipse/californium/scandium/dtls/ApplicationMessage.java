@@ -19,23 +19,18 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
-import java.net.InetSocketAddress;
-
 import org.eclipse.californium.elements.util.StringUtil;
 
 /**
  * Application data messages are carried by the record layer and are fragmented,
- * compressed, and encrypted based on the current connection state. The messages
- * are treated as transparent data to the record layer.
+ * compressed, and encrypted based on the current connection state.
+ * 
+ * The messages are treated as transparent data to the record layer.
  */
-public final class ApplicationMessage extends AbstractMessage {
-
-	// Members ////////////////////////////////////////////////////////
+public final class ApplicationMessage implements DTLSMessage {
 
 	/** The (to the record layer) transparent data. */
 	private final byte[] data;
-
-	// Constructor ////////////////////////////////////////////////////
 
 	/**
 	 * Creates a new <em>APPLICATION_DATA</em> message containing specific data.
@@ -45,19 +40,14 @@ public final class ApplicationMessage extends AbstractMessage {
 	 * message's payload.
 	 * 
 	 * @param data byte array with the application data.
-	 * @param peerAddress the IP address and port the message is to be sent to
-	 *            or has been received from
-	 * @throws NullPointerException if peer or data is {@code null}
+	 * @throws NullPointerException if data is {@code null}
 	 */
-	public ApplicationMessage(byte[] data, InetSocketAddress peerAddress) {
-		super(peerAddress);
+	public ApplicationMessage(byte[] data) {
 		if (data == null) {
 			throw new NullPointerException("data must not be null!");
 		}
 		this.data = data;
 	}
-
-	// Methods ////////////////////////////////////////////////////////
 
 	@Override
 	public ContentType getContentType() {
@@ -65,13 +55,22 @@ public final class ApplicationMessage extends AbstractMessage {
 	}
 
 	@Override
-	public String toString() {
+	public String toString(int indent) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("\tApplication Data: ").append(StringUtil.byteArray2Hex(data)).append(StringUtil.lineSeparator());
+		if (indent > 0) {
+			sb.append(StringUtil.indentation(indent));
+		}
+		sb.append("Application Data: ").append(StringUtil.byteArray2HexString(data, StringUtil.NO_SEPARATOR, 32));
+		if (indent > 0) {
+			sb.append(StringUtil.lineSeparator());
+		}
 		return sb.toString();
 	}
 
-	// Serialization //////////////////////////////////////////////////
+	@Override
+	public String toString() {
+		return toString(0);
+	}
 
 	@Override
 	public int size() {
@@ -91,15 +90,12 @@ public final class ApplicationMessage extends AbstractMessage {
 	 * message's payload.
 	 * 
 	 * @param byteArray byte array with the application data.
-	 * @param peerAddress peer's address
 	 * @return created message
-	 * @see #ApplicationMessage(byte[], InetSocketAddress)
+	 * @see #ApplicationMessage(byte[])
 	 */
-	public static DTLSMessage fromByteArray(byte[] byteArray, InetSocketAddress peerAddress) {
-		return new ApplicationMessage(byteArray, peerAddress);
+	public static DTLSMessage fromByteArray(byte[] byteArray) {
+		return new ApplicationMessage(byteArray);
 	}
-
-	// Getters and Setters ////////////////////////////////////////////
 
 	public byte[] getData() {
 		return data;

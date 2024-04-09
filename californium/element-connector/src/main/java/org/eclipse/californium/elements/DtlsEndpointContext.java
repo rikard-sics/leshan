@@ -22,6 +22,7 @@ package org.eclipse.californium.elements;
 import java.net.InetSocketAddress;
 import java.security.Principal;
 
+import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.StringUtil;
 
 /**
@@ -30,55 +31,125 @@ import org.eclipse.californium.elements.util.StringUtil;
 public class DtlsEndpointContext extends MapBasedEndpointContext {
 
 	/**
-	 * The name of the attribute that contains the DTLS session ID.
+	 * The name of the attribute that contains the DTLS session ID as
+	 * {@link Bytes}.
 	 */
-	public static final String KEY_SESSION_ID = "DTLS_SESSION_ID";
+	public static final Definition<Bytes> KEY_SESSION_ID = new Definition<>("DTLS_SESSION_ID", Bytes.class,
+			ATTRIBUTE_DEFINITIONS);
 	/**
 	 * The name of the attribute that contains the <em>epoch</em> of the DTLS
-	 * session.
+	 * session as {@link Number}.
 	 */
-	public static final String KEY_EPOCH = "DTLS_EPOCH";
+	public static final Definition<Integer> KEY_EPOCH = new Definition<>("DTLS_EPOCH", Integer.class,
+			ATTRIBUTE_DEFINITIONS);
 	/**
 	 * The name of the attribute that contains the cipher suite used with the
-	 * DTLS session.
+	 * DTLS session as {@link String}.
 	 */
-	public static final String KEY_CIPHER = "DTLS_CIPHER";
+	public static final Definition<String> KEY_CIPHER = new Definition<>("DTLS_CIPHER", String.class,
+			ATTRIBUTE_DEFINITIONS);
 	/**
 	 * The name of the attribute that contains the timestamp of the last
-	 * handshake of the DTLS session.
+	 * handshake of the DTLS session as {@link Number}.
+	 * 
+	 * In milliseconds since midnight, January 1, 1970 UTC.
 	 */
-	public static final String KEY_HANDSHAKE_TIMESTAMP = "DTLS_HANDSHAKE_TIMESTAMP";
+	public static final Definition<Long> KEY_HANDSHAKE_TIMESTAMP = new Definition<>("DTLS_HANDSHAKE_TIMESTAMP",
+			Long.class, ATTRIBUTE_DEFINITIONS);
 	/**
-	 * The name of the attribute that contains the DTLS Connection ID of the
-	 * other peer, if used.
+	 * The name of the attribute that contains the dtls packet sequence number
+	 * during the DTLS session as {@link Number}.
+	 */
+	public static final Definition<Long> DTLS_READ_SEQUENCE_NUMBER = new Definition<>(
+			KEY_PREFIX_NONE_CRITICAL + "DTLS_READ_SEQUENCE_NUMBER", Long.class, ATTRIBUTE_DEFINITIONS);
+	/**
+	 * The name of the attribute that contains the DTLS Connection ID for
+	 * incoming records from the other peer as {@link Bytes}, if used.
 	 * 
 	 * @since 2.5
 	 */
-	public static final String KEY_READ_CONNECTION_ID = "DTLS_READ_CONNECTION_ID";
+	public static final Definition<Bytes> KEY_READ_CONNECTION_ID = new Definition<>("DTLS_READ_CONNECTION_ID",
+			Bytes.class, ATTRIBUTE_DEFINITIONS);
 	/**
-	 * The name of the attribute that contains the DTLS Connection ID of the
-	 * other peer, if used.
+	 * The name of the attribute that contains the DTLS Connection ID for
+	 * outgoing records sent to the other peer as {@link Bytes}, if used.
 	 * 
 	 * @since 2.5
 	 */
-	public static final String KEY_WRITE_CONNECTION_ID = "DTLS_WRITE_CONNECTION_ID";
+	public static final Definition<Bytes> KEY_WRITE_CONNECTION_ID = new Definition<>("DTLS_WRITE_CONNECTION_ID",
+			Bytes.class, ATTRIBUTE_DEFINITIONS);
 	/**
 	 * The name of the attribute that indicates, that the record is received via
 	 * a DTLS_CID router.
 	 * 
 	 * @since 2.5
 	 */
-	public static final String KEY_VIA_ROUTER = KEY_PREFIX_NONE_CRITICAL + "DTLS_VIA_ROUTER";
+	public static final Definition<String> KEY_VIA_ROUTER = new Definition<>(
+			KEY_PREFIX_NONE_CRITICAL + "DTLS_VIA_ROUTER", String.class, ATTRIBUTE_DEFINITIONS);
 	/**
 	 * The name of the attribute that contains a handshake mode. Values see
-	 * {@link #HANDSHAKE_MODE_FORCE_FULL}, {@link #HANDSHAKE_MODE_FORCE}, and
-	 * {@link #HANDSHAKE_MODE_NONE}. Only considered, if endpoint is not
-	 * configured as "server only". If not provided, a handshake will be
-	 * started, if required and the connector is not configured to act as server
-	 * only. None critical attribute, not considered for matching.
+	 * {@link #HANDSHAKE_MODE_FORCE_FULL}, {@link #HANDSHAKE_MODE_FORCE},
+	 * {@link #HANDSHAKE_MODE_PROBE}, and {@link #HANDSHAKE_MODE_NONE}. Only
+	 * considered, if endpoint is not configured as "server only". If not
+	 * provided, a handshake will be started, if required and the connector is
+	 * not configured to act as server only. None critical attribute, not
+	 * considered for matching.
 	 */
-	public static final String KEY_HANDSHAKE_MODE = KEY_PREFIX_NONE_CRITICAL + "DTLS_HANDSHAKE_MODE";
-
+	public static final Definition<String> KEY_HANDSHAKE_MODE = new Definition<>(
+			KEY_PREFIX_NONE_CRITICAL + "DTLS_HANDSHAKE_MODE", String.class, ATTRIBUTE_DEFINITIONS);
+	/**
+	 * The name of the attribute that contains a auto handshake timeout in
+	 * milliseconds as {@link Number}.
+	 * 
+	 * {@code -1}, disable auto handshake timeout. None critical attribute, not
+	 * considered for matching.
+	 * 
+	 * @since 3.0 (renamed, was KEY_RESUMPTION_TIMEOUT)
+	 */
+	public static final Definition<Integer> KEY_AUTO_HANDSHAKE_TIMEOUT = new Definition<>(
+			KEY_PREFIX_NONE_CRITICAL + "DTLS_AUTO_HANDSHAKE_TIMEOUT", Integer.class, ATTRIBUTE_DEFINITIONS);
+	/**
+	 * The name of the attribute that contains the message size limit.
+	 * 
+	 * @since 3.0
+	 */
+	public static final Definition<Integer> KEY_MESSAGE_SIZE_LIMIT = new Definition<>(
+			KEY_PREFIX_NONE_CRITICAL + "DTLS_MESSAGE_SIZE_LIMIT", Integer.class, ATTRIBUTE_DEFINITIONS);
+	/**
+	 * The name of the attribute that contains a marker for the extended master secret 
+	 * (see <a href="https://tools.ietf.org/html/rfc7627" target="_blank">RFC 7627</a>).
+	 * 
+	 * @since 3.0
+	 */
+	public static final Definition<Boolean> KEY_EXTENDED_MASTER_SECRET = new Definition<>(
+			KEY_PREFIX_NONE_CRITICAL + "DTLS_EXTENDED_MASTER_SECRET", Boolean.class, ATTRIBUTE_DEFINITIONS);
+	/**
+	 * The name of the attribute that contains a marker for newest received
+	 * records.
+	 * 
+	 * @since 3.0
+	 */
+	public static final Definition<Boolean> KEY_NEWEST_RECORD = new Definition<>(
+			KEY_PREFIX_NONE_CRITICAL + "DTLS_NEWEST_RECORD", Boolean.class, ATTRIBUTE_DEFINITIONS);
+	/**
+	 * The name of the attribute that contains a marker for newest received
+	 * records.
+	 * 
+	 * @since 3.0
+	 */
+	public static final Definition<InetSocketAddress> KEY_PREVIOUS_ADDRESS = new Definition<>(
+			KEY_PREFIX_NONE_CRITICAL + "DTLS_PREVIOUS_ADDRESS", InetSocketAddress.class, ATTRIBUTE_DEFINITIONS);
+	/**
+	 * The name of the attribute that contains a marker for the secure renegotiationt 
+	 * (see <a href="https://tools.ietf.org/html/rfc5746" target="_blank">RFC 5746</a>).
+	 * 
+	 * Californium doesn't support renegotiation at all, but RFC5746 requests to
+	 * update to a minimal version of RFC 5746.
+	 * 
+	 * @since 3.8
+	 */
+	public static final Definition<Boolean> KEY_SECURE_RENEGOTIATION = new Definition<>(
+			"DTLS_SECURE_RENEGOTIATION", Boolean.class, ATTRIBUTE_DEFINITIONS);
 	/**
 	 * Force full handshake before send this message. Doesn't start a handshake,
 	 * if the connector is configured to act as server only.
@@ -102,32 +173,41 @@ public class DtlsEndpointContext extends MapBasedEndpointContext {
 	 * Don't start a handshake, even, if no session is available.
 	 */
 	public static final String HANDSHAKE_MODE_NONE = "none";
-
 	/**
-	 * The name of the attribute that contains a auto session resumption timeout
-	 * in milliseconds. {@code ""}, disable auto session resumption. None
-	 * critical attribute, not considered for matching.
-	 */
-	public static final String KEY_RESUMPTION_TIMEOUT = KEY_PREFIX_NONE_CRITICAL + "DTLS_RESUMPTION_TIMEOUT";
-
-	/**
-	 * Creates a context for DTLS session parameters.
+	 * Attribute to set HANDSHAKE_MODE to {@link #HANDSHAKE_MODE_NONE}.
 	 * 
-	 * @param peerAddress peer address of endpoint context
-	 * @param peerIdentity peer identity of endpoint context
-	 * @param sessionId the session's ID.
-	 * @param epoch the session's current read/write epoch.
-	 * @param cipher the cipher suite of the session's current read/write state.
-	 * @param timestamp the timestamp in milliseconds of the last handshake. See
-	 *            {@link System#currentTimeMillis()}.
-	 * @throws NullPointerException if any of the parameters other than
-	 *             peerIdentity are {@code null}.
+	 * @since 3.0
 	 */
-	public DtlsEndpointContext(InetSocketAddress peerAddress, Principal peerIdentity, String sessionId, String epoch,
-			String cipher, String timestamp) {
-
-		this(peerAddress, null, peerIdentity, sessionId, epoch, cipher, timestamp);
-	}
+	public static final Attributes ATTRIBUTE_HANDSHAKE_MODE_NONE = new Attributes()
+			.add(KEY_HANDSHAKE_MODE, HANDSHAKE_MODE_NONE).lock();
+	/**
+	 * Attribute to set HANDSHAKE_MODE to {@link #HANDSHAKE_MODE_AUTO}.
+	 * 
+	 * @since 3.0
+	 */
+	public static final Attributes ATTRIBUTE_HANDSHAKE_MODE_AUTO = new Attributes()
+			.add(KEY_HANDSHAKE_MODE, HANDSHAKE_MODE_AUTO).lock();
+	/**
+	 * Attribute to set HANDSHAKE_MODE to {@link #HANDSHAKE_MODE_PROBE}.
+	 * 
+	 * @since 3.0
+	 */
+	public static final Attributes ATTRIBUTE_HANDSHAKE_MODE_PROBE = new Attributes()
+			.add(KEY_HANDSHAKE_MODE, HANDSHAKE_MODE_PROBE).lock();
+	/**
+	 * Attribute to set HANDSHAKE_MODE to {@link #HANDSHAKE_MODE_FORCE}.
+	 * 
+	 * @since 3.0
+	 */
+	public static final Attributes ATTRIBUTE_HANDSHAKE_MODE_FORCE = new Attributes()
+			.add(KEY_HANDSHAKE_MODE, HANDSHAKE_MODE_FORCE).lock();
+	/**
+	 * Attribute to set HANDSHAKE_MODE to {@link #HANDSHAKE_MODE_FORCE_FULL}.
+	 * 
+	 * @since 3.0
+	 */
+	public static final Attributes ATTRIBUE_HANDSHAKE_MODE_FORCE_FULL = new Attributes()
+			.add(KEY_HANDSHAKE_MODE, HANDSHAKE_MODE_FORCE_FULL).lock();
 
 	/**
 	 * Creates a context for DTLS session parameters.
@@ -144,10 +224,10 @@ public class DtlsEndpointContext extends MapBasedEndpointContext {
 	 *             peerIdentity or virtualHost are {@code null}.
 	 */
 	public DtlsEndpointContext(InetSocketAddress peerAddress, String virtualHost, Principal peerIdentity,
-			String sessionId, String epoch, String cipher, String timestamp) {
+			Bytes sessionId, int epoch, String cipher, long timestamp) {
 
-		super(peerAddress, virtualHost, peerIdentity, KEY_SESSION_ID, sessionId, KEY_CIPHER, cipher, KEY_EPOCH, epoch,
-				KEY_HANDSHAKE_TIMESTAMP, timestamp);
+		super(peerAddress, virtualHost, peerIdentity, new Attributes().add(KEY_SESSION_ID, sessionId)
+				.add(KEY_CIPHER, cipher).add(KEY_EPOCH, epoch).add(KEY_HANDSHAKE_TIMESTAMP, timestamp));
 	}
 
 	/**
@@ -169,11 +249,25 @@ public class DtlsEndpointContext extends MapBasedEndpointContext {
 	 * @since 2.5
 	 */
 	public DtlsEndpointContext(InetSocketAddress peerAddress, String virtualHost, Principal peerIdentity,
-			String sessionId, String epoch, String cipher, String timestamp, String writeCid, String readCid,
-			String via) {
-		super(peerAddress, virtualHost, peerIdentity, KEY_SESSION_ID, sessionId, KEY_CIPHER, cipher, KEY_EPOCH, epoch,
-				KEY_HANDSHAKE_TIMESTAMP, timestamp, KEY_WRITE_CONNECTION_ID, writeCid, KEY_READ_CONNECTION_ID, readCid,
-				KEY_VIA_ROUTER, via);
+			Bytes sessionId, int epoch, String cipher, long timestamp, Bytes writeCid, Bytes readCid, String via) {
+		super(peerAddress, virtualHost, peerIdentity,
+				new Attributes().add(KEY_SESSION_ID, sessionId).add(KEY_CIPHER, cipher).add(KEY_EPOCH, epoch)
+						.add(KEY_HANDSHAKE_TIMESTAMP, timestamp).add(KEY_WRITE_CONNECTION_ID, writeCid)
+						.add(KEY_READ_CONNECTION_ID, readCid).add(KEY_VIA_ROUTER, via));
+	}
+
+	/**
+	 * Creates a context for DTLS session parameters.
+	 * 
+	 * @param peerAddress peer address of endpoint context
+	 * @param virtualHost the name of the virtual host at the peer
+	 * @param peerIdentity peer identity of endpoint context
+	 * @param attributes attributes for dtls context.
+	 * @since 3.0
+	 */
+	public DtlsEndpointContext(InetSocketAddress peerAddress, String virtualHost, Principal peerIdentity,
+			Attributes attributes) {
+		super(peerAddress, virtualHost, peerIdentity, attributes);
 	}
 
 	/**
@@ -181,7 +275,7 @@ public class DtlsEndpointContext extends MapBasedEndpointContext {
 	 * 
 	 * @return The identifier.
 	 */
-	public final String getSessionId() {
+	public final Bytes getSessionId() {
 		return get(KEY_SESSION_ID);
 	}
 
@@ -190,7 +284,7 @@ public class DtlsEndpointContext extends MapBasedEndpointContext {
 	 * 
 	 * @return The epoch number.
 	 */
-	public final String getEpoch() {
+	public final Number getEpoch() {
 		return get(KEY_EPOCH);
 	}
 
@@ -210,13 +304,13 @@ public class DtlsEndpointContext extends MapBasedEndpointContext {
 	 * 
 	 * @see System#currentTimeMillis()
 	 */
-	public final String getHandshakeTimestamp() {
+	public final Number getHandshakeTimestamp() {
 		return get(KEY_HANDSHAKE_TIMESTAMP);
 	}
 
 	@Override
 	public String toString() {
 		return String.format("DTLS(%s,ID:%s)", getPeerAddressAsString(),
-				StringUtil.trunc(getSessionId(), ID_TRUNC_LENGTH));
+				StringUtil.trunc(getSessionId().getAsString(), ID_TRUNC_LENGTH));
 	}
 }

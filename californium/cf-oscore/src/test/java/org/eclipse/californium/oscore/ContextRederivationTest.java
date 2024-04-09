@@ -71,7 +71,7 @@ import com.upokecenter.cbor.CBORObject;
 public class ContextRederivationTest {
 	@ClassRule
 	public static CoapNetworkRule network = new CoapNetworkRule(CoapNetworkRule.Mode.DIRECT, CoapNetworkRule.Mode.NATIVE);
-	
+
 	private CoapServer server;
 	private Endpoint serverEndpoint;
 
@@ -91,6 +91,7 @@ public class ContextRederivationTest {
 	private final static byte[] sid = new byte[0];
 	private final static byte[] rid = new byte[] { 0x01 };
 	private final static byte[] context_id = { 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74 };
+	private final static int MAX_UNFRAGMENTED_SIZE = 4096;
 
 	private static int SEGMENT_LENGTH = ContextRederivation.SEGMENT_LENGTH;
 
@@ -137,7 +138,7 @@ public class ContextRederivationTest {
 		// procedure. (But perform the procedure if the client initiates.)
 		createServer(false);
 
-		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, null);
+		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, null, MAX_UNFRAGMENTED_SIZE);
 		String serverUri = serverEndpoint.getUri().toASCIIString();
 
 		// Enable context re-derivation functionality (in general)
@@ -147,12 +148,12 @@ public class ContextRederivationTest {
 
 		dbClient.addContext(serverUri, ctx);
 
-		CoapClient c = new CoapClient(serverUri + hello1);
-		Request r = new Request(Code.GET);
-		r.getOptions().setOscore(Bytes.EMPTY);
+		CoapClient client = new CoapClient(serverUri + hello1);
+		Request request = new Request(Code.GET);
+		request.getOptions().setOscore(Bytes.EMPTY);
 		RequestTestObserver requestTestObserver = new RequestTestObserver();
-		r.addMessageObserver(requestTestObserver);
-		CoapResponse resp = c.advanced(r);
+		request.addMessageObserver(requestTestObserver);
+		CoapResponse resp = client.advanced(request);
 		System.out.println((Utils.prettyPrint(resp)));
 
 		OSCoreCtx currCtx = dbClient.getContext(serverUri);
@@ -182,18 +183,20 @@ public class ContextRederivationTest {
 		assertEquals(SERVER_RESPONSE, resp.getResponseText());
 
 		// 2nd request for testing
-		r = new Request(Code.GET);
-		r.getOptions().setOscore(Bytes.EMPTY);
-		resp = c.advanced(r);
+		request = new Request(Code.GET);
+		request.getOptions().setOscore(Bytes.EMPTY);
+		resp = client.advanced(request);
 		System.out.println((Utils.prettyPrint(resp)));
 
 		assertEquals(ResponseCode.CONTENT, resp.getCode());
 		assertEquals(SERVER_RESPONSE, resp.getResponseText());
 
-		resp = c.advanced(r);
+		request = new Request(Code.GET);
+		request.getOptions().setOscore(Bytes.EMPTY);
+		resp = client.advanced(request);
 		System.out.println((Utils.prettyPrint(resp)));
 
-		c.shutdown();
+		client.shutdown();
 	}
 
 	/**
@@ -224,19 +227,19 @@ public class ContextRederivationTest {
 		// reception of a request)
 		createServer(true);
 
-		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, context_id);
+		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, context_id, MAX_UNFRAGMENTED_SIZE);
 		// Enable context re-derivation functionality (for client)
 		ctx.setContextRederivationEnabled(true);
 		String serverUri = serverEndpoint.getUri().toASCIIString();
 		dbClient.addContext(serverUri, ctx);
 
 		// Create first request (for request #1 and response #1 exchange)
-		CoapClient c = new CoapClient(serverUri + hello1);
-		Request r = new Request(Code.GET);
-		r.getOptions().setOscore(Bytes.EMPTY);
+		CoapClient client = new CoapClient(serverUri + hello1);
+		Request request = new Request(Code.GET);
+		request.getOptions().setOscore(Bytes.EMPTY);
 		RequestTestObserver requestTestObserver = new RequestTestObserver();
-		r.addMessageObserver(requestTestObserver);
-		CoapResponse resp = c.advanced(r);
+		request.addMessageObserver(requestTestObserver);
+		CoapResponse resp = client.advanced(request);
 		System.out.println((Utils.prettyPrint(resp)));
 
 		OSCoreCtx currCtx = dbClient.getContext(serverUri);
@@ -272,15 +275,15 @@ public class ContextRederivationTest {
 		assertArrayEquals(contextR2, oscoreOptionR2);
 		assertArrayEquals(hmacOutput, messageHmacValue);
 
-		assertEquals(ResponseCode.CONTENT, resp.getCode());
-		assertEquals(SERVER_RESPONSE, resp.getResponseText());
+		// The response should be a 4.01
+		assertEquals(ResponseCode.UNAUTHORIZED, resp.getCode());
 
 		// 2nd request (for request #2 and response #2 exchange)
-		r = new Request(Code.GET);
-		r.getOptions().setOscore(Bytes.EMPTY);
+		request = new Request(Code.GET);
+		request.getOptions().setOscore(Bytes.EMPTY);
 		requestTestObserver = new RequestTestObserver();
-		r.addMessageObserver(requestTestObserver);
-		resp = c.advanced(r);
+		request.addMessageObserver(requestTestObserver);
+		resp = client.advanced(request);
 		System.out.println((Utils.prettyPrint(resp)));
 
 		currCtx = dbClient.getContext(serverUri);
@@ -309,7 +312,7 @@ public class ContextRederivationTest {
 		assertEquals(ResponseCode.CONTENT, resp.getCode());
 		assertEquals(SERVER_RESPONSE, resp.getResponseText());
 
-		c.shutdown();
+		client.shutdown();
 	}
 
 	/**
@@ -324,7 +327,7 @@ public class ContextRederivationTest {
 		@Override
 		public void onContextEstablished(EndpointContext endpointContext) {
 			requestIdContext = StringUtil
-					.hex2ByteArray(endpointContext.get(OSCoreEndpointContextInfo.OSCORE_CONTEXT_ID));
+					.hex2ByteArray(endpointContext.getString(OSCoreEndpointContextInfo.OSCORE_CONTEXT_ID));
 		}
 	}
 
@@ -355,7 +358,7 @@ public class ContextRederivationTest {
 		//Set up OSCORE context information for response (server)
 		byte[] sid = new byte[] { 0x01 };
 		byte[] rid = new byte[0];
-		OSCoreCtx ctx = new OSCoreCtx(master_secret, false, alg, sid, rid, kdf, 32, master_salt, contextId);
+		OSCoreCtx ctx = new OSCoreCtx(master_secret, false, alg, sid, rid, kdf, 32, master_salt, contextId, MAX_UNFRAGMENTED_SIZE);
 		String clientUri = "coap://" + TestTools.LOCALHOST_EPHEMERAL.getAddress().getHostAddress();
 
 		// Enable context re-derivation functionality in general

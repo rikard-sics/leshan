@@ -19,8 +19,9 @@
 package org.eclipse.californium.edhoc;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
+import java.util.HashMap;
 import java.util.Set;
 
 import org.eclipse.californium.cose.AlgorithmID;
@@ -33,13 +34,16 @@ import org.eclipse.californium.cose.Message;
 import org.eclipse.californium.cose.MessageTag;
 import org.eclipse.californium.cose.OneKey;
 import org.eclipse.californium.cose.Sign1Message;
+import org.eclipse.californium.elements.util.StringUtil;
+import org.eclipse.californium.oscore.CoapOSException;
+import org.eclipse.californium.oscore.OSCoreCtx;
 import org.eclipse.californium.oscore.OSCoreCtxDB;
+import org.eclipse.californium.oscore.OSException;
 
 import com.upokecenter.cbor.CBORObject;
 import com.upokecenter.cbor.CBORType;
 
 import net.i2p.crypto.eddsa.EdDSASecurityProvider;
-import net.i2p.crypto.eddsa.Utils;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -50,7 +54,7 @@ public class Util {
 
     /**
      *  Compute a ciphertext using the COSE Encrypt0 object
-     * @param idCredX   The ID of the public credential of the encrypter as a CBOR map, or null for computing MAC_4 
+     * @param pretectedHeader   The elements to include in the COSE protected header, as a CBOR map
      * @param externalData   The data to use as external_aad
      * @param plaintext   The plaintext to encrypt
      * @param alg   The encryption algorithm to use
@@ -58,26 +62,21 @@ public class Util {
      * @param key   The symmetric key to use for encrypting
      * @return  the computed ciphertext, or null in case of invalid input
      */
-	public static byte[] encrypt (CBORObject idCredX, byte[] externalData, byte[] plaintext,
+	public static byte[] encrypt (CBORObject pretectedHeader, byte[] externalData, byte[] plaintext,
 			                      AlgorithmID alg, byte[] iv, byte[] key) throws CoseException {
         
-		if(externalData == null || plaintext == null || iv == null || key == null)
+		if(pretectedHeader == null || externalData == null || plaintext == null || iv == null || key == null)
         	return null;       
 		
-        // The ID of the public credential has to be a CBOR map, except for computing MAC_4
-        if(idCredX != null && idCredX.getType() != CBORType.Map)
+        // The elements to include in the COSE protected header must be provided as a CBOR map 
+        if(pretectedHeader.getType() != CBORType.Map)
         	return null;
                 
         Encrypt0Message msg = new Encrypt0Message();
         
         // Set the protected header of the COSE object
-        
-        // The ID of the public credential is a CBOR map, except for computing MAC_4 in which case the Protected bucket is empty
-        if(idCredX != null) {        
-	        for(CBORObject label : idCredX.getKeys()) {
-	            // All good if the map has only one element, otherwise it needs to be rebuilt deterministically
-	        	msg.addAttribute(label, idCredX.get(label), Attribute.PROTECTED);
-	        }
+        for(CBORObject label : pretectedHeader.getKeys()) {
+        	msg.addAttribute(label, pretectedHeader.get(label), Attribute.PROTECTED);
         }
         
         msg.addAttribute(HeaderKeys.Algorithm, alg.AsCBOR(), Attribute.DO_NOT_SEND);
@@ -92,8 +91,8 @@ public class Util {
         // Debug print
         /*
         System.out.println("Protected attributes: " + msg.getProtectedAttributes().toString());
-        System.out.println("aad                 : " + Utils.bytesToHex(msg.getExternal()));
-        System.out.println("plaintext           : " + Utils.bytesToHex(msg.GetContent()));
+        System.out.println("aad                 : " + StringUtil.byteArray2HexString(msg.getExternal()));
+        System.out.println("plaintext           : " + StringUtil.byteArray2HexString(msg.GetContent()));
         */
         
         // Perform the encryption
@@ -101,7 +100,7 @@ public class Util {
         
         // Debug print
         /*
-        System.out.println("Encrypted content: " + Utils.bytesToHex(msg.getEncryptedContent()));
+        System.out.println("Encrypted content: " + StringUtil.byteArray2HexString(msg.getEncryptedContent()));
         */
         
         return msg.getEncryptedContent();
@@ -110,7 +109,7 @@ public class Util {
 	
     /**
      *  Decrypt a ciphertext using the COSE Encrypt0 object
-     * @param idCredX   The ID of the public credential of the decrypter, as a CBOR map 
+     * @param pretectedHeader   The elements to include in the COSE protected header, as a CBOR map 
      * @param externalData   The data to use as external_aad
      * @param ciphertext   The ciphertext to decrypt
      * @param alg   The encryption algorithm to use
@@ -118,22 +117,21 @@ public class Util {
      * @param key   The symmetric key to use for decrypting
      * @return  the computed plaintext, or null in case of invalid input
      */
-	public static byte[] decrypt (CBORObject idCredX, byte[] externalData, byte[] ciphertext, AlgorithmID alg, byte[] iv, byte[] key)
-			                               throws CoseException {
+	public static byte[] decrypt (CBORObject pretectedHeader, byte[] externalData, byte[] ciphertext,
+								  AlgorithmID alg, byte[] iv, byte[] key) throws CoseException {
         
-		if(idCredX == null || externalData == null || ciphertext == null || iv == null || key == null)
+		if(pretectedHeader == null || externalData == null || ciphertext == null || iv == null || key == null)
         	return null;       
 		
-        // The ID of the public credential has to be a CBOR map ...
-        if(idCredX.getType() != CBORType.Map)
+        // The elements to include in the COSE protected header must be provided as a CBOR map
+        if(pretectedHeader.getType() != CBORType.Map)
         	return null;
         
         Encrypt0Message msg = new Encrypt0Message();
         
         // Set the protected header of the COSE object
-        for(CBORObject label : idCredX.getKeys()) {
-            // All good if the map has only one element, otherwise it needs to be rebuilt deterministically
-        	msg.addAttribute(label, idCredX.get(label), Attribute.PROTECTED);
+        for(CBORObject label : pretectedHeader.getKeys()) {
+        	msg.addAttribute(label, pretectedHeader.get(label), Attribute.PROTECTED);
         }
         
         msg.addAttribute(HeaderKeys.Algorithm, alg.AsCBOR(), Attribute.DO_NOT_SEND);
@@ -148,8 +146,8 @@ public class Util {
         // Debug print
         /*
         System.out.println("Protected attributes: " + msg.getProtectedAttributes().toString());
-        System.out.println("aad                 : " + Utils.bytesToHex(msg.getExternal()));
-        System.out.println("payload             : " + Utils.bytesToHex(msg.GetContent()));
+        System.out.println("aad                 : " + StringUtil.byteArray2HexString(msg.getExternal()));
+        System.out.println("payload             : " + StringUtil.byteArray2HexString(msg.GetContent()));
         */
         
         // Perform the encryption
@@ -157,7 +155,7 @@ public class Util {
         
         // Debug print
         /*
-        System.out.println("Decrypted content: " + Utils.bytesToHex(msg.GetContent()));
+        System.out.println("Decrypted content: " + StringUtil.byteArray2HexString(msg.GetContent()));
         */
         
         return msg.GetContent();
@@ -210,8 +208,8 @@ public class Util {
         // Debug print
         /*
         System.out.println("Protected attributes: " + msg.getProtectedAttributes().toString());
-        System.out.println("aad                 : " + Utils.bytesToHex(msg.getExternal()));
-        System.out.println("payload             : " + Utils.bytesToHex(msg.GetContent()));
+        System.out.println("aad                 : " + StringUtil.byteArray2HexString(msg.getExternal()));
+        System.out.println("payload             : " + StringUtil.byteArray2HexString(msg.GetContent()));
         */
         
         // Compute the signature
@@ -236,7 +234,7 @@ public class Util {
 	 * @param key the key
 	 * @return the algorithm used
 	 */
-	private static AlgorithmID determineKeyAlgorithm(OneKey key) {
+	static AlgorithmID determineKeyAlgorithm(OneKey key) {
 
 		if (key.get(KeyKeys.OKP_Curve) == KeyKeys.OKP_Ed25519) {
 			return AlgorithmID.EDDSA;
@@ -307,8 +305,8 @@ public class Util {
         // Debug print
         /*
         System.out.println("Protected attributes: " + msg.getProtectedAttributes().toString());
-        System.out.println("aad                 : " + Utils.bytesToHex(msg.getExternal()));
-        System.out.println("payload             : " + Utils.bytesToHex(msg.GetContent()));
+        System.out.println("aad                 : " + StringUtil.byteArray2HexString(msg.getExternal()));
+        System.out.println("payload             : " + StringUtil.byteArray2HexString(msg.GetContent()));
         */
         
         // Verify the signature
@@ -457,61 +455,6 @@ public class Util {
 	}
 	
     /**
-     *  Encode a CBOR byte string as a bstr_identifier, i.e.:
-     *  - A CBOR byte string with length 0, 2 or greater than 2 bytes remains as is
-     *  - A CBOR byte string with length 1 byte becomes a CBOR integer, with
-     *    value the byte-encoded integer value from the byte string - 24
-     * @param byteString   The CBOR byte string to encode as bstr_identifier
-     * @return  the bstr_identifier, as a CBOR byte string or a CBOR integer
-     */
-	public static CBORObject encodeToBstrIdentifier (CBORObject byteString) {
-		
-		if(byteString.getType() != CBORType.ByteString)
-			return null;
-		
-		byte[] rawByteString = byteString.GetByteString();
-		
-		if (rawByteString.length == 1) {
-			int value = bytesToInt(rawByteString) - 24;
-			if (value >= -24 && value <= 23)
-				return CBORObject.FromObject(value);
-		}
-		
-		return byteString;
-		
-	}
-	
-    /**
-     *  Produce a CBOR byte string from a bstr_identifier, i.e.:
-     *  - If the bstr_identifier is a CBOR integer, take its value + 24 and encode the result as a 1-byte CBOR byte string
-     *  - If the bstr_identifier is a CBOR byte string with length 0, 2 or more than 2 bytes, return it as is
-     * @param inputObject   The CBOR object to convert back into a CBOR byte string
-     * @return  the CBOR byte string corresponding to the input bstr_identifier, or null in case of invalid input
-     */
-	public static CBORObject decodeFromBstrIdentifier (CBORObject inputObject) {
-		
-		if (inputObject == null ||  inputObject.getType() != CBORType.ByteString && inputObject.getType() != CBORType.Integer)
-			return null;
-		
-		if (inputObject.getType() == CBORType.ByteString) {
-			if(inputObject.GetByteString().length == 1) {
-				return null;
-			}
-			return inputObject;
-		}
-		
-		// The CBOR object is of Major Type "Integer"
-		int value = inputObject.AsInt32() + 24;
-		
-		if(value < 0 || value > 47)
-			return null;
-		
-		byte[] rawByteString = intToBytes(value);
-		return CBORObject.FromObject(rawByteString);
-		
-	}
-	
-    /**
      *  Compute the bitwise xor between two byte arrays of equal length
      * @param arg1   The first byte array
      * @param arg2   The second byte array
@@ -608,103 +551,253 @@ public class Util {
     }
     
     /**
+     *  Check whether two byte arrays are equal, in constant time
+     * @param array1   The first byte array to compare 
+     * @param array2   The second byte array to compare
+     * @return  True if the two arrays are equal, or false otherwise
+     */
+	public static boolean compareByteArrays(byte[] array1, byte[] array2) {
+
+		if (array1 == null) {
+			return (array2 == null);
+		}
+		else if (array2 == null) {
+			return false;
+		}
+		
+		int length = array1.length;
+		if (length != array2.length) {
+			return false;
+		}
+
+		byte[] result = new byte[] {0x00};
+		
+		for (int i = 0; i < length; i++) {
+			result[0] |= (array1[i] ^ array2[i]);
+		}
+
+		return Arrays.equals(new byte[] {0x00}, result);
+
+	}
+    
+    /**
      * Get an available Connection Identifier to offer to the other peer
      *  
-     * @param usedConnectionIds   The collection of already allocated Connection Identifiers
+     * @param usedConnectionIds   The set of already allocated Connection Identifiers
      * @param db   The database of OSCORE security contexts when using EDHOC to key OSCORE, it can be null
-     * @return   the newly allocated connection identifier, or null in case of errors
+     * @param forbiddenIdentifier   The connection identifier C_I, it is null when the caller is the Initiator
+     * @return   the newly allocated connection identifier, or null in case of errors or if no connection identifier is available
      */
-    public static byte[] getConnectionId (List<Set<Integer>> usedConnectionIds, OSCoreCtxDB db) {
+    public static byte[] getConnectionId(Set<CBORObject> usedConnectionIds, OSCoreCtxDB db, byte[] forbiddenIdentifier) {
     	
     	if (usedConnectionIds == null)
     		return null;
     
     	synchronized(usedConnectionIds) {
     		
-    		if (db != null) {
-    			synchronized(db) {
-        			return allocateConnectionId(usedConnectionIds, db);	
-    			}
-    		}
-    		else
-    			return allocateConnectionId(usedConnectionIds, db);
+    		return allocateConnectionId(usedConnectionIds, db, forbiddenIdentifier);
     		
     	}
     	
     }
-    
+        
     /**
      * Actually allocate an available Connection Identifier to offer to the other peer
-     * If EDHOC is used for keying OSCORE, Recipient IDs are used as Connect Identifiers
      *  
-     * @param usedConnectionIds   The collection of already allocated Connection Identifiers
+     * @param usedConnectionIds   The set of already allocated Connection Identifiers
      * @param db   The database of OSCORE security contexts when using EDHOC to key OSCORE, it can be null
-     * @return   the newly allocated connection identifier, or null in case of errors
+     * @param forbiddenIdentifier   The connection identifier C_I, it is null when the caller is the Initiator
+     * @return   the newly allocated connection identifier, or null in case of errors or if no connection identifiers are available
      */
-    private static byte[] allocateConnectionId(List<Set<Integer>> usedConnectionIds, OSCoreCtxDB db) {
+     static byte[] allocateConnectionId(Set<CBORObject> usedConnectionIds,
+    										   OSCoreCtxDB db, byte[] forbiddenIdentifier) {
+
+        byte[] identifier = null;
+         
+        /* Check if the empty connection identifier 0x is available */
+        
+	    identifier = new byte[0];
+	    identifier = checkAndCommitConnectionId(identifier, usedConnectionIds, db, forbiddenIdentifier);
+        if (identifier != null)
+        	return identifier;
+        
     	
-    	byte[] connectionId = null;
-        boolean found = false;
-    	
-    	int maxIdValue;
-    	
-        // Start with 1 byte as size of the Connection ID; try with up to 4 bytes in size        
-        for (int idSize = 1; idSize <= 4; idSize++) {
+        /* Check if a 1-byte connection identifier is available */
+        
+    	// Check the range encoding the values 0..23. These connection identifiers
+    	// encode on the wire as a CBOR integer C_X, with numeric value 0..23
+        for (int i = 0; i <= 23; i++) {
         	
-        	if (idSize == 4)
-        		maxIdValue = (1 << 31) - 1;
-        	else
-        		maxIdValue = (1 << (idSize * 8)) - 1;
+        	identifier = new byte[1];
+        	identifier[0] = (byte) (i & 0xff);
+    	    identifier = checkAndCommitConnectionId(identifier, usedConnectionIds, db, forbiddenIdentifier);
+            if (identifier != null)
+            	return identifier;
         	
-	        for (int j = 0; j <= maxIdValue; j++) {
-	        	
-	        	connectionId = Util.intToBytes(j);
-    			
-    			// This Connection ID is marked as not available to use
-    			if (usedConnectionIds.get(idSize - 1).contains(j))
-    				continue;
-    			
-    			try {
-		        	// This Connection ID seems to be available to use 
-	        		if (!usedConnectionIds.get(idSize - 1).contains(j)) {
-	        			
-	        			// Double check in the database of OSCORE Security Contexts
-	        			if (db != null && db.getContext(connectionId) != null) {
-	        				
-	        				// A Security Context with this Connection ID used as Recipient ID exists and was not tracked!
-	        				// Update the local list of used Connection IDs, then move on to the next candidate
-	        				usedConnectionIds.get(idSize - 1).add(j);
-	        				continue;
-	        				
-	        			}
-	        			else {
-	        				
-	        				// This Recipient ID is actually available at the moment as Connection ID. Add it to the local list
-	        				usedConnectionIds.get(idSize - 1).add(j);
-	        				found = true;
-	        				break;
-	        			}
-	        			
-	        		}
-    			}
-        		catch(RuntimeException e) {
-    				// Multiple Security Contexts with this Connection ID as Recipient ID exist and it was not tracked!
-    				// Update the local list of used Connection IDs, then move on to the next candidate
-    				usedConnectionIds.get(idSize - 1).add(j);
-    				continue;
+    	}
+        
+    	// Check the range encoding the values 32..55. These connection identifiers
+    	// encode on the wire as a CBOR integer C_X, with numeric value -24..-1
+        for (int i = 32; i <= 55; i++) {
+        	
+        	identifier = new byte[1];
+        	identifier[0] = (byte) (i & 0xff);
+    	    identifier = checkAndCommitConnectionId(identifier, usedConnectionIds, db, forbiddenIdentifier);
+            if (identifier != null)
+            	return identifier;
+        	
+    	}
+
+    	// Check the remaining ranges 24..31 and 56..255
+        for (int i = 24; i <= 255; i++) {
+        	
+        	// Skip this range as it was already checked before
+        	if (i >= 32 && i <= 55)
+        		continue;
+        	
+        	identifier = new byte[1];
+        	identifier[0] = (byte) (i & 0xff);
+    	    identifier = checkAndCommitConnectionId(identifier, usedConnectionIds, db, forbiddenIdentifier);    	    	
+            if (identifier != null)
+            	return identifier;
+        	
+    	}
+    	
+    	
+    	/* Check if a 2-byte connection identifier is available */
+        
+        for (int i = 0; i <= 255; i++) {
+        	
+            identifier = new byte[2];
+        	identifier[0] = (byte) (i & 0xff);
+        	
+        	for (int j = 0; j <= 255; j++) {
+        		identifier[1] = (byte) (j & 0xff);
+        	    byte[] retIdentifier = checkAndCommitConnectionId(identifier, usedConnectionIds, db, forbiddenIdentifier);
+                if (retIdentifier != null) {
+                	return retIdentifier;
+                }
+		    	
+        	}
+        	
+    	}
+      
+    	/* Check if a 3-byte connection identifier is available */
+        
+        for (int i = 0; i <= 255; i++) {
+
+        	identifier = new byte[3];
+        	identifier[0] = (byte) (i & 0xff);
+        	
+        	for (int j = 0; j <= 255; j++) {
+        		
+        		identifier[1] = (byte) (j & 0xff);
+            	
+            	for (int k = 0; k <= 255; k++) {
+            		
+            		identifier[2] = (byte) (k & 0xff);
+            	    byte[] retIdentifier = checkAndCommitConnectionId(identifier, usedConnectionIds, db, forbiddenIdentifier);
+                    if (retIdentifier != null)
+                    	return retIdentifier;
         		}
-        			
-	        }
-	        
-	        if (found)
-	        	break;
-	        	
+		    	
+        	}
+        	
+    	}
+        
+        return null;
+    	
+    }
+    
+    /**
+     * Check if a Connection Identifier is available to offer to the other peer
+     *
+     * @param identifier   The candidate connection identifier to use as OSCORE Recipient ID
+     * @param usedConnectionIds   The set of already allocated Connection Identifiers
+     * @param db   The database of OSCORE security contexts when using EDHOC to key OSCORE, it can be null
+     * @param forbiddenIdentifier   The connection identifier C_I, it is null when the caller is the Initiator
+     * @return   the newly allocated connection identifier, or null in case it is not available
+     */
+    private static byte[] checkAndCommitConnectionId(byte[] identifier, Set<CBORObject> usedConnectionIds,
+    												 OSCoreCtxDB db, byte[] forbiddenIdentifier) {
+    	
+        if (db != null) {
+        	// EDHOC is used for keying OSCORE
+        	synchronized (db) {
+        		return commitConnectionIdForOSCORE(identifier, db, usedConnectionIds, forbiddenIdentifier);
+        	}
+        }
+        else {
+    	    CBORObject identifierCbor = CBORObject.FromObject(identifier);
+        	
+        	if (usedConnectionIds.contains(identifierCbor) == false) {
+	    		usedConnectionIds.add(identifierCbor);
+	    		return identifier;
+        	}
         }
         
-        if (!found)
+        return null;
+    	
+    }
+    
+    /**
+     * Check for the availability of an OSCORE Recipient ID and the corresponding, identical EDHOC Connection Identifier.
+     * If they are both available, mark them as used and return the Connection Identifier. Otherwise, return null.
+     *  
+     * @param recipientID   The candidate connection identifier to use as OSCORE Recipient ID
+     * @param db   The database of OSCORE security contexts when using EDHOC to key OSCORE
+     * @param usedConnectionIds   The set of already allocated Connection Identifiers
+     * @param forbiddenIdentifier   The connection identifier to avoid, it can be null if there is no constraint
+     * @return   the newly allocated connection identifier, or null in case of errors or unavailability
+     */
+    private static byte[] commitConnectionIdForOSCORE(byte[] recipientId, OSCoreCtxDB db,
+    												  Set<CBORObject> usedConnectionIds, byte[] forbiddenIdentifier) {
+    
+    	OSCoreCtx ctx = null;
+    	
+    	if (recipientId == null || db == null)
+    		return null;
+        try {
+            ctx = db.getContext(recipientId, null);
+        } catch (CoapOSException e) {
+        	// Found multiple OSCORE Security Contexts with the same Recipient ID
         	return null;
-        else
-        	return connectionId;
+        }
+    	if (ctx == null) {
+    		// The Recipient ID is available for OSCORE, i.e., it is
+    		// currently not used in the sets of all the Recipient Contexts
+    		
+        	// The EDHOC Connection Identifier coincides with the one to avoid (i.e., C_I offered by the Initiator) 
+        	if (forbiddenIdentifier != null && Arrays.equals(recipientId, forbiddenIdentifier) == true)
+        		return null;
+        	CBORObject identifierCbor = CBORObject.FromObject(recipientId);
+        	if (usedConnectionIds.contains(identifierCbor) == false) {
+	        	// The corresponding EDHOC Connection Identifier is also available
+        		
+        		usedConnectionIds.add(identifierCbor);
+        		
+        		// Allocate a non-finalized OSCORE Security Context, to have the Recipient ID as taken
+        		try {
+        			byte[] emptyArray = new byte[0];
+    				ctx = new OSCoreCtx(emptyArray, true, null, null, recipientId, AlgorithmID.HKDF_HMAC_SHA_256, 0, null, null, 0);
+    				db.addContext(ctx);
+    			} catch (OSException | NullPointerException e) {
+    				System.err.println("Error when allocating an EDHOC Connection Identifier to use as "
+    						           + "OSCORE Recipient ID" + e.getMessage());
+    				
+    				// Rollback
+    				usedConnectionIds.remove(identifierCbor);
+    				if (ctx != null)
+    					db.removeContext(ctx);
+    				
+    				return null;
+    			}
+        		
+        		return recipientId;
+        	}
+    	}
+    	
+    	return null;
     	
     }
     
@@ -713,21 +806,36 @@ public class Util {
      * Note that, if this was an OSCORE Recipient ID, the Recipient ID itself will not be deallocated
      *  
      * @param connectionId   The Connection Identifier to release
-     * @param usedConnectionIds   The collection of already allocated Connection Identifiers
+     * @param usedConnectionIds   The set of already allocated Connection Identifiers
+     * @param db   The database of OSCORE security contexts when using EDHOC to key OSCORE, it can be null
      */
-    public static void releaseConnectionId (byte[] connectionId, List<Set<Integer>> usedConnectionIds) {
+    public static void releaseConnectionId (byte[] connectionId, Set<CBORObject> usedConnectionIds, OSCoreCtxDB db) {
     	
-    	if (connectionId == null || connectionId.length > 4)
+    	if (connectionId == null)
     		return;
     	
-    	int connectionIdAsInt = bytesToInt(connectionId);
+    	synchronized (usedConnectionIds) {
+    		CBORObject connectionIdCbor = CBORObject.FromObject(connectionId); 
+    		usedConnectionIds.remove(connectionIdCbor);
+    	}
     	
-    	if (connectionId.length != 0)
-    		usedConnectionIds.get(connectionId.length - 1).remove(connectionIdAsInt);
-    	// else set to false a to-be-introduced flag related to a zero-length connection ID
-    	/*
-    	 * 
-    	 */
+    	if (db != null) {
+        	// EDHOC is used for keying OSCORE. The EDHOC connection identifier is the OSCORE Recipient ID.
+    		
+    		synchronized (db) {
+	    		OSCoreCtx ctx = null;
+				try {
+					ctx = db.getContext(connectionId, null);
+				} catch (CoapOSException e) {
+					System.err.println("Found multiple OSCORE Security Contexts with the same Recipient ID " +
+									   StringUtil.byteArray2HexString(connectionId) + "\n" + e.getMessage());
+				}
+	    		if (ctx != null) {
+	    			db.removeContext(ctx);
+	    		}
+    		}
+    			
+    	}
     	
     }
     
@@ -735,15 +843,20 @@ public class Util {
 	 * Remove an EDHOC session from the list of active sessions; release the used Connection Identifier; invalidate the session
 	 * @param session   The EDHOC session to invalidate
 	 * @param connectionIdentifier   The Connection Identifier used for the session to invalidate
-	 * @param edhocSessions   The list of active EDHOC sessions of the recipient
+	 * @param edhocSessions   The set of active EDHOC sessions of the recipient
      * @param usedConnectionIds   The collection of already allocated Connection Identifiers
 	 */
-	public static void purgeSession(EdhocSession session, CBORObject connectionIdentifier,
-			                        Map<CBORObject, EdhocSession> edhocSessions, List<Set<Integer>> usedConnectionIds) {
+	public static void purgeSession(EdhocSession session, byte[] connectionIdentifier,
+									HashMap<CBORObject, EdhocSession> edhocSessions, Set<CBORObject> usedConnectionIds) {
 		if (session != null) {
-		    edhocSessions.remove(connectionIdentifier, session);
-		    Util.releaseConnectionId(connectionIdentifier.GetByteString(), usedConnectionIds);
+			CBORObject connectionIdentifierCbor = CBORObject.FromObject(connectionIdentifier);
+		    edhocSessions.remove(connectionIdentifierCbor);
+		    releaseConnectionId(connectionIdentifier, usedConnectionIds, session.getOscoreDb());
+		    
 		    session.deleteTemporaryMaterial();
+		    if(session.getSideProcessor() != null)
+		    	session.getSideProcessor().setEdhocSession(null);
+		    
 		    session = null;
 		}
 	}
@@ -765,7 +878,7 @@ public class Util {
 	 		}
 	 		else if (keyCurve == KeyKeys.OKP_Ed25519.AsInt32()) {
 	    		Provider EdDSA = new EdDSASecurityProvider();
-	        	Security.insertProviderAt(EdDSA, 0);
+	        	Security.insertProviderAt(EdDSA, 1);
 	    		keyPair = OneKey.generateKey(AlgorithmID.EDDSA);
 	    	}
 	 		else if (keyCurve == KeyKeys.OKP_X25519.AsInt32()) {
@@ -780,7 +893,7 @@ public class Util {
 		// Print out the base64 serialization of the key pair
 		/*
 		byte[] keyPairBytes = keyPair.EncodeToBytes();
-    	String testKeyBytesBase64 = Base64.getEncoder().encodeToString(keyPairBytes);
+    	String testKeyBytesBase64 = Base64.encodeBytes(keyPairBytes);
     	System.out.println(testKeyBytesBase64);
     	
     	System.out.println(keyCurve);
@@ -791,7 +904,7 @@ public class Util {
 		/*
     	OneKey testPublicKey = keyPair.PublicKey();
     	byte[] testPublicKeyBytes = testPublicKey.EncodeToBytes();
-    	String testPublicKeyBytesBase64 = Base64.getEncoder().encodeToString(testPublicKeyBytes);
+    	String testPublicKeyBytesBase64 = Base64.encodeBytes(testPublicKeyBytes);
     	System.out.println(testPublicKeyBytesBase64);
     	
     	System.out.println(keyCurve);
@@ -812,7 +925,7 @@ public class Util {
     	
     	System.out.println(header + " (" + (content.length) + " bytes):");
     	
-    	String contentStr = Utils.bytesToHex(content);
+    	String contentStr = StringUtil.byteArray2HexString(content).toLowerCase();
     	for (int i = 0; i < (content.length * 2); i++) {
     		if ((i != 0) && (i % 20) == 0)
     	    	System.out.println();
@@ -847,7 +960,6 @@ public class Util {
 	    }
 	    else {
 	    	if(keyPair.get(KeyKeys.KeyType) == KeyKeys.KeyType_EC2) {
-		        key.Add(KeyKeys.KeyType.AsCBOR(), KeyKeys.KeyType_EC2);
 		        key.Add(KeyKeys.EC2_Curve.AsCBOR(), KeyKeys.EC2_P256);
 		        key.Add(KeyKeys.EC2_X.AsCBOR(), keyPair.get(KeyKeys.EC2_X));
 		        key.Add(KeyKeys.EC2_Y.AsCBOR(), keyPair.get(KeyKeys.EC2_Y));
@@ -871,26 +983,54 @@ public class Util {
     /**
      * Build SUITES_R
      *  
-     * @param supportedCiphersuites   The list of supported ciphersuites for this peer
+     * @param cipherSuites   The list of supported cipher suites for this peer to include in SUITES_R
      * @return SUITES_R, as a CBOR object
      */
-	public static CBORObject buildSuitesR(List<Integer> supportedCiphersuites) {
+	public static CBORObject buildSuitesR(List<Integer> cipherSuites) {
 		
 		CBORObject suitesR;
 		
-		if (supportedCiphersuites.size() == 1) {
-			int cs = supportedCiphersuites.get(0).intValue();
-			suitesR = CBORObject.FromObject(cs);
+		if (cipherSuites.size() == 1) {
+			int suite = cipherSuites.get(0).intValue();
+			suitesR = CBORObject.FromObject(suite);
 		}
-		// This peer supports multiple ciphersuites
+		// This peer supports multiple cipher suites
 		else {
 			suitesR = CBORObject.NewArray();
-			for (Integer i : supportedCiphersuites) {
+			for (Integer i : cipherSuites) {
 				suitesR.Add(i.intValue());
 			}
 		}
 		
 		return suitesR;
+		
+	}
+	
+    /**
+     * Build an ID_CRED using 'kcwt', with value a CWT as a CBOR array,
+     *  
+     * @param cwt   The CWT to use
+     * @return The ID_CRED, as a CBOR map
+     */
+	public static CBORObject buildIdCredKcwt(CBORObject cwt) {
+		
+		CBORObject idCred = CBORObject.NewMap();
+		idCred.Add(Constants.COSE_HEADER_PARAM_KCWT, cwt);
+		return idCred;
+		
+	}
+	
+    /**
+     * Build an ID_CRED using 'kccs', with value a CWT Claims Set (CCS) as a CBOR map
+     *  
+     * @param claimSet   The CWT Claims Set to use, as a CBOR map
+     * @return The ID_CRED, as a CBOR map
+     */
+	public static CBORObject buildIdCredKccs(CBORObject claimSet) {
+		
+		CBORObject idCred = CBORObject.NewMap();
+		idCred.Add(Constants.COSE_HEADER_PARAM_KCCS, claimSet);
+		return idCred;
 		
 	}
 	
@@ -952,6 +1092,7 @@ public class Util {
 		idCredElem.Add(truncatedHash);
 		
 		idCred.Add(Constants.COSE_HEADER_PARAM_X5T, idCredElem);
+				
 		return idCred;
 		
 	}
@@ -965,14 +1106,13 @@ public class Util {
 	public static CBORObject buildIdCredX5u(String uri) {
 		
 		CBORObject idCred = CBORObject.NewMap();
-		
 		idCred.Add(Constants.COSE_HEADER_PARAM_X5U, uri);
 		return idCred;
 		
 	}
 	
     /**
-     * Build an ID_CRED using 'kid'
+     * Build an ID_CRED to use with 'kid'
      *  
      * @param identityKey   The identity key to encode as CRED
      * @param subjectName   The subject name associated to this key, it can be an empty string
@@ -1009,6 +1149,48 @@ public class Util {
         return Util.buildDeterministicCBORMap(labelList, valueList);
 		
 	}
+	
+    /**
+     * Build an ID_CRED to use with 'kid2', with value a CWT Claims Set (CCS) 
+     *  
+     * @param identityKey   The identity key to encode as CRED
+     * @param subjectName   The subject name associated to this key, it can be an empty string
+     * @param kid   The key identifier associated to this key
+     * @return The CRED, as a byte serialization of a CBOR map
+     */
+	public static byte[] buildCredRawPublicKeyCcs(OneKey identityKey, String subjectName, CBORObject kid) {
+		
+		if (identityKey  == null || subjectName == null)
+			return null;
+		
+		CBORObject coseKeyMap = CBORObject.NewOrderedMap();
+		coseKeyMap.Add(KeyKeys.KeyType.AsCBOR(), identityKey.get(KeyKeys.KeyType));
+		coseKeyMap.Add(KeyKeys.KeyId.AsCBOR(), kid);
+		if (identityKey.get(KeyKeys.KeyType) == KeyKeys.KeyType_OKP) {
+			coseKeyMap.Add(KeyKeys.OKP_Curve.AsCBOR(), identityKey.get(KeyKeys.OKP_Curve));
+			coseKeyMap.Add(KeyKeys.OKP_X.AsCBOR(), identityKey.get(KeyKeys.OKP_X));
+		}
+		else if (identityKey.get(KeyKeys.KeyType) == KeyKeys.KeyType_EC2) {
+			coseKeyMap.Add(KeyKeys.EC2_Curve.AsCBOR(), identityKey.get(KeyKeys.EC2_Curve));
+			coseKeyMap.Add(KeyKeys.EC2_X.AsCBOR(), identityKey.get(KeyKeys.EC2_X));
+			coseKeyMap.Add(KeyKeys.EC2_Y.AsCBOR(), identityKey.get(KeyKeys.EC2_Y));
+		}
+		else {
+			return null;
+		}
+		
+		CBORObject cnfMap = CBORObject.NewOrderedMap();
+		cnfMap.Add(Constants.CWT_CNF_COSE_KEY, coseKeyMap);
+		
+		CBORObject claimSetMap = CBORObject.NewOrderedMap();
+		claimSetMap.Add(Constants.CWT_CLAIMS_SUB, subjectName);
+		claimSetMap.Add(Constants.CWT_CLAIMS_CNF, cnfMap);
+
+		System.out.println("CCS serialization: " + StringUtil.byteArray2HexString(claimSetMap.EncodeToBytes()));
+		
+        return claimSetMap.EncodeToBytes();
+		
+	}
     
     /**
      * Check that a signature key is compliant with the selected cipher suite
@@ -1017,7 +1199,7 @@ public class Util {
      * @param selectedCipherSuite   The selected cipher suite used in an EDHOC session
      * @return True in case the key complies with the selected cipher suite, or false otherwise
      */
-	public static boolean checkSignatureKeyAgainstCiphersuite(OneKey key, int selectedCipherSuite) {
+	public static boolean checkSignatureKeyAgainstCipherSuite(OneKey key, int selectedCipherSuite) {
 			
 		
 		if (selectedCipherSuite == Constants.EDHOC_CIPHER_SUITE_0 || selectedCipherSuite == Constants.EDHOC_CIPHER_SUITE_1) {
@@ -1058,7 +1240,7 @@ public class Util {
      * @param selectedCipherSuite   The selected cipher suite used in an EDHOC session
      * @return True in case the key complies with the selected cipher suite, or false otherwise
      */
-	public static boolean checkDiffieHellmanKeyAgainstCiphersuite(OneKey key, int selectedCipherSuite) {
+	public static boolean checkDiffieHellmanKeyAgainstCipherSuite(OneKey key, int selectedCipherSuite) {
 			
 		if (selectedCipherSuite == Constants.EDHOC_CIPHER_SUITE_0 || selectedCipherSuite == Constants.EDHOC_CIPHER_SUITE_1) {
 		    
@@ -1088,6 +1270,49 @@ public class Util {
 		}
 		
 		return true;
+		
+	}
+
+	
+    /**
+     * Check if a CBOR integer complies with deterministic CBOR encoding
+     *  
+     * @param obj   The CBOR integer to check
+     * @return True in case the CBOR integer complies with deterministic CBOR encoding, or false otherwise
+     */
+	public static boolean isDeterministicCborInteger (CBORObject obj) {
+		
+		if (obj.getType() != CBORType.Integer)
+			return false;
+		
+		byte[] objBytes = obj.EncodeToBytes();
+		
+		switch (objBytes.length) {
+			case 1:
+				return true;
+			case 2:
+				if (obj.AsInt32() >= -24 && obj.AsInt32() <= 23)
+					return false;
+				else
+					return true;
+			case 3:
+				if (obj.AsInt32() >= -256 && obj.AsInt32() <= 255)
+					return false;
+				else
+					return true;
+			case 5:
+				if (obj.AsInt32() >= -65536 && obj.AsInt32() <= 65535)
+					return false;
+				else
+					return true;
+			case 9:
+				if (obj.AsInt64Value() >= -4294967296L && obj.AsInt64Value() <= 4294967295L)
+					return false;
+				else
+					return true;
+			default:
+				return false;
+		}
 		
 	}
 	

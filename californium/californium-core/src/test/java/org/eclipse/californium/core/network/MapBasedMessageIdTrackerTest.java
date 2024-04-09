@@ -21,22 +21,25 @@ package org.eclipse.californium.core.network;
 
 import static org.eclipse.californium.core.network.MessageIdTracker.TOTAL_NO_OF_MIDS;
 import static org.eclipse.californium.elements.util.TestConditionTools.inRange;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.fail;
 
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
-import org.eclipse.californium.core.network.config.NetworkConfig;
+import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.elements.category.Small;
-import org.eclipse.californium.elements.util.TestCondition;
-import org.eclipse.californium.elements.util.TestConditionTools;
+import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.rule.TestTimeRule;
+import org.eclipse.californium.elements.util.ExpectedExceptionWrapper;
 import org.eclipse.californium.rule.CoapNetworkRule;
 import org.eclipse.californium.rule.CoapThreadsRule;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
+import org.junit.rules.ExpectedException;
 
 /**
  * Verifies that MessageIdTracker correctly marks MIDs as <em>in use</em>.
@@ -50,28 +53,34 @@ public class MapBasedMessageIdTrackerTest {
 	@Rule
 	public CoapThreadsRule cleanup = new CoapThreadsRule();
 
+	@Rule
+	public ExpectedException exception = ExpectedExceptionWrapper.none();
+
+	@Rule
+	public TestTimeRule time = new TestTimeRule();
+
 	private static final int INITIAL_MID = 0;
 
 	@Test
 	public void testGetNextMessageIdFailsIfAllMidsAreInUse() throws Exception {
 		// GIVEN a tracker whose MIDs are all in use
-		NetworkConfig config = network.createStandardTestConfig();
+		Configuration config = network.createStandardTestConfig();
 		MapBasedMessageIdTracker tracker = new MapBasedMessageIdTracker(INITIAL_MID, 0, TOTAL_NO_OF_MIDS, config);
 		for (int i = 0; i < TOTAL_NO_OF_MIDS; i++) {
 			tracker.getNextMessageId();
 		}
 
-		// WHEN retrieving the next message IDs from the tracker
-		int mid = tracker.getNextMessageId();
+		exception.expect(IllegalStateException.class);
+		exception.expectMessage(containsString("No MID available, all"));
 
-		// THEN the returned MID is -1
-		assertThat(mid, is(-1));
+		// WHEN retrieving the next message IDs from the tracker
+		tracker.getNextMessageId();
 	}
 
 	@Test
 	public void testGetNextMessageIdFailsIfAllMidsInRangeAreInUse() throws Exception {
 		// GIVEN a tracker whose MIDs are half in use
-		NetworkConfig config = network.createStandardTestConfig();
+		Configuration config = network.createStandardTestConfig();
 		final int minMid = 1024;
 		final int maxMid = 2048;
 		final int rangeMid = maxMid - minMid;
@@ -80,18 +89,18 @@ public class MapBasedMessageIdTrackerTest {
 			int mid = tracker.getNextMessageId();
 			assertThat(mid, is(inRange(minMid, maxMid)));
 		}
+
+		exception.expect(IllegalStateException.class);
+		exception.expectMessage(containsString("No MID available, all"));
+
 		// WHEN retrieving the next message IDs from the tracker
-		int mid = tracker.getNextMessageId();
-		// THEN the returned MID is -1
-		assertThat(mid, is(-1));
+		tracker.getNextMessageId();
 	}
 
 	@Test
 	public void testGetNextMessageIdReusesIdAfterExchangeLifetime() throws Exception {
-		// GIVEN a tracker with an EXCHANGE_LIFETIME of 100ms
-		int exchangeLifetime = 100; // ms
-		NetworkConfig config = network.createStandardTestConfig();
-		config.setInt(NetworkConfig.Keys.EXCHANGE_LIFETIME, exchangeLifetime);
+		// GIVEN a tracker with an EXCHANGE_LIFETIME
+		Configuration config = network.createStandardTestConfig();
 		final MapBasedMessageIdTracker tracker = new MapBasedMessageIdTracker(INITIAL_MID, 0, TOTAL_NO_OF_MIDS, config);
 
 		// WHEN retrieving all message IDs from the tracker
@@ -99,20 +108,18 @@ public class MapBasedMessageIdTrackerTest {
 		for (int i = 1; i < TOTAL_NO_OF_MIDS; i++) {
 			tracker.getNextMessageId();
 		}
+		try {
+			tracker.getNextMessageId();
+			fail("mids expected to run out.");
+		} catch (IllegalStateException ex) {
+			assertThat(ex.getMessage(), containsString("No MID available, all"));
+		}
 
-		// THEN the first message ID is re-used after 
-		// EXCHANGE_LIFETIME has expired
-		exchangeLifetime += (exchangeLifetime >> 1); // a little longer
-		final AtomicInteger mid = new AtomicInteger(-1);
-		TestConditionTools.waitForCondition(exchangeLifetime, 10, TimeUnit.MILLISECONDS, new TestCondition() {
+		// THEN the first message ID is re-used after EXCHANGE_LIFETIME has expired
+		time.addTestTimeShift(config.getTimeAsInt(CoapConfig.EXCHANGE_LIFETIME, TimeUnit.MILLISECONDS) + 1, TimeUnit.MILLISECONDS);
 
-			@Override
-			public boolean isFulFilled() throws IllegalStateException {
-				mid.set(tracker.getNextMessageId());
-				return 0 <= mid.get();
-			}
-		});
-		assertThat(mid.get(), is(firstMid));
+		int mid = tracker.getNextMessageId();
+		assertThat(mid, is(firstMid));
 	}
 
 	@Test
@@ -130,9 +137,8 @@ public class MapBasedMessageIdTrackerTest {
 	}
 
 	public void assertMessageIdRangeRollover(int min, int max) throws Exception {
-		// GIVEN a tracker with an EXCHANGE_LIFETIME of -1 (MID always expired)
-		NetworkConfig config = network.createStandardTestConfig();
-		config.setInt(NetworkConfig.Keys.EXCHANGE_LIFETIME, -1);
+		// GIVEN a tracker with an EXCHANGE_LIFETIME of 0 (MID always expired)
+		Configuration config = network.createStandardTestConfig();
 		final int range = max - min;
 		final MapBasedMessageIdTracker tracker = new MapBasedMessageIdTracker(INITIAL_MID + min, min, max, config);
 		final String msg = "not next mid in range[" + min + "..." + max + ") for ";
@@ -155,6 +161,7 @@ public class MapBasedMessageIdTrackerTest {
 				maxMid = nextMid;
 			}
 			lastMid = nextMid;
+			time.addTestTimeShift(config.getTimeAsInt(CoapConfig.EXCHANGE_LIFETIME, TimeUnit.MILLISECONDS) + 1, TimeUnit.MILLISECONDS);
 		}
 		assertThat("minimun not reached", minMid, is(min));
 		assertThat("maximun not reached", maxMid, is(max - 1));
@@ -162,19 +169,19 @@ public class MapBasedMessageIdTrackerTest {
 
 	@Test(expected = IllegalArgumentException.class)
 	public void testInvalidMidRange() throws Exception {
-		NetworkConfig config = network.createStandardTestConfig();
+		Configuration config = network.createStandardTestConfig();
 		new MapBasedMessageIdTracker(10, 10, 10, config);
 	}
 
 	@Test(expected = IllegalArgumentException.class)
 	public void testInvalidMidRange2() throws Exception {
-		NetworkConfig config = network.createStandardTestConfig();
+		Configuration config = network.createStandardTestConfig();
 		new MapBasedMessageIdTracker(10, 10, 9, config);
 	}
 
 	@Test(expected = IllegalArgumentException.class)
 	public void testInvalidinitialMid() throws Exception {
-		NetworkConfig config = network.createStandardTestConfig();
+		Configuration config = network.createStandardTestConfig();
 		new MapBasedMessageIdTracker(10, 15, 20, config);
 	}
 }

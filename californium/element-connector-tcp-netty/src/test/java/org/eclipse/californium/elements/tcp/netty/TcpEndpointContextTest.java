@@ -47,13 +47,18 @@ import java.util.concurrent.TimeUnit;
 
 import org.eclipse.californium.elements.Connector;
 import org.eclipse.californium.elements.EndpointContext;
+import org.eclipse.californium.elements.EndpointContextUtil;
 import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.TcpEndpointContext;
 import org.eclipse.californium.elements.TcpEndpointContextMatcher;
+import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.config.TcpConfig;
+import org.eclipse.californium.elements.rule.LoggingRule;
 import org.eclipse.californium.elements.rule.TestNameLoggerRule;
 import org.eclipse.californium.elements.rule.ThreadsRule;
 import org.eclipse.californium.elements.util.SimpleMessageCallback;
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
@@ -68,10 +73,20 @@ public class TcpEndpointContextTest {
 	@Rule
 	public TestNameLoggerRule names = new TestNameLoggerRule();
 
+	@Rule 
+	public LoggingRule logging = new LoggingRule();
+
 	@Rule
 	public ThreadsRule threads = THREADS_RULE;
 
+	private Configuration configuration;
+
 	private final List<Connector> cleanup = new ArrayList<>();
+
+	@Before
+	public void init() {
+		configuration = ConnectorTestUtil.getTestConfiguration();
+	}
 
 	@After
 	public void cleanup() {
@@ -92,10 +107,8 @@ public class TcpEndpointContextTest {
 	 */
 	@Test
 	public void testEndpointContext() throws Exception {
-		TcpServerConnector server = new TcpServerConnector(createServerAddress(0), ConnectorTestUtil.NUMBER_OF_THREADS,
-				ConnectorTestUtil.IDLE_TIMEOUT_IN_S);
-		TcpClientConnector client = new TcpClientConnector(ConnectorTestUtil.NUMBER_OF_THREADS,
-				ConnectorTestUtil.CONNECTION_TIMEOUT_IN_MS, ConnectorTestUtil.IDLE_TIMEOUT_IN_S);
+		TcpServerConnector server = new TcpServerConnector(createServerAddress(0), configuration);
+		TcpClientConnector client = new TcpClientConnector(configuration);
 
 		cleanup.add(server);
 		cleanup.add(client);
@@ -113,10 +126,10 @@ public class TcpEndpointContextTest {
 		client.send(msg);
 		serverCatcher.blockUntilSize(1, MESSAGE_TIMEOUT_MILLIS);
 		EndpointContext receivingServerContext = serverCatcher.getMessage(0).getEndpointContext();
-		assertThat(receivingServerContext.get(TcpEndpointContext.KEY_CONNECTION_ID), is(not(isEmptyOrNullString())));
+		assertThat(receivingServerContext.getString(TcpEndpointContext.KEY_CONNECTION_ID), is(not(isEmptyOrNullString())));
 
 		EndpointContext clientContext = clientCallback.getEndpointContext(CONTEXT_TIMEOUT_IN_MS);
-		assertThat(clientContext.get(TcpEndpointContext.KEY_CONNECTION_ID), is(not(isEmptyOrNullString())));
+		assertThat(clientContext.getString(TcpEndpointContext.KEY_CONNECTION_ID), is(not(isEmptyOrNullString())));
 
 		// Response message must go over the same connection client already
 		// opened
@@ -161,11 +174,9 @@ public class TcpEndpointContextTest {
 	 */
 	@Test
 	public void testEndpointContextWhenReconnectAfterTimeout() throws Exception {
-		TcpServerConnector server = new TcpServerConnector(createServerAddress(0), ConnectorTestUtil.NUMBER_OF_THREADS,
-				ConnectorTestUtil.IDLE_TIMEOUT_RECONNECT_IN_S);
-		TcpClientConnector client = new TcpClientConnector(ConnectorTestUtil.NUMBER_OF_THREADS,
-				ConnectorTestUtil.CONNECTION_TIMEOUT_IN_MS, ConnectorTestUtil.IDLE_TIMEOUT_RECONNECT_IN_S);
-
+		configuration.set(TcpConfig.TCP_CONNECTION_IDLE_TIMEOUT, IDLE_TIMEOUT_RECONNECT_IN_S, TimeUnit.SECONDS);
+		TcpServerConnector server = new TcpServerConnector(createServerAddress(0), configuration);
+		TcpClientConnector client = new TcpClientConnector(configuration);
 		cleanup.add(server);
 		cleanup.add(client);
 
@@ -224,10 +235,9 @@ public class TcpEndpointContextTest {
 	 */
 	@Test
 	public void testEndpointContextWhenReconnectAfterStopStart() throws Exception {
-		TcpServerConnector server = new TcpServerConnector(createServerAddress(0), ConnectorTestUtil.NUMBER_OF_THREADS,
-				ConnectorTestUtil.IDLE_TIMEOUT_RECONNECT_IN_S);
-		TcpClientConnector client = new TcpClientConnector(ConnectorTestUtil.NUMBER_OF_THREADS,
-				ConnectorTestUtil.CONNECTION_TIMEOUT_IN_MS, ConnectorTestUtil.IDLE_TIMEOUT_RECONNECT_IN_S);
+		configuration.set(TcpConfig.TCP_CONNECTION_IDLE_TIMEOUT, IDLE_TIMEOUT_RECONNECT_IN_S, TimeUnit.SECONDS);
+		TcpServerConnector server = new TcpServerConnector(createServerAddress(0), configuration);
+		TcpClientConnector client = new TcpClientConnector(configuration);
 
 		cleanup.add(server);
 		cleanup.add(client);
@@ -300,11 +310,10 @@ public class TcpEndpointContextTest {
 	 */
 	@Test
 	public void testClientSendingEndpointContext() throws Exception {
+		logging.setLoggingLevel("ERROR", EndpointContextUtil.class, TcpClientConnector.class);
 		TcpEndpointContextMatcher matcher = new TcpEndpointContextMatcher();
-		TcpServerConnector server = new TcpServerConnector(createServerAddress(0), ConnectorTestUtil.NUMBER_OF_THREADS,
-				ConnectorTestUtil.IDLE_TIMEOUT_IN_S);
-		TcpClientConnector client = new TcpClientConnector(ConnectorTestUtil.NUMBER_OF_THREADS,
-				ConnectorTestUtil.CONNECTION_TIMEOUT_IN_MS, ConnectorTestUtil.IDLE_TIMEOUT_IN_S);
+		TcpServerConnector server = new TcpServerConnector(createServerAddress(0), configuration);
+		TcpClientConnector client = new TcpClientConnector(configuration);
 		client.setEndpointContextMatcher(matcher);
 
 		cleanup.add(server);
@@ -318,7 +327,7 @@ public class TcpEndpointContextTest {
 		client.start();
 
 		SimpleMessageCallback clientCallback = new SimpleMessageCallback();
-		TcpEndpointContext context = new TcpEndpointContext(getDestination(server.getAddress()), "n.a.");
+		TcpEndpointContext context = new TcpEndpointContext(getDestination(server.getAddress()), "n.a.", System.currentTimeMillis());
 		RawData msg = createMessage(100, context, clientCallback);
 
 		client.send(msg);
@@ -331,7 +340,7 @@ public class TcpEndpointContextTest {
 		serverCatcher.blockUntilSize(1, MESSAGE_TIMEOUT_MILLIS);
 
 		EndpointContext clientContext = clientCallback.getEndpointContext(CONTEXT_TIMEOUT_IN_MS);
-		assertThat(clientContext.get(TcpEndpointContext.KEY_CONNECTION_ID), is(not(isEmptyOrNullString())));
+		assertThat(clientContext.getString(TcpEndpointContext.KEY_CONNECTION_ID), is(not(isEmptyOrNullString())));
 
 		msg = createMessage(100, clientContext, clientCallback);
 		client.send(msg);
@@ -362,11 +371,11 @@ public class TcpEndpointContextTest {
 	 */
 	@Test
 	public void testServerSendingEndpointContext() throws Exception {
+		logging.setLoggingLevel("ERROR", EndpointContextUtil.class, TcpServerConnector.class);
+
 		TcpEndpointContextMatcher matcher = new TcpEndpointContextMatcher();
-		TcpServerConnector server = new TcpServerConnector(createServerAddress(0), ConnectorTestUtil.NUMBER_OF_THREADS,
-				ConnectorTestUtil.IDLE_TIMEOUT_IN_S);
-		TcpClientConnector client = new TcpClientConnector(ConnectorTestUtil.NUMBER_OF_THREADS,
-				ConnectorTestUtil.CONNECTION_TIMEOUT_IN_MS, ConnectorTestUtil.IDLE_TIMEOUT_IN_S);
+		TcpServerConnector server = new TcpServerConnector(createServerAddress(0), configuration);
+		TcpClientConnector client = new TcpClientConnector(configuration);
 		server.setEndpointContextMatcher(matcher);
 
 		cleanup.add(server);
@@ -387,7 +396,7 @@ public class TcpEndpointContextTest {
 
 		RawData receivedMsg = serverCatcher.getMessage(0);
 		EndpointContext serverContext = receivedMsg.getEndpointContext();
-		assertThat(serverContext.get(TcpEndpointContext.KEY_CONNECTION_ID), is(not(isEmptyOrNullString())));
+		assertThat(serverContext.getString(TcpEndpointContext.KEY_CONNECTION_ID), is(not(isEmptyOrNullString())));
 
 		SimpleMessageCallback serverCallback = new SimpleMessageCallback();
 		msg = createMessage(100, serverContext, serverCallback);
@@ -402,7 +411,7 @@ public class TcpEndpointContextTest {
 		clientCatcher.blockUntilSize(2, MESSAGE_TIMEOUT_MILLIS);
 
 		serverCallback = new SimpleMessageCallback();
-		TcpEndpointContext context = new TcpEndpointContext(receivedMsg.getInetSocketAddress(), "n.a.");
+		TcpEndpointContext context = new TcpEndpointContext(receivedMsg.getInetSocketAddress(), "n.a.", System.currentTimeMillis());
 		msg = createMessage(100, context, serverCallback);
 		server.send(msg);
 
@@ -428,8 +437,7 @@ public class TcpEndpointContextTest {
 		int serverCount = 3;
 		Map<InetSocketAddress, Catcher> servers = new IdentityHashMap<>();
 		for (int i = 0; i < serverCount; i++) {
-			TcpServerConnector server = new TcpServerConnector(createServerAddress(0),
-					ConnectorTestUtil.NUMBER_OF_THREADS, ConnectorTestUtil.IDLE_TIMEOUT_IN_S);
+			TcpServerConnector server = new TcpServerConnector(createServerAddress(0), configuration);
 			cleanup.add(server);
 			Catcher serverCatcher = new Catcher();
 			server.setRawDataReceiver(serverCatcher);
@@ -439,8 +447,7 @@ public class TcpEndpointContextTest {
 		}
 		Set<InetSocketAddress> serverAddresses = servers.keySet();
 
-		TcpClientConnector client = new TcpClientConnector(ConnectorTestUtil.NUMBER_OF_THREADS,
-				ConnectorTestUtil.CONNECTION_TIMEOUT_IN_MS, ConnectorTestUtil.IDLE_TIMEOUT_IN_S);
+		TcpClientConnector client = new TcpClientConnector(configuration);
 		cleanup.add(client);
 		Catcher clientCatcher = new Catcher();
 		client.setRawDataReceiver(clientCatcher);

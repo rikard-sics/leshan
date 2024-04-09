@@ -16,19 +16,17 @@
 package org.eclipse.californium.elements.util;
 
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
 
-import org.junit.Before;
+import org.eclipse.californium.elements.category.Small;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
+@Category(Small.class)
 public class DatagramReaderTest {
 
 	DatagramReader reader;
-
-	@Before
-	public void setUp() throws Exception {
-	}
 
 	@Test
 	public void testBitsLeftWorksForEmptyBuffer() {
@@ -168,6 +166,30 @@ public class DatagramReaderTest {
 		assertEquals(0x0405, value);
 	}
 
+	@Test 
+	public void testReadVarBytes() {
+		givenABuffer(new byte[] { 0x04, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09 });
+
+		byte[] data = reader.readVarBytes(Byte.SIZE);
+		assertEquals("01020304", hex(data));
+	}
+
+	@Test 
+	public void testReadEmptyVarBytes() {
+		givenABuffer(new byte[] { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09 });
+
+		byte[] data = reader.readVarBytes(Byte.SIZE);
+		assertEquals("", hex(data));
+	}
+
+	@Test 
+	public void testReadNullVarBytes() {
+		givenABuffer(new byte[] { (byte)0xff, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09 });
+
+		byte[] data = reader.readVarBytes(Byte.SIZE);
+		assertEquals(null, data);
+	}
+
 	@Test (expected = IllegalArgumentException.class)
 	public void testReadNextByteExceedsAvailableBytes() {
 		givenABuffer(new byte[] { 0x01, 0x02 });
@@ -234,5 +256,9 @@ public class DatagramReaderTest {
 
 	private void givenABuffer(byte[] buffer) {
 		reader = new DatagramReader(buffer);
+	}
+
+	private static String hex(byte[] data) {
+		return StringUtil.byteArray2Hex(data);
 	}
 }

@@ -22,8 +22,6 @@ package org.eclipse.californium.scandium.dtls;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
 import java.util.List;
@@ -37,6 +35,7 @@ import org.eclipse.californium.elements.util.ClockUtil;
 import org.eclipse.californium.scandium.dtls.cipher.CCMBlockCipher;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
 import org.eclipse.californium.scandium.util.SecretIvParameterSpec;
+import org.eclipse.californium.scandium.util.SecretUtil;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -53,7 +52,7 @@ public class RecordTest {
 		(byte) 0x90, 0x54, (byte) 0xC4, (byte) 0x96, 0x65, (byte) 0xBA, 0x03, (byte) 0x9E};
 	SecretKey key;
 
-	DTLSSession session;
+	DTLSContext context;
 	byte[] payloadData;
 	int payloadLength = 50;
 	// salt: 32bit client write init vector (can be any four bytes)
@@ -69,26 +68,35 @@ public class RecordTest {
 		for ( int i = 0; i < payloadLength; i++) {
 			payloadData[i] = 0x34;
 		}
-		session = new DTLSSession(new InetSocketAddress(InetAddress.getLoopbackAddress(), 7000));
-		DTLSConnectionState readState = DTLSConnectionState.create(CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8,
-				CompressionMethod.NULL, key, new SecretIvParameterSpec(client_iv), null);
-		session.setReadState(readState);
+		DTLSSession session = new DTLSSession();
+		session.setCipherSuite(CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8);
+		session.setCompressionMethod(CompressionMethod.NULL);
+		context = new DTLSContext(0, false);
+		context.getSession().set(session);
+		SecretUtil.destroy(session);
+		context.createReadState(key, new SecretIvParameterSpec(client_iv), null);
 	}
 
 	@Test
 	public void testConstructorEnforcesMaxSequenceNo() throws GeneralSecurityException {
-		new Record(ContentType.HANDSHAKE, 0, DtlsTestTools.MAX_SEQUENCE_NO, new HelloRequest(session.getPeer()), session, true, 0);
+		DTLSSession session = new DTLSSession();
+		session.setCipherSuite(CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8);
+		session.setCompressionMethod(CompressionMethod.NULL);
+		DTLSContext context = new DTLSContext(Record.MAX_SEQUENCE_NO, false);
+		context.getSession().set(session);
+		SecretUtil.destroy(session);
+		new Record(ContentType.HANDSHAKE, 0, new HelloRequest(), context, true, 0);
 		try {
-			new Record(ContentType.HANDSHAKE, 0, DtlsTestTools.MAX_SEQUENCE_NO + 1, new HelloRequest(session.getPeer()), session, true, 0);
+			new Record(ContentType.HANDSHAKE, 0, new HelloRequest(), context, true, 0);
 			Assert.fail("Record constructor should have rejected sequence no > 2^48 - 1");
-		} catch (IllegalArgumentException e) {
+		} catch (IllegalStateException e) {
 			// all is well
 		}
 
 		try {
-			new Record(ContentType.HANDSHAKE, 0, DtlsTestTools.MAX_SEQUENCE_NO + 1, new HelloRequest(session.getPeer()), session, false, 0);
+			new Record(ContentType.HANDSHAKE, 0, new HelloRequest(), context, false, 0);
 			Assert.fail("Record constructor should have rejected sequence no > 2^48 - 1");
-		} catch (IllegalArgumentException e) {
+		} catch (IllegalStateException e) {
 			// all is well
 		}
 	}
@@ -96,7 +104,7 @@ public class RecordTest {
 	@Test
 	public void testFromByteArrayRejectsIllformattedRecord() {
 		byte[] illformattedRecord = new byte[]{TYPE_APPL_DATA};
-		List<Record> recordList = DtlsTestTools.fromByteArray(illformattedRecord, session.getPeer(), null, ClockUtil.nanoRealtime());
+		List<Record> recordList = DtlsTestTools.fromByteArray(illformattedRecord, null, ClockUtil.nanoRealtime());
 		assertTrue("fromByteArray() should have detected malformed record", recordList.isEmpty());
 	}
 
@@ -104,7 +112,7 @@ public class RecordTest {
 	public void testFromByteArrayAcceptsKnownTypeCode() throws GeneralSecurityException {
 
 		byte[] application_record = DtlsTestTools.newDTLSRecord(TYPE_APPL_DATA, EPOCH, SEQUENCE_NO, newGenericAEADCipherFragment());
-		List<Record> recordList = DtlsTestTools.fromByteArray(application_record, session.getPeer(), null, ClockUtil.nanoRealtime());
+		List<Record> recordList = DtlsTestTools.fromByteArray(application_record, null, ClockUtil.nanoRealtime());
 		assertEquals(recordList.size(), 1);
 		Record record = recordList.get(0);
 		assertEquals(ContentType.APPLICATION_DATA, record.getType());
@@ -120,7 +128,7 @@ public class RecordTest {
 		byte[] application_record = DtlsTestTools.newDTLSRecord(TYPE_APPL_DATA, EPOCH, SEQUENCE_NO, newGenericAEADCipherFragment());
 		byte[] unsupported_dtls_record = DtlsTestTools.newDTLSRecord(55, EPOCH, SEQUENCE_NO, newGenericAEADCipherFragment());
 
-		List<Record> recordList = DtlsTestTools.fromByteArray(Bytes.concatenate(unsupported_dtls_record, application_record), session.getPeer(), null, ClockUtil.nanoRealtime());
+		List<Record> recordList = DtlsTestTools.fromByteArray(Bytes.concatenate(unsupported_dtls_record, application_record), null, ClockUtil.nanoRealtime());
 		Assert.assertTrue(recordList.size() == 1);
 		Assert.assertEquals(ContentType.APPLICATION_DATA, recordList.get(0).getType());
 	}
@@ -137,8 +145,8 @@ public class RecordTest {
 	public void testDecryptAEADUsesExplicitNonceFromGenericAEADCipherStruct() throws Exception {
 
 		byte[] fragment = newGenericAEADCipherFragment();
-		Record record = new Record(ContentType.APPLICATION_DATA, protocolVer, EPOCH, SEQUENCE_NO, null, fragment, session.getPeer(), null, ClockUtil.nanoRealtime(), false);
-		record.applySession(session);
+		Record record = new Record(ContentType.APPLICATION_DATA, protocolVer, EPOCH, SEQUENCE_NO, null, fragment, ClockUtil.nanoRealtime(), false);
+		record.decodeFragment(context.getReadState());
 
 		byte[] decryptedData = record.getFragment().toByteArray();
 		assertTrue(Arrays.equals(decryptedData, payloadData));

@@ -45,6 +45,7 @@ import org.eclipse.californium.elements.util.StandardCharsets;
  * <li>Option numbers</li>
  * <li>Message format</li>
  * </ul>
+ * 
  * @see OptionNumberRegistry
  * @see MediaTypeRegistry
  */
@@ -58,7 +59,7 @@ public final class CoAP {
 
 	/** The DTLS protocol */
 	public static final String PROTOCOL_DTLS = "DTLS";
-	
+
 	/** The TCP protocol */
 	public static final String PROTOCOL_TCP = "TCP";
 
@@ -97,12 +98,12 @@ public final class CoAP {
 	public static final InetAddress MULTICAST_IPV4 = new InetSocketAddress("224.0.1.187", 0).getAddress();
 	/**
 	 * IPv6 multicast address for CoAP, RFC 7252, 12.8., FF0X::FD, link-local.
-	 * See <a href="https://tools.ietf.org/html/rfc7346#section-2">RFC7346, IPv6 Multicast Address Scopes</a> 
+	 * See <a href="https://tools.ietf.org/html/rfc7346#section-2" target="_blank">RFC7346, IPv6 Multicast Address Scopes</a> 
 	 */
 	public static final InetAddress MULTICAST_IPV6_LINKLOCAL = new InetSocketAddress("[FF02::FD]", 0).getAddress();
 	/**
 	 * IPv6 multicast address for CoAP, RFC 7252, 12.8., FF0X::FD, site-local.
-	 * See <a href="https://tools.ietf.org/html/rfc7346#section-2">RFC7346, IPv6 Multicast Address Scopes</a> 
+	 * See <a href="https://tools.ietf.org/html/rfc7346#section-2" target="_blank">RFC7346, IPv6 Multicast Address Scopes</a> 
 	 */
 	public static final InetAddress MULTICAST_IPV6_SITELOCAL = new InetSocketAddress("[FF05::FD]", 0).getAddress();
 
@@ -137,7 +138,7 @@ public final class CoAP {
 	 * Gets the string representation of a CoAP code.
 	 * 
 	 * @param code the CoAP code.
-	 * @return a string following the pattern C.DD where C is the code class nd DD is the code detail.
+	 * @return a string following the pattern C.DD where C is the code class and DD is the code detail.
 	 */
 	public static String formatCode(final int code) {
 		return formatCode(getCodeClass(code), getCodeDetail(code));
@@ -189,10 +190,24 @@ public final class CoAP {
 	}
 
 	/**
+	 * Checks, if provided protocol is {@link #PROTOCOL_UDP} or {@link #PROTOCOL_DTLS}.
+	 * 
+	 * @param protocol protocol to be checked
+	 * @return {@code true}, if the provided protocol matches one of the list
+	 *         above, {@code false}, otherwise.
+	 * @since 3.1
+	 */
+	public static boolean isUdpProtocol(final String protocol) {
+		return PROTOCOL_UDP.equalsIgnoreCase(protocol) 
+				|| PROTOCOL_DTLS.equalsIgnoreCase(protocol);
+	}
+
+	/**
 	 * Checks, if provided protocol is {@link #PROTOCOL_TCP} or {@link #PROTOCOL_TLS}.
 	 * 
 	 * @param protocol protocol to be checked
-	 * @return true, if the provided protocol matchs one of the list above, false, otherwise.
+	 * @return {@code true}, if the provided protocol matches one of the list
+	 *         above, {@code false}, otherwise.
 	 */
 	public static boolean isTcpProtocol(final String protocol) {
 		return PROTOCOL_TCP.equalsIgnoreCase(protocol)
@@ -203,7 +218,8 @@ public final class CoAP {
 	 * Checks, if provided protocol is {@link #PROTOCOL_DTLS} or {@link #PROTOCOL_TLS}.
 	 * 
 	 * @param protocol protocol to be checked
-	 * @return true, if the provided protocol matchs one of the list above, false, otherwise.
+	 * @return {@code true}, if the provided protocol matches one of the list
+	 *         above, {@code false}, otherwise.
 	 */
 	public static boolean isSecureProtocol(final String protocol) {
 		return PROTOCOL_DTLS.equalsIgnoreCase(protocol)
@@ -211,10 +227,24 @@ public final class CoAP {
 	}
 
 	/**
+	 * Checks, if provided scheme is {@link #COAP_URI_SCHEME} or {@link #COAP_SECURE_URI_SCHEME}.
+	 * 
+	 * @param uriScheme scheme to be checked
+	 * @return {@code true}, if the provided scheme matches one of the list
+	 *         above, {@code false}, otherwise.
+	 * @since 3.1
+	 */
+	public static boolean isUdpScheme(final String uriScheme) {
+		return COAP_URI_SCHEME.equalsIgnoreCase(uriScheme)
+				|| COAP_SECURE_URI_SCHEME.equalsIgnoreCase(uriScheme);
+	}
+
+	/**
 	 * Checks, if provided scheme is {@link #COAP_TCP_URI_SCHEME} or {@link #COAP_SECURE_TCP_URI_SCHEME}.
 	 * 
 	 * @param uriScheme scheme to be checked
-	 * @return true, if the provided scheme match one of the list above, false, otherwise.
+	 * @return {@code true}, if the provided scheme matches one of the list
+	 *         above, {@code false}, otherwise.
 	 */
 	public static boolean isTcpScheme(final String uriScheme) {
 		return COAP_TCP_URI_SCHEME.equalsIgnoreCase(uriScheme)
@@ -225,7 +255,8 @@ public final class CoAP {
 	 * Checks, if provided scheme is {@link #COAP_SECURE_URI_SCHEME} or {@link #COAP_SECURE_TCP_URI_SCHEME}.
 	 * 
 	 * @param uriScheme scheme to be checked
-	 * @return true, if the provided scheme match one of the list above, false, otherwise.
+	 * @return {@code true}, if the provided scheme matches one of the list
+	 *         above, {@code false}, otherwise.
 	 */
 	public static boolean isSecureScheme(final String uriScheme) {
 		return COAP_SECURE_URI_SCHEME.equalsIgnoreCase(uriScheme)
@@ -236,7 +267,8 @@ public final class CoAP {
 	 * Checks, if provided scheme is {@link #COAP_URI_SCHEME}, {@link #COAP_SECURE_URI_SCHEME}, {@link #COAP_TCP_URI_SCHEME} or {@link #COAP_SECURE_TCP_URI_SCHEME}.
 	 * 
 	 * @param uriScheme scheme to be checked
-	 * @return true, if the provided scheme match one of the list above, false, otherwise.
+	 * @return {@code true}, if the provided scheme matches one of the list
+	 *         above, {@code false}, otherwise.
 	 */
 	public static boolean isSupportedScheme(final String uriScheme) {
 		return CoAP.COAP_URI_SCHEME.equalsIgnoreCase(uriScheme) ||
@@ -244,7 +276,7 @@ public final class CoAP {
 				CoAP.COAP_SECURE_URI_SCHEME.equalsIgnoreCase(uriScheme) ||
 				CoAP.COAP_SECURE_TCP_URI_SCHEME.equalsIgnoreCase(uriScheme);
 	}
-	
+
 	/**
 	 * Get default port for provided uri scheme.
 	 * 
@@ -333,6 +365,30 @@ public final class CoAP {
 	}
 
 	/**
+	 * Converts raw message code into display string.
+	 * 
+	 * @param rawCode message code
+	 * @return display string
+	 * @since 3.0
+	 */
+	public static String toCodeString(int rawCode) {
+		String result = formatCode(rawCode);
+		try {
+			if (isRequest(rawCode)) {
+				Code code = Code.valueOf(rawCode);
+				result += "/" + code.text;
+			} else if (isResponse(rawCode)) {
+				ResponseCode code = ResponseCode.valueOf(rawCode);
+				result += "/" + code.text;
+			} else if (isEmptyMessage(rawCode)) {
+				result += "/EMPTY";
+			}
+		} catch (MessageFormatException ex) {
+		}
+		return result;
+	}
+
+	/**
 	 * CoAP defines four types of messages:
 	 * Confirmable, Non-confirmable, Acknowledgment, Reset.
 	 */
@@ -396,8 +452,8 @@ public final class CoAP {
 
 		/** The server error response class code. */
 		SERVER_ERROR_RESPONSE(5),
-		
-		/** The signaling  class code. */
+
+		/** The signaling class code. */
 		SIGNAL(7);
 
 		/** The code value. */
@@ -447,32 +503,33 @@ public final class CoAP {
 
 		/** The DELETE code. */
 		DELETE(4),
-		
+
 		/** The FETCH code. */
 		FETCH(5),
-		
+
 		/** The PATCH code. */
 		PATCH(6),
 
 		/** The IPATCH code. */
 		IPATCH(7),
 
-		/** 
+		/**
 		 * The custom code 30.
 		 * 
 		 * Support for openHAB custom CoAP extension, CoIoT, used for shelly binding.
-		 * <a href="https://shelly-api-docs.shelly.cloud/images/CoIoT%20for%20Shelly%20devices%20(rev%201.0)%20.pdf">CoIot Shelly</a>.
+		 * <a href="https://shelly-api-docs.shelly.cloud/images/CoIoT%20for%20Shelly%20devices%20(rev%201.0)%20.pdf" target="_blank">CoIot Shelly</a>.
 		 * 
-		 * Note: though this code is not assigned byt IANA, it may cause future incompatibilities.
+		 * Note: though this code is not assigned by IANA, it may cause future incompatibilities.
 		 * If the IANA assigns this value, this will get replaced!
-		 * <a href="https://www.iana.org/assignments/core-parameters/core-parameters.xhtml#method-codes">IANA CoAP Codes</a>.
+		 * <a href="https://www.iana.org/assignments/core-parameters/core-parameters.xhtml#method-codes" target="_blank">IANA CoAP Codes</a>.
 		 */
 		CUSTOM_30(30);
 
 		/** The code value. */
 		public final int value;
-		/** 
+		/**
 		 * The code value in textual format. "0.dd"
+		 * 
 		 * @since 2.1
 		 */
 		public final String text;
@@ -532,9 +589,10 @@ public final class CoAP {
 	 * The enumeration of response codes
 	 */
 	public enum ResponseCode {
-		
+
 		// Success: 2.01 - 2.31
-		_UNKNOWN_SUCCESS_CODE(CodeClass.SUCCESS_RESPONSE, 0), // undefined -- only used to identify class
+		// undefined -- only used to identify class
+		_UNKNOWN_SUCCESS_CODE(CodeClass.SUCCESS_RESPONSE, 0),
 		CREATED(CodeClass.SUCCESS_RESPONSE, 1),
 		DELETED(CodeClass.SUCCESS_RESPONSE, 2),
 		VALID(CodeClass.SUCCESS_RESPONSE, 3),
@@ -570,16 +628,18 @@ public final class CoAP {
 		public final int value;
 		public final int codeClass;
 		public final int codeDetail;
-		/** 
+		/**
 		 * The code value in textual format. "c.dd"
+		 * 
 		 * @since 2.1
 		 */
 		public final String text;
 
 		/**
-		 * Instantiates a new response code with the specified integer value.
-		 *
-		 * @param value the integer value
+		 * Instantiates a new response code with the specified integer values.
+		 * 
+		 * @param codeClass code class
+		 * @param codeDetail code detail
 		 */
 		private ResponseCode(final CodeClass codeClass, final int codeDetail) {
 			this.codeClass = codeClass.value;
@@ -587,6 +647,36 @@ public final class CoAP {
 			this.value = codeClass.value << 5 | codeDetail;
 			this.text = formatCode(codeClass.value, codeDetail);
 			responseCodeMap.put(text, this);
+		}
+
+		/**
+		 * Checks if a response code indicates success.
+		 * 
+		 * @return {@code true} if the given code's class is {@link CodeClass#SUCCESS_RESPONSE}).
+		 * @since 3.0
+		 */
+		public boolean isSuccess() {
+			return codeClass == CodeClass.SUCCESS_RESPONSE.value;
+		}
+
+		/**
+		 * Checks if a response code indicates a client error.
+		 * 
+		 * @return {@code true} if the given code's class is {@link CodeClass#ERROR_RESPONSE}).
+		 * @since 3.0
+		 */
+		public boolean isClientError() {
+			return codeClass == CodeClass.ERROR_RESPONSE.value;
+		}
+
+		/**
+		 * Checks if a response code indicates a server error.
+		 * 
+		 * @return {@code true} if the given code's class is {@link CodeClass#SERVER_ERROR_RESPONSE}).
+		 * @since 3.0
+		 */
+		public boolean isServerError() {
+			return codeClass == CodeClass.SERVER_ERROR_RESPONSE.value;
 		}
 
 		/**
@@ -674,62 +764,21 @@ public final class CoAP {
 		public String toString() {
 			return text;
 		}
-
-		/**
-		 * Checks if a response code indicates success.
-		 * 
-		 * @param code The response code to check.
-		 * @return {@code true} if the given code's class is {@link CodeClass#SUCCESS_RESPONSE}).
-		 * @throws NullPointerException if the code is {@code null}.
-		 */
-		public static boolean isSuccess(final ResponseCode code) {
-			if (null == code) {
-				throw new NullPointerException("ResponseCode must not be null!");
-			}
-			return code.codeClass == CodeClass.SUCCESS_RESPONSE.value;
-		}
-
-		/**
-		 * Checks if a response code indicates a client error.
-		 * 
-		 * @param code The response code to check.
-		 * @return {@code true} if the given code's class is {@link CodeClass#ERROR_RESPONSE}).
-		 * @throws NullPointerException if the code is {@code null}.
-		 */
-		public static boolean isClientError(final ResponseCode code) {
-			if (null == code) {
-				throw new NullPointerException("ResponseCode must not be null!");
-			}
-			return code.codeClass == CodeClass.ERROR_RESPONSE.value;
-		}
-
-		/**
-		 * Checks if a response code indicates a server error.
-		 * 
-		 * @param code The response code to check.
-		 * @return {@code true} if the given code's class is {@link CodeClass#SERVER_ERROR_RESPONSE}).
-		 * @throws NullPointerException if the code is {@code null}.
-		 */
-		public static boolean isServerError(final ResponseCode code) {
-			if (null == code) {
-				throw new NullPointerException("ResponseCode must not be null!");
-			}
-			return code.codeClass == CodeClass.SERVER_ERROR_RESPONSE.value;
-		}
 	}
 
 	/**
 	 * CoAP message format.
 	 */
 	public final class MessageFormat {
+
 		/** The length of len nibble when running in TCP mode. */
 		public static final int LENGTH_NIBBLE_BITS = 4;
 
 		/** number of bits used for the encoding of the CoAP version field. */
-		public static final int VERSION_BITS     = 2;
+		public static final int VERSION_BITS = 2;
 
 		/** number of bits used for the encoding of the message type field. */
-		public static final int TYPE_BITS        = 2;
+		public static final int TYPE_BITS = 2;
 
 		/** number of bits used for the encoding of the token length field. */
 		public static final int TOKEN_LENGTH_BITS = 4;

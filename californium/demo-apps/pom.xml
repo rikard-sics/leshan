@@ -8,7 +8,7 @@
 	<parent>
 		<groupId>org.eclipse.californium</groupId>
 		<artifactId>cf-bom</artifactId>
-		<version>2.6.3</version>
+		<version>3.11.0-SNAPSHOT</version>
 		<relativePath>../bom</relativePath>
 	</parent>
 	<artifactId>demo-apps</artifactId>
@@ -28,13 +28,12 @@
 		<module>cf-plugtest-checker</module>
 		<module>cf-plugtest-client</module>
 		<module>cf-plugtest-server</module>
-		<module>cf-proxy</module>
 		<module>cf-proxy2</module>
 		<module>cf-secure</module>
-		<module>cf-simplefile-server</module>
 		<module>cf-unix-setup</module>
 		<module>sc-dtls-example-client</module>
 		<module>sc-dtls-example-server</module>
+		<module>cf-simplefile-server</module>
 	</modules>
 
 	<properties>

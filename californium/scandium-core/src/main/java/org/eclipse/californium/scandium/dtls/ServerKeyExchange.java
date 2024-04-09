@@ -17,20 +17,16 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
-import java.net.InetSocketAddress;
-
-
 /**
  * This message will be sent immediately after the server
  * {@link CertificateMessage} (or the {@link ServerHello} message, if this is an
  * anonymous negotiation). See <a
- * href="http://tools.ietf.org/html/rfc5246#section-7.4.3">RFC 5246</a> for
+ * href="https://tools.ietf.org/html/rfc5246#section-7.4.3" target="_blank">RFC 5246</a> for
  * details.
  */
 public abstract class ServerKeyExchange extends HandshakeMessage {
 
-	protected ServerKeyExchange(InetSocketAddress peerAddress) {
-		super(peerAddress);
+	protected ServerKeyExchange() {
 	}
 
 	@Override

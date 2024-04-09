@@ -30,7 +30,7 @@ import org.eclipse.californium.scandium.util.SecretUtil;
 /**
  * The Pseudo Random Function as defined in TLS 1.2.
  * 
- * @see <a href="http://tools.ietf.org/html/rfc5246#section-5">RFC 5246</a>
+ * @see <a href="https://tools.ietf.org/html/rfc5246#section-5" target="_blank">RFC 5246</a>
  */
 public final class PseudoRandomFunction {
 
@@ -51,7 +51,10 @@ public final class PseudoRandomFunction {
 		CLIENT_FINISHED_LABEL("client finished", 12),
 		// The verify data is always 12 bytes long, see
 		// http://tools.ietf.org/html/rfc5246#section-7.4.9
-		SERVER_FINISHED_LABEL("server finished", 12);
+		SERVER_FINISHED_LABEL("server finished", 12),
+		// The extended master secret is always 48 bytes long, see
+		// http://tools.ietf.org/html/rfc7621#section-4
+		EXTENDED_MASTER_SECRET_LABEL("extended master secret", 48);
 
 		private final String value;
 		private final byte[] bytesValue;
@@ -67,7 +70,7 @@ public final class PseudoRandomFunction {
 			return value;
 		}
 
-		public byte[] getBytes() {
+		private byte[] getBytes() {
 			return bytesValue;
 		}
 
@@ -76,6 +79,58 @@ public final class PseudoRandomFunction {
 		}
 	}
 
+	private static byte[] EXPORTER = "EXPORTER".getBytes(StandardCharsets.UTF_8);
+	private static byte[] EXPERIMENTAL = "EXPERIMENTAL".getBytes(StandardCharsets.UTF_8);
+
+	/**
+	 * Check, if array starts with other array.
+	 * 
+	 * @param value value to check
+	 * @param start header to check
+	 * @return {@code true}, if value starts with header, {@code false}
+	 *         otherwise.
+	 * @since 3.10
+	 */
+	private static boolean startsWith(byte[] value, byte[] start) {
+		if (value.length < start.length) {
+			return false;
+		}
+		for (int index = 0; index < start.length; ++index) {
+			if (value[index] != start[index]) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Check, if the provided label is supported for key material export.
+	 * 
+	 * @param label label to check
+	 * @return {@code true}, if allowed, {@code false}, if not.
+	 * @since 3.10
+	 */
+	public static boolean isExportLabel(byte[] label) {
+		if (startsWith(label, EXPORTER)) {
+			return true;
+		}
+		if (startsWith(label, EXPERIMENTAL)) {
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Does the pseudo random function as defined in
+	 * <a href="https://tools.ietf.org/html/rfc5246#section-5" target="_blank">RFC 5246</a>.
+	 * 
+	 * @param hmac MAC algorithm.  e.g. HmacSHA256
+	 * @param secret the secret to use for the secure hash function
+	 * @param label the label to use for creating the original data.
+	 * @param seed the seed to use for creating the original data
+	 * @param length the length of data to create
+	 * @return the expanded data
+	 */
 	static byte[] doPRF(Mac hmac, SecretKey secret, byte[] label, byte[] seed, int length) {
 		try {
 			hmac.init(secret);
@@ -90,8 +145,31 @@ public final class PseudoRandomFunction {
 	}
 
 	/**
+	 * Calculate the pseudo random function for exporter as defined in
+	 * <a href="https://tools.ietf.org/html/rfc5246#section-5" target=
+	 * "_blank">RFC 5246</a>.
+	 * 
+	 * @param hmac MAC algorithm.  e.g. HmacSHA256
+	 * @param secret the secret to use for the secure hash function
+	 * @param label the label to use for creating the original data.
+	 * @param seed the seed to use for creating the original data
+	 * @param length the length of data to create
+	 * @return the expanded data
+     * @throws IllegalArgumentException if label is not allowed for exporter
+	 * @see <a href="https://tools.ietf.org/html/rfc5705" target="_blank">RFC
+	 *      5705</a>
+	 * @since 3.10
+	 */
+	public static final byte[] doExporterPRF(Mac hmac, SecretKey secret, byte[] label, byte[] seed, int length) {
+		if (!isExportLabel(label)) {
+			throw new IllegalArgumentException("label must be valid for export!");
+		}
+		return doPRF(hmac, secret, label, seed, length);
+	}
+
+	/**
 	 * Does the pseudo random function as defined in
-	 * <a href="http://tools.ietf.org/html/rfc5246#section-5">RFC 5246</a>.
+	 * <a href="https://tools.ietf.org/html/rfc5246#section-5" target="_blank">RFC 5246</a>.
 	 * 
 	 * @param hmac MAC algorithm.  e.g. HmacSHA256
 	 * @param secret the secret to use for the secure hash function
@@ -106,7 +184,7 @@ public final class PseudoRandomFunction {
 
 	/**
 	 * Does the pseudo random function as defined in <a
-	 * href="http://tools.ietf.org/html/rfc5246#section-5">RFC 5246</a>.
+	 * href="https://tools.ietf.org/html/rfc5246#section-5" target="_blank">RFC 5246</a>.
 	 * 
 	 * @param hmac MAC algorithm. e.g. HmacSHA256
 	 * @param secret the secret to use for the secure hash function
@@ -121,7 +199,7 @@ public final class PseudoRandomFunction {
 
 	/**
 	 * Performs the secret expansion as described in <a
-	 * href="http://tools.ietf.org/html/rfc5246#section-5">RFC 5246</a>.
+	 * href="https://tools.ietf.org/html/rfc5246#section-5" target="_blank">RFC 5246</a>.
 	 * 
 	 * @param hmac the cryptographic hash function to use for expansion.
 	 * @param label the label to use for creating the original data
@@ -182,19 +260,25 @@ public final class PseudoRandomFunction {
 		} catch (ShortBufferException e) {
 			e.printStackTrace();
 		}
+		Bytes.clear(aAndSeed);
 		return expansion;
 	}
 
 	/**
-	 * Generate master secret.
+	 * Generate (extended) master secret.
 	 * 
 	 * @param hmac MAC algorithm. e.g. HmacSHA256
 	 * @param premasterSecret the secret to use for the secure hash function
-	 * @param seed the seed to use for creating the original data
-	 * @return the master secret
+	 * @param seed the seed to use for creating the master secret
+	 * @param extended {@code true}, use
+	 *            {@link Label#EXTENDED_MASTER_SECRET_LABEL}, {@code false}, use
+	 *            {@link Label#MASTER_SECRET_LABEL}
+	 * @return the (extended) master secret
+	 * @since 3.0 (added parameter extended)
 	 */
-	public static SecretKey generateMasterSecret(Mac hmac, SecretKey premasterSecret, byte[] seed) {
-		byte[] secret = doPRF(hmac, premasterSecret, Label.MASTER_SECRET_LABEL, seed);
+	public static SecretKey generateMasterSecret(Mac hmac, SecretKey premasterSecret, byte[] seed, boolean extended) {
+		byte[] secret = doPRF(hmac, premasterSecret,
+				extended ? Label.EXTENDED_MASTER_SECRET_LABEL : Label.MASTER_SECRET_LABEL, seed);
 		SecretKey masterSecret = SecretUtil.create(secret, "MAC");
 		Bytes.clear(secret);
 		return masterSecret;
@@ -209,7 +293,7 @@ public final class PseudoRandomFunction {
 	 *            EC Diffie-Hellman exchange (ECDHE_PSK).
 	 * @param pskSecret PSK secret.
 	 * @return byte array with generated premaster secret.
-	 * @see <a href="http://tools.ietf.org/html/rfc4279#section-2">RFC 4279</a>
+	 * @see <a href="https://tools.ietf.org/html/rfc4279#section-2" target="_blank">RFC 4279</a>
 	 */
 	public static SecretKey generatePremasterSecretFromPSK(SecretKey otherSecret, SecretKey pskSecret) {
 		/*
@@ -219,11 +303,9 @@ public final class PseudoRandomFunction {
 		byte[] pskBytes = pskSecret.getEncoded();
 		int pskLength = pskBytes.length;
 		byte[] otherBytes = otherSecret != null ? otherSecret.getEncoded() : new byte[pskLength];
-		DatagramWriter writer = new DatagramWriter(true);
-		writer.write(otherBytes.length, 16);
-		writer.writeBytes(otherBytes);
-		writer.write(pskLength, 16);
-		writer.writeBytes(pskBytes);
+		DatagramWriter writer = new DatagramWriter(otherBytes.length + pskLength + 4, true);
+		writer.writeVarBytes(otherBytes, 16);
+		writer.writeVarBytes(pskBytes, 16);
 		byte[] secret = writer.toByteArray();
 		writer.close();
 		SecretKey premaster = SecretUtil.create(secret, "MAC");

@@ -19,14 +19,15 @@
  ******************************************************************************/
 package org.eclipse.californium.core.network.stack;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.core.network.Exchange;
-import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.observe.ObserveRelation;
+import org.eclipse.californium.core.observe.ObserveRelation.State;
+import org.eclipse.californium.elements.config.Configuration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * TCP related observe/notify handling.
@@ -42,8 +43,9 @@ public class TcpObserveLayer extends AbstractLayer {
 	 * Creates a new observe layer for a configuration.
 	 * 
 	 * @param config The configuration values to use.
+	 * @since 3.0 (changed parameter to Configuration)
 	 */
-	public TcpObserveLayer(final NetworkConfig config) {
+	public TcpObserveLayer(final Configuration config) {
 		// so far no configuration values for this layer
 	}
 
@@ -57,13 +59,20 @@ public class TcpObserveLayer extends AbstractLayer {
 
 	@Override
 	public void sendResponse(final Exchange exchange, final Response response) {
+		// use dummy type for TCP
+		response.setType(Type.CON);
 		final ObserveRelation relation = exchange.getRelation();
-		if (relation != null && relation.isEstablished()) {
-			if (!response.getOptions().hasObserve()) {
-				/* response for cancel request */
-				relation.cancel();
+		State state = ObserveRelation.onResponse(relation, response);
+		if (relation != null) {
+			if (state == State.CANCELED) {
+				if (exchange.isComplete()) {
+					LOGGER.debug("drop notification {}, relation was canceled!", response);
+					response.setCanceled(true);
+					return;
+				}
 			}
-		} // else no observe was requested or the resource does not allow it
+			relation.onSend(response);
+		}
 		lower().sendResponse(exchange, response);
 	}
 

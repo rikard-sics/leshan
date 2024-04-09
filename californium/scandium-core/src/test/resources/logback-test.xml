@@ -4,7 +4,7 @@
 		<!-- encoders are assigned the type ch.qos.logback.classic.encoder.PatternLayoutEncoder 
 			by default -->
 		<encoder>
-			<pattern>%d{HH:mm:ss.SSS} %level [%logger{0}]: %msg { %X } \(%class{25}.%method:%line\)%n</pattern>
+			<pattern>%d{HH:mm:ss.SSS} %level [%logger{0}]: %msg [%X] \(%class{25}.%method:%line\)%n</pattern>
 		</encoder>
 	</appender>
 
@@ -12,6 +12,19 @@
 		<appender-ref ref="STDOUT" />
 	</logger>
 	<logger name="org.eclipse.californium.scandium.DTLSConnector.health" level="DEBUG" additivity="false">
+		<appender-ref ref="STDOUT" />
+	</logger>
+	<logger name="org.eclipse.californium.scandium.dtls.ServerHandshaker.negotiation" level="WARN" additivity="false">
+		<appender-ref ref="STDOUT" />
+	</logger>
+	<logger name="org.eclipse.californium.elements.rule.TestNameLoggerRule" level="WARN" additivity="false">
+		<appender-ref ref="STDOUT" />
+	</logger>
+	<logger name="org.eclipse.californium.elements.util.JceProviderUtil" level="INFO" additivity="false">
+		<appender-ref ref="STDOUT" />
+	</logger>
+
+	<logger name="ch.qos.logback" level="ERROR" additivity="false">
 		<appender-ref ref="STDOUT" />
 	</logger>
 

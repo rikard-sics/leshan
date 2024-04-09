@@ -29,6 +29,7 @@ import java.util.Arrays;
 
 import org.eclipse.californium.elements.util.Asn1DerDecoder;
 import org.eclipse.californium.elements.util.Base64;
+import org.eclipse.californium.elements.util.JceProviderUtil;
 
 /**
  * A principal representing an authenticated peer's <em>RawPublicKey</em>.
@@ -43,7 +44,7 @@ public class RawPublicKeyIdentity extends AbstractExtensiblePrincipal<RawPublicK
 	 * Creates a new instance for a given public key.
 	 * 
 	 * @param key the public key
-	 * @throws NullPointerException if the key is <code>null</code>
+	 * @throws NullPointerException if the key is {@code null}
 	 */
 	public RawPublicKeyIdentity(PublicKey key) {
 		this(key, null);
@@ -54,7 +55,7 @@ public class RawPublicKeyIdentity extends AbstractExtensiblePrincipal<RawPublicK
 	 * 
 	 * @param key the public key
 	 * @param additionalInformation Additional information for this principal.
-	 * @throws NullPointerException if the key is <code>null</code>
+	 * @throws NullPointerException if the key is {@code null}
 	 */
 	private RawPublicKeyIdentity(PublicKey key, AdditionalInfo additionalInformation) {
 		super(additionalInformation);
@@ -70,7 +71,7 @@ public class RawPublicKeyIdentity extends AbstractExtensiblePrincipal<RawPublicK
 	 * Creates a new instance for a given ASN.1 subject public key info structure.
 	 * 
 	 * @param subjectInfo the ASN.1 encoded X.509 subject public key info.
-	 * @throws NullPointerException if the subject info is <code>null</code>
+	 * @throws NullPointerException if the subject info is {@code null}
 	 * @throws GeneralSecurityException if the JVM does not support the key
 	 *             algorithm used by the public key.
 	 */
@@ -87,7 +88,7 @@ public class RawPublicKeyIdentity extends AbstractExtensiblePrincipal<RawPublicK
 	 *            supported key algorithms for serialization/deserialization.
 	 *            If {@code null}, the key algorithm provided by the ASN.1
 	 *            DER encoded subject public key is used.
-	 * @throws NullPointerException if the subject info is <code>null</code>
+	 * @throws NullPointerException if the subject info is {@code null}
 	 * @throws GeneralSecurityException if the JVM does not support the given key algorithm.
 	 */
 	public RawPublicKeyIdentity(byte[] subjectInfo, String keyAlgorithm) throws GeneralSecurityException {
@@ -104,7 +105,7 @@ public class RawPublicKeyIdentity extends AbstractExtensiblePrincipal<RawPublicK
 	 *            If {@code null}, the key algorithm provided by the ASN.1
 	 *            DER encoded subject public key is used.
 	 * @param additionalInformation Additional information for this principal.
-	 * @throws NullPointerException if the subject info is <code>null</code>
+	 * @throws NullPointerException if the subject info is {@code null}
 	 * @throws GeneralSecurityException if the JVM does not support the given key algorithm.
 	 */
 	private RawPublicKeyIdentity(byte[] subjectInfo, String keyAlgorithm, AdditionalInfo additionalInformation) throws GeneralSecurityException {
@@ -123,7 +124,7 @@ public class RawPublicKeyIdentity extends AbstractExtensiblePrincipal<RawPublicK
 				if (specKeyAlgorithm == null) {
 					// use the provided key algorithm
 					specKeyAlgorithm = keyAlgorithm;
-				} else if (!Asn1DerDecoder.equalKeyAlgorithmSynonyms(specKeyAlgorithm, keyAlgorithm)) {
+				} else if (!JceProviderUtil.equalKeyAlgorithmSynonyms(specKeyAlgorithm, keyAlgorithm)) {
 					throw new GeneralSecurityException(String.format("Provided key algorithm %s doesn't match %s!",
 							keyAlgorithm, specKeyAlgorithm));
 				}
@@ -131,7 +132,11 @@ public class RawPublicKeyIdentity extends AbstractExtensiblePrincipal<RawPublicK
 				throw new GeneralSecurityException("Key algorithm could not be determined!");
 			}
 			KeyFactory factory = Asn1DerDecoder.getKeyFactory(specKeyAlgorithm);
-			this.publicKey = factory.generatePublic(spec);
+			try {
+				this.publicKey = factory.generatePublic(spec);
+			} catch (RuntimeException ex) {
+				throw new GeneralSecurityException(ex.getMessage());
+			}
 			createNamedInformationUri(subjectInfo);
 		}
 	}
@@ -163,7 +168,7 @@ public class RawPublicKeyIdentity extends AbstractExtensiblePrincipal<RawPublicK
 	 * 
 	 * The URI is created using the SHA-256 hash algorithm on the key's
 	 * <em>SubjectPublicKeyInfo</em> as described in
-	 * <a href="http://tools.ietf.org/html/rfc6920#section-2">RFC 6920, section 2</a>.
+	 * <a href="https://tools.ietf.org/html/rfc6920#section-2" target="_blank">RFC 6920, section 2</a>.
 	 * 
 	 * @return the named information URI
 	 */
@@ -210,16 +215,13 @@ public class RawPublicKeyIdentity extends AbstractExtensiblePrincipal<RawPublicK
 	 */
 	@Override
 	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((publicKey == null) ? 0 : Arrays.hashCode(getSubjectInfo()));
-		return result;
+		return ((publicKey == null) ? 0 : Arrays.hashCode(getSubjectInfo()));
 	}
 
 	/**
 	 * Checks if this instance is equal to another object.
 	 * 
-	 * @return <code>true</code> if the other object is a <code>RawPublicKeyIdentity</code>
+	 * @return {@code true}, if the other object is a {@code RawPublicKeyIdentity}
 	 *           and has the same <em>SubjectPublicKeyInfo</em> as this instance
 	 */
 	@Override
@@ -233,12 +235,9 @@ public class RawPublicKeyIdentity extends AbstractExtensiblePrincipal<RawPublicK
 		}
 		RawPublicKeyIdentity other = (RawPublicKeyIdentity) obj;
 		if (publicKey == null) {
-			if (other.publicKey != null) {
-				return false;
-			}
-		} else if (!Arrays.equals(getSubjectInfo(), other.getSubjectInfo())) {
-			return false;
+			return other.publicKey == null;
+		} else {
+			return Arrays.equals(getSubjectInfo(), other.getSubjectInfo());
 		}
-		return true;
 	}
 }

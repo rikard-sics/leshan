@@ -23,9 +23,17 @@ package org.eclipse.californium.elements.tcp.netty;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
+
+import org.eclipse.californium.elements.config.CertificateAuthenticationMode;
+import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.config.TcpConfig;
+import org.eclipse.californium.elements.util.StringUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.netty.channel.Channel;
 import io.netty.handler.ssl.SslHandler;
@@ -35,22 +43,26 @@ import io.netty.handler.ssl.SslHandler;
  */
 public class TlsServerConnector extends TcpServerConnector {
 	/**
-	 * Default handshake timeout.
+	 * @since 3.10
 	 */
-	private static final int DEFAULT_HANDSHAKE_TIMEOUT_MILLIS = 10000;
-
-	public static enum ClientAuthMode {
-		NONE, WANTED, NEEDED
-	}
+	private static final Logger LOG = LoggerFactory.getLogger(TlsServerConnector.class);
 
 	/**
 	 * Client authentication mode.
 	 */
-	private final ClientAuthMode clientAuthMode;
+	private final CertificateAuthenticationMode clientAuthMode;
 	/**
 	 * SSL context.
 	 */
 	private final SSLContext sslContext;
+	/**
+	 * Weak cipher suites, or {@code null}, if no required.
+	 * 
+	 * @see TlsContextUtil#getWeakCipherSuites(SSLContext)
+	 * @since 3.0
+	 */
+	private final String[] weakCipherSuites;
+
 	/**
 	 * Handshake timeout in milliseconds.
 	 */
@@ -61,47 +73,16 @@ public class TlsServerConnector extends TcpServerConnector {
 	 * mode, and handshake timeout.
 	 * 
 	 * @param sslContext ssl context.
-	 * @param clientAuthMode client authentication mode
 	 * @param socketAddress local server socket address
-	 * @param numberOfThreads number of thread for connection
-	 * @param handshakeTimeoutMillis handshake timeout in milliseconds
-	 * @param idleTimeout idle timeout in seconds to close unused connection
+	 * @param configuration configuration with {@link TcpConfig} definitions.
 	 */
-	public TlsServerConnector(SSLContext sslContext, ClientAuthMode clientAuthMode, InetSocketAddress socketAddress,
-			int numberOfThreads, int handshakeTimeoutMillis, int idleTimeout) {
-		super(socketAddress, numberOfThreads, idleTimeout, new TlsContextUtil(clientAuthMode == ClientAuthMode.NEEDED));
+	public TlsServerConnector(SSLContext sslContext, InetSocketAddress socketAddress, Configuration configuration) {
+		super(socketAddress, configuration,
+				new TlsContextUtil(configuration.get(TcpConfig.TLS_CLIENT_AUTHENTICATION_MODE)));
 		this.sslContext = sslContext;
-		this.clientAuthMode = clientAuthMode;
-		this.handshakeTimeoutMillis = handshakeTimeoutMillis;
-	}
-
-	/**
-	 * Initializes SSLEngine with specified SSL engine and client authentication
-	 * mode.
-	 * 
-	 * @param sslContext ssl context.
-	 * @param clientAuthMode client authentication mode
-	 * @param socketAddress local server socket address
-	 * @param numberOfThreads number of thread for connection
-	 * @param idleTimeout idle timeout in seconds to close unused connection
-	 */
-	public TlsServerConnector(SSLContext sslContext, ClientAuthMode clientAuthMode, InetSocketAddress socketAddress,
-			int numberOfThreads, int idleTimeout) {
-		this(sslContext, clientAuthMode, socketAddress, numberOfThreads, DEFAULT_HANDSHAKE_TIMEOUT_MILLIS, idleTimeout);
-	}
-
-	/**
-	 * Initializes SSLEngine with specified SSL engine.
-	 * 
-	 * @param sslContext ssl context.
-	 * @param socketAddress local server socket address
-	 * @param numberOfThreads number of thread for connection
-	 * @param idleTimeout idle timeout in seconds to close unused connection
-	 */
-	public TlsServerConnector(SSLContext sslContext, InetSocketAddress socketAddress, int numberOfThreads,
-			int idleTimeout) {
-		this(sslContext, ClientAuthMode.NONE, socketAddress, numberOfThreads, DEFAULT_HANDSHAKE_TIMEOUT_MILLIS,
-				idleTimeout);
+		this.clientAuthMode = configuration.get(TcpConfig.TLS_CLIENT_AUTHENTICATION_MODE);
+		this.handshakeTimeoutMillis = configuration.get(TcpConfig.TLS_HANDSHAKE_TIMEOUT, TimeUnit.MILLISECONDS);
+		this.weakCipherSuites = TlsContextUtil.getWeakCipherSuites(sslContext);
 	}
 
 	@Override
@@ -118,6 +99,9 @@ public class TlsServerConnector extends TcpServerConnector {
 			break;
 		}
 		sslEngine.setUseClientMode(false);
+		if (weakCipherSuites != null) {
+			sslEngine.setEnabledCipherSuites(weakCipherSuites);
+		}
 		SslHandler sslHandler = new SslHandler(sslEngine);
 		sslHandler.setHandshakeTimeoutMillis(handshakeTimeoutMillis);
 		ch.pipeline().addFirst(sslHandler);
@@ -137,11 +121,11 @@ public class TlsServerConnector extends TcpServerConnector {
 	private SSLEngine createSllEngineForChannel(Channel ch) {
 		SocketAddress remoteAddress = ch.remoteAddress();
 		if (remoteAddress instanceof InetSocketAddress) {
+			LOG.info("Connection from inet {}", StringUtil.toLog(remoteAddress));
 			InetSocketAddress remote = (InetSocketAddress) remoteAddress;
-			LOGGER.info("Connection from inet {}", remote);
 			return sslContext.createSSLEngine(remote.getAddress().getHostAddress(), remote.getPort());
 		} else {
-			LOGGER.info("Connection from {}", remoteAddress);
+			LOG.info("Connection from {}", StringUtil.toLog(remoteAddress));
 			return sslContext.createSSLEngine();
 		}
 	}

@@ -21,20 +21,21 @@ package org.eclipse.californium.scandium.dtls;
 
 import static org.junit.Assert.assertFalse;
 
-import java.net.InetSocketAddress;
 import java.util.List;
 
+import javax.net.ssl.X509KeyManager;
 
 import org.eclipse.californium.elements.util.ClockUtil;
 import org.eclipse.californium.elements.util.DatagramReader;
 import org.eclipse.californium.elements.util.DatagramWriter;
+import org.eclipse.californium.elements.util.JceNames;
+import org.eclipse.californium.elements.util.JceProviderUtil;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.elements.util.TestCertificatesTools;
+import org.eclipse.californium.scandium.dtls.cipher.XECDHECryptography;
 import org.eclipse.californium.scandium.util.ServerName;
 
 public final class DtlsTestTools extends TestCertificatesTools {
-
-	public static final long MAX_SEQUENCE_NO = 281474976710655L; // 2^48 - 1
 
 	public static final int DEFAULT_HANDSHAKE_RESULT_DELAY_MILLIS;
 
@@ -46,9 +47,20 @@ public final class DtlsTestTools extends TestCertificatesTools {
 	private DtlsTestTools() {
 	}
 
-	public static Record getRecordForMessage(int epoch, int seqNo, DTLSMessage msg, InetSocketAddress peer) {
+	public static X509KeyManager getDtlsServerKeyManager() {
+		X509KeyManager keyManager = null;
+		if (XECDHECryptography.SupportedGroup.X25519.isUsable() && JceProviderUtil.isSupported(JceNames.ED25519)) {
+			keyManager = TestCertificatesTools.getServerEdDsaKeyManager();
+		}
+		if (keyManager == null) {
+			keyManager = TestCertificatesTools.getServerKeyManager();
+		}
+		return keyManager;
+	}
+
+	public static Record getRecordForMessage(int epoch, int seqNo, DTLSMessage msg) {
 		byte[] dtlsRecord = newDTLSRecord(msg.getContentType().getCode(), epoch, seqNo, msg.toByteArray());
-		List<Record> list = DtlsTestTools.fromByteArray(dtlsRecord, peer, null, ClockUtil.nanoRealtime());
+		List<Record> list = DtlsTestTools.fromByteArray(dtlsRecord, null, ClockUtil.nanoRealtime());
 		assertFalse("Should be able to deserialize DTLS Record from byte array", list.isEmpty());
 		return list.get(0);
 	}
@@ -122,8 +134,8 @@ public final class DtlsTestTools extends TestCertificatesTools {
 		return writer.toByteArray();
 	}
 
-	public static <T extends HandshakeMessage> T fromByteArray(byte[] byteArray, HandshakeParameter parameter, InetSocketAddress peerAddress) throws HandshakeException {
-		HandshakeMessage hmsg = HandshakeMessage.fromByteArray(byteArray, peerAddress);
+	public static <T extends HandshakeMessage> T fromByteArray(byte[] byteArray, HandshakeParameter parameter) throws HandshakeException {
+		HandshakeMessage hmsg = HandshakeMessage.fromByteArray(byteArray);
 		return fromHandshakeMessage(hmsg, parameter);
 	}
 
@@ -141,24 +153,20 @@ public final class DtlsTestTools extends TestCertificatesTools {
 	 * Parses a sequence of <em>DTLSCiphertext</em> structures into {@code Record} instances.
 	 * 
 	 * The binary representation is expected to comply with the <em>DTLSCiphertext</em> structure
-	 * defined in <a href="http://tools.ietf.org/html/rfc6347#section-4.3.1">RFC6347, Section 4.3.1</a>.
+	 * defined in <a href="https://tools.ietf.org/html/rfc6347#section-4.3.1" target="_blank">RFC6347, Section 4.3.1</a>.
 	 * 
 	 * @param byteArray the raw binary representation containing one or more DTLSCiphertext structures
-	 * @param peerAddress the IP address and port of the peer from which the bytes have been
-	 *           received
 	 * @param cidGenerator the connection id generator. May be {@code null}.
 	 * @param receiveNanos uptime nanoseconds of receiving this record
 	 * @return the {@code Record} instances
 	 * @throws NullPointerException if either one of the byte array or peer address is {@code null}
 	 */
-	public static List<Record> fromByteArray(byte[] byteArray, InetSocketAddress peerAddress, ConnectionIdGenerator cidGenerator, long receiveNanos) {
+	public static List<Record> fromByteArray(byte[] byteArray, ConnectionIdGenerator cidGenerator, long receiveNanos) {
 		if (byteArray == null) {
 			throw new NullPointerException("Byte array must not be null");
-		} else if (peerAddress == null) {
-			throw new NullPointerException("Peer address must not be null");
 		}
 	
 		DatagramReader reader = new DatagramReader(byteArray, false);
-		return Record.fromReader(reader, peerAddress, null, cidGenerator, receiveNanos);
+		return Record.fromReader(reader, cidGenerator, receiveNanos);
 	}
 }

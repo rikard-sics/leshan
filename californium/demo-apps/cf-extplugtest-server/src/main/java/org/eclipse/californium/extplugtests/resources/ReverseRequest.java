@@ -23,9 +23,9 @@ import static org.eclipse.californium.core.coap.MediaTypeRegistry.TEXT_PLAIN;
 import static org.eclipse.californium.core.coap.MediaTypeRegistry.UNDEFINED;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -33,9 +33,12 @@ import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.coap.MessageObserverAdapter;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.coap.ResponseTimeout;
+import org.eclipse.californium.core.coap.UriQueryParameter;
 import org.eclipse.californium.core.network.Endpoint;
-import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.server.resources.CoapExchange;
+import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.config.SystemConfig;
 import org.eclipse.californium.elements.exception.ConnectorException;
 import org.eclipse.californium.elements.util.DatagramWriter;
 import org.slf4j.Logger;
@@ -86,6 +89,12 @@ public class ReverseRequest extends CoapResource {
 	 */
 	private static final String URI_QUERY_OPTION_RESOURCE = "res";
 	/**
+	 * Supported query parameter.
+	 * 
+	 * @since 3.2
+	 */
+	private static final List<String> SUPPORTED = Arrays.asList(URI_QUERY_OPTION_REQUEST, URI_QUERY_OPTION_RESOURCE);
+	/**
 	 * Maximum number of requests.
 	 */
 	private static final int MAX_REQUESTS = 10000000;
@@ -113,17 +122,17 @@ public class ReverseRequest extends CoapResource {
 	/**
 	 * Create reverse observation resource.
 	 * 
-	 * @param config network configuration to read HEALTH_STATUS_INTERVAL.
+	 * @param config configuration to read HEALTH_STATUS_INTERVAL.
 	 */
-	public ReverseRequest(NetworkConfig config, ScheduledExecutorService executor) {
+	public ReverseRequest(Configuration config, ScheduledExecutorService executor) {
 		super(RESOURCE_NAME);
 		this.executor = executor;
 		getAttributes().setTitle("Reverse Request");
 		getAttributes().addContentType(TEXT_PLAIN);
 		getAttributes().addContentType(APPLICATION_OCTET_STREAM);
-		int healthStatusInterval = config.getInt(NetworkConfig.Keys.HEALTH_STATUS_INTERVAL, 60); // seconds
-		if (healthStatusInterval > 0 && HEALTH_LOGGER.isDebugEnabled() && getSecondaryExecutor() != null) {
-			getSecondaryExecutor().scheduleWithFixedDelay(new Runnable() {
+		long healthStatusInterval = config.get(SystemConfig.HEALTH_STATUS_INTERVAL, TimeUnit.MILLISECONDS);
+		if (healthStatusInterval > 0 && HEALTH_LOGGER.isDebugEnabled()) {
+			executor.scheduleWithFixedDelay(new Runnable() {
 
 				@Override
 				public void run() {
@@ -132,7 +141,7 @@ public class ReverseRequest extends CoapResource {
 								overallSentRequests.get(), overallPendingRequests.get());
 					}
 				}
-			}, healthStatusInterval, healthStatusInterval, TimeUnit.SECONDS);
+			}, healthStatusInterval, healthStatusInterval, TimeUnit.MILLISECONDS);
 		}
 	}
 
@@ -149,34 +158,17 @@ public class ReverseRequest extends CoapResource {
 		}
 
 		List<String> requestUriQuery = new ArrayList<>();
-		List<String> uriQuery = request.getOptions().getUriQuery();
 		Integer numberOfRequests = null;
 		String resource = null;
-		for (String query : uriQuery) {
-			if (query.startsWith(URI_QUERY_OPTION_REQUEST + "=")) {
-				String message = null;
-				String req = query.substring(URI_QUERY_OPTION_REQUEST.length() + 1);
-				try {
-					numberOfRequests = Integer.parseInt(req);
-					if (numberOfRequests < 0) {
-						message = "URI-query-option " + query + " is negative number!";
-					} else if (numberOfRequests > MAX_REQUESTS) {
-						message = "URI-query-option " + query + " is too large (max. " + MAX_REQUESTS + ")!";
-					}
-				} catch (NumberFormatException ex) {
-					message = "URI-query-option " + query + " is no number!";
-				}
-				if (message != null) {
-					Response response = Response.createResponse(request, BAD_OPTION);
-					response.setPayload(message);
-					exchange.respond(response);
-					return;
-				}
-			} else if (query.startsWith(URI_QUERY_OPTION_RESOURCE + "=")) {
-				resource = query.substring(URI_QUERY_OPTION_RESOURCE.length() + 1);
-			} else {
-				requestUriQuery.add(query);
+		try {
+			UriQueryParameter helper = request.getOptions().getUriQueryParameter(SUPPORTED, requestUriQuery);
+			if (helper.hasParameter(URI_QUERY_OPTION_REQUEST)) {
+				numberOfRequests = helper.getArgumentAsInteger(URI_QUERY_OPTION_REQUEST, 1, 1, MAX_REQUESTS);
 			}
+			resource = helper.getArgument(URI_QUERY_OPTION_RESOURCE, null);
+		} catch (IllegalArgumentException ex) {
+			exchange.respond(BAD_OPTION, ex.getMessage());
+			return;
 		}
 
 		if (resource != null && numberOfRequests != null) {
@@ -198,15 +190,16 @@ public class ReverseRequest extends CoapResource {
 			getRequest.setDestinationContext(request.getSourceContext());
 			GetRequestObserver requestObserver = new GetRequestObserver(endpoint, getRequest, numberOfRequests);
 			getRequest.addMessageObserver(requestObserver);
+			getRequest.addMessageObserver(new ResponseTimeout(getRequest, RESPONSE_TIMEOUT_MILLIS, executor));
 			getRequest.send(endpoint);
-		} else if (accept != APPLICATION_OCTET_STREAM){
+		} else if (accept != APPLICATION_OCTET_STREAM) {
 			exchange.respond(CHANGED, overallRequests.get() + " reverse-requests, " + overallSentRequests.get()
 					+ " sent, " + overallPendingRequests.get() + " pending.", TEXT_PLAIN);
 		} else {
 			DatagramWriter writer = new DatagramWriter(24);
-			writer.writeLong(overallRequests.get(),64);
-			writer.writeLong(overallSentRequests.get(),64);
-			writer.writeLong(overallPendingRequests.get(),64);
+			writer.writeLong(overallRequests.get(), 64);
+			writer.writeLong(overallSentRequests.get(), 64);
+			writer.writeLong(overallPendingRequests.get(), 64);
 			exchange.respond(CHANGED, writer.toByteArray(), APPLICATION_OCTET_STREAM);
 			writer.close();
 		}
@@ -215,7 +208,6 @@ public class ReverseRequest extends CoapResource {
 	private class GetRequestObserver extends MessageObserverAdapter implements Runnable {
 
 		private final Endpoint endpoint;
-		private ScheduledFuture<?> job;
 		private Request outgoingRequest;
 		private int count;
 		private boolean failureLogged;
@@ -224,14 +216,12 @@ public class ReverseRequest extends CoapResource {
 			this.endpoint = endpoint;
 			this.outgoingRequest = outgoingRequest;
 			this.count = count;
-			this.job = executor.schedule(this, RESPONSE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 		}
 
 		@Override
 		public void onResponse(final Response response) {
-			job.cancel(false);
 			if (response.isError()) {
-				LOGGER.info("error: {}, pending: {}", response.getCode(), count);
+				LOGGER.info("error: {} {}, pending: {}", outgoingRequest.getScheme(), response.getCode(), count);
 				subtractPending(count);
 			} else {
 				--count;
@@ -243,7 +233,7 @@ public class ReverseRequest extends CoapResource {
 					getRequest.setDestinationContext(outgoingRequest.getDestinationContext());
 					outgoingRequest = getRequest;
 					getRequest.addMessageObserver(this);
-					this.job = executor.schedule(this, RESPONSE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+					getRequest.addMessageObserver(new ResponseTimeout(getRequest, RESPONSE_TIMEOUT_MILLIS, executor));
 					getRequest.send(endpoint);
 				} else {
 					LOGGER.trace("sent requests ready!");
@@ -255,7 +245,8 @@ public class ReverseRequest extends CoapResource {
 		@Override
 		public void onSendError(Throwable error) {
 			if (error instanceof ConnectorException) {
-				LOGGER.warn("reverse get request failed! MID {}, pending: {}", outgoingRequest.getMID(), count);
+				LOGGER.warn("reverse get request failed! {} MID {}, pending: {}", outgoingRequest.getScheme(),
+						outgoingRequest.getMID(), count);
 				failureLogged = true;
 			}
 			super.onSendError(error);
@@ -263,9 +254,9 @@ public class ReverseRequest extends CoapResource {
 
 		@Override
 		protected void failed() {
-			job.cancel(false);
 			if (!failureLogged) {
-				LOGGER.debug("reverse get request failed! MID {}, pending: {}", outgoingRequest.getMID(), count);
+				LOGGER.debug("reverse get request failed! {} MID {}, pending: {}", outgoingRequest.getScheme(),
+						outgoingRequest.getMID(), count);
 			}
 			subtractPending(count);
 		}

@@ -43,11 +43,12 @@ import static org.eclipse.californium.core.test.lockstep.IntegrationTestTools.cr
 import static org.eclipse.californium.core.test.lockstep.IntegrationTestTools.generateNextToken;
 import static org.eclipse.californium.core.test.lockstep.IntegrationTestTools.printServerLog;
 import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.net.InetSocketAddress;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -55,14 +56,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.eclipse.californium.TestTools;
 import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.CoapServer;
-import org.eclipse.californium.core.coap.OptionNumberRegistry;
+import org.eclipse.californium.core.coap.MessageObserver;
+import org.eclipse.californium.core.coap.MessageObserverAdapter;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.coap.Token;
-import org.eclipse.californium.core.network.config.NetworkConfig;
+import org.eclipse.californium.core.coap.option.StandardOptionRegistry;
+import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.core.test.ErrorInjector;
 import org.eclipse.californium.core.test.MessageExchangeStoreTool.CoapTestEndpoint;
 import org.eclipse.californium.elements.category.Medium;
+import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.rule.TestNameLoggerRule;
 import org.eclipse.californium.elements.rule.TestTimeRule;
 import org.eclipse.californium.elements.util.TestCondition;
@@ -77,6 +81,8 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Tests for server side observes.
@@ -88,6 +94,7 @@ import org.junit.experimental.categories.Category;
  */
 @Category(Medium.class)
 public class ObserveServerSideTest {
+	private static final Logger LOGGER = LoggerFactory.getLogger(ObserveServerSideTest.class);
 	@ClassRule
 	public static CoapNetworkRule network = new CoapNetworkRule(CoapNetworkRule.Mode.DIRECT, CoapNetworkRule.Mode.NATIVE);
 
@@ -102,7 +109,7 @@ public class ObserveServerSideTest {
 
 	private static final int ACK_TIMEOUT = 200;
 	private static final String RESOURCE_PATH = "obs";
-	private static NetworkConfig CONFIG;
+	private static Configuration CONFIG;
 
 	private static InetSocketAddress serverAddress;
 	private static CoapTestEndpoint serverEndpoint;
@@ -119,14 +126,15 @@ public class ObserveServerSideTest {
 	@BeforeClass
 	public static void start() {
 		CONFIG = network.createTestConfig()
-				.setInt(NetworkConfig.Keys.ACK_TIMEOUT, ACK_TIMEOUT)
-				.setFloat(NetworkConfig.Keys.ACK_RANDOM_FACTOR, 1f)
-				.setFloat(NetworkConfig.Keys.ACK_TIMEOUT_SCALE, 1f)
-				.setInt(NetworkConfig.Keys.MAX_MESSAGE_SIZE, 32)
-				.setInt(NetworkConfig.Keys.PREFERRED_BLOCK_SIZE, 32)
-				.setInt(NetworkConfig.Keys.MARK_AND_SWEEP_INTERVAL, 200)
-				.setLong(NetworkConfig.Keys.EXCHANGE_LIFETIME, 247)
-				.setLong(NetworkConfig.Keys.BLOCKWISE_STATUS_LIFETIME, 300);
+				.set(CoapConfig.ACK_TIMEOUT, ACK_TIMEOUT, TimeUnit.MILLISECONDS)
+				.set(CoapConfig.ACK_INIT_RANDOM, 1f)
+				.set(CoapConfig.ACK_TIMEOUT_SCALE, 1f)
+				.set(CoapConfig.MAX_MESSAGE_SIZE, 32)
+				.set(CoapConfig.PREFERRED_BLOCK_SIZE, 32)
+				.set(CoapConfig.MARK_AND_SWEEP_INTERVAL, 200, TimeUnit.MILLISECONDS)
+				.set(CoapConfig.EXCHANGE_LIFETIME, 247, TimeUnit.MILLISECONDS)
+				.set(CoapConfig.BLOCKWISE_STATUS_INTERVAL, 100, TimeUnit.MILLISECONDS)
+				.set(CoapConfig.BLOCKWISE_STATUS_LIFETIME, 300, TimeUnit.MILLISECONDS);
 
 		testObsResource = new TestObserveResource(RESOURCE_PATH);
 
@@ -138,13 +146,13 @@ public class ObserveServerSideTest {
 		serverEndpoint.addInterceptor(serverInterceptor);
 		server.start();
 		serverAddress = serverEndpoint.getAddress();
-		System.out.println("Server binds to port " + serverAddress.getPort());
+		LOGGER.info("Server binds to port {}", serverAddress.getPort());
 	}
 
 	@Before
 	public void setupClient() throws Exception {
 
-		client = createLockstepEndpoint(serverAddress);
+		client = createLockstepEndpoint(serverAddress, CONFIG);
 		testObsResource.clearObserveRelations();
 		testObsResource.setSeparateResponse(false);
 		testObsResource.setObserveType(NON);
@@ -163,7 +171,6 @@ public class ObserveServerSideTest {
 	@Test
 	public void testEstablishmentAndTimeout() throws Exception {
 
-		System.out.println("Establish an observe relation. Cancellation after timeout");
 		respPayload = generateRandomPayload(30);
 		Token tok = generateNextToken();
 
@@ -210,7 +217,6 @@ public class ObserveServerSideTest {
 
 	@Test
 	public void testEstablishmentAndTimeoutWithUpdateInMiddle() throws Exception {
-		System.out.println("Establish an observe relation. Cancellation after timeout. During the timeouts, the resource still changes.");
 		respPayload = generateRandomPayload(30);
 		Token tok = generateNextToken();
 
@@ -247,7 +253,6 @@ public class ObserveServerSideTest {
 
 	@Test
 	public void testEstablishmentAndRejectCancellation() throws Exception {
-		System.out.println("Establish an observe relation. Cancellation due to a reject from the client");
 		respPayload = generateRandomPayload(30);
 		Token tok = generateNextToken();
 
@@ -272,7 +277,6 @@ public class ObserveServerSideTest {
 	@Test
 	public void testEstablishmentWithRestransmission() throws Exception {
 
-		System.out.println("Establish an observe relation resending the request.");
 		respPayload = generateRandomPayload(30);
 		Token tok = generateNextToken();
 
@@ -290,7 +294,6 @@ public class ObserveServerSideTest {
 
 	@Test
 	public void testEstablishmentWithRestransmissionAndSeparateResponse() throws Exception {
-		System.out.println("Establish an observe relation resending the request.");
 		respPayload = generateRandomPayload(30);
 		Token tok = generateNextToken();
 		testObsResource.setSeparateResponse(true);
@@ -317,7 +320,7 @@ public class ObserveServerSideTest {
 		client.sendRequest(CON, GET, tok, ++mid).path(RESOURCE_PATH).observe(1).go();
 		client.startMultiExpectation();
 		client.expectEmpty(ACK, mid).go();
-		client.expectSeparateResponse(CON, CONTENT, tok).storeMID("M2").noOption(OptionNumberRegistry.OBSERVE).payload(respPayload).go();
+		client.expectSeparateResponse(CON, CONTENT, tok).storeMID("M2").noOption(StandardOptionRegistry.OBSERVE).payload(respPayload).go();
 		client.goMultiExpectation();
 
 		client.sendEmpty(ACK).loadMID("M2").go();
@@ -325,7 +328,6 @@ public class ObserveServerSideTest {
 
 	@Test
 	public void testObserveWithBlock() throws Exception {
-		System.out.println("Observe with blockwise");
 		respPayload = generateRandomPayload(80);
 		Token tok = generateNextToken();
 
@@ -372,7 +374,6 @@ public class ObserveServerSideTest {
 	@Test
 	public void testNON() throws Exception {
 
-		System.out.println("Establish an observe relation and receive NON notifications");
 		respPayload = generateRandomPayload(30);
 		Token tok = generateNextToken();
 
@@ -402,11 +403,35 @@ public class ObserveServerSideTest {
 
 		Assert.assertEquals("Resource has not removed observe relation:", 0, waitForObservers(ACK_TIMEOUT + 100, 0));
 	}
+	@Test
+	public void testGetNONNotifyCON() throws Exception {
+
+		respPayload = generateRandomPayload(30);
+		Token tok = generateNextToken();
+
+		testObsResource.setObserveType(CON);
+
+		client.sendRequest(NON, GET, tok, ++mid).path(RESOURCE_PATH).observe(0).go();
+		client.expectResponse().type(NON).code(CONTENT).token(tok).storeObserve("A").payload(respPayload).go();
+		Assert.assertEquals("Resource has not added relation:", 1, testObsResource.getObserverCount());
+		serverInterceptor.logNewLine("Observe relation established");
+
+		// First notification
+		testObsResource.change("First notification " + generateRandomPayload(10));
+		client.expectResponse().type(CON).code(CONTENT).token(tok).storeMID("MID").checkObs("A", "B").payload(respPayload).go();
+		client.sendEmpty(ACK).loadMID("MID").go();
+
+		// Second notification
+		testObsResource.change("Second notification " + generateRandomPayload(10));
+		client.expectResponse().type(CON).code(CONTENT).token(tok).storeMID("MID").checkObs("B", "C").payload(respPayload).go();
+		client.sendEmpty(RST).loadMID("MID").go();
+
+		Assert.assertEquals("Resource has not removed observe relation:", 0, waitForObservers(ACK_TIMEOUT + 100, 0));
+	}
 
 	@Test
 	public void testRejectPreviousNON() throws Exception {
 
-		System.out.println("Establish an observe relation and receive NON notifications");
 		respPayload = generateRandomPayload(30);
 		Token tok = generateNextToken();
 
@@ -434,7 +459,6 @@ public class ObserveServerSideTest {
 	@Test
 	public void testNONWithBlock() throws Exception {
 
-		System.out.println("Establish an observe relation and receive NON notifications");
 		respPayload = generateRandomPayload(30);
 		Token tok = generateNextToken();
 
@@ -474,8 +498,7 @@ public class ObserveServerSideTest {
 	}
 
 	@Test
-	public void testQuickChangeAndTimeout() throws Exception {
-		System.out.println("Establish an observe relation to a quickly changing resource and do no longer respond");
+	public void testQuickChange() throws Exception {
 		respPayload = generateRandomPayload(20);
 		Token tok = generateNextToken();
 
@@ -492,7 +515,7 @@ public class ObserveServerSideTest {
 
 		testObsResource.setObserveType(CON);
 		testObsResource.change("Second notification " + generateRandomPayload(10));
-		client.expectResponse().type(CON).code(CONTENT).token(tok).newMID("MID").checkObs("B", "C").payload(respPayload).go();
+		client.expectResponse().type(CON).code(CONTENT).token(tok).newMID("MID").checkObs("B", "B").payload(respPayload).go();
 		// client does not ACK the CON notification
 
 		testObsResource.setObserveType(NON);
@@ -502,11 +525,71 @@ public class ObserveServerSideTest {
 
 		testObsResource.change("NON notification 2 " + generateRandomPayload(10));
 		// server re-transmits unACKed CON notification but client does not reply
-		client.expectResponse().type(CON).code(CONTENT).token(tok).newMID("MID").storeMID("MID_R").checkObs("B", "B").payload(respPayload).go();
+		client.expectResponse().type(CON).code(CONTENT).token(tok).newMID("MID").checkObs("B", "B").payload(respPayload).go();
 
 		// server re-transmits unACKed CON notification with unmodified payload and (repeated) MID
-		client.expectResponse().type(CON).code(CONTENT).token(tok).sameMID("MID_R").loadObserve("B").payload(respPayload).go();
-		
+		client.expectResponse().type(CON).code(CONTENT).token(tok).sameMID("MID").loadObserve("B").payload(respPayload).go();
+
+		final CountDownLatch latch = new CountDownLatch(1);
+		testObsResource.observer = new MessageObserverAdapter() {
+			@Override
+			public void onAcknowledgement() {
+				latch.countDown();
+				testObsResource.observer = null;
+			}
+		};
+		String payload3 ="CON notification 3 " + generateRandomPayload(10);
+		testObsResource.change(payload3);
+		// server re-transmits unACKed CON notification but client does not reply
+		client.expectResponse().type(CON).code(CONTENT).token(tok).newMID("MID").checkObs("B", "B").payload(payload3).go();
+		client.sendEmpty(ACK).loadMID("MID").go();
+		latch.await(ACK_TIMEOUT * 2, TimeUnit.MILLISECONDS);
+
+		testObsResource.setObserveType(CON);
+		String payload4 ="CON notification 4 " + generateRandomPayload(10);
+		testObsResource.change(payload4);
+		client.expectResponse().type(CON).code(CONTENT).token(tok).newMID("MID").checkObs("B", "B").payload(payload4).go();
+		testObsResource.change("CON notification 5 " + generateRandomPayload(10));
+		String payload6 ="CON notification 6 " + generateRandomPayload(10);
+		testObsResource.change(payload6);
+		client.sendEmpty(ACK).loadMID("MID").go();
+		client.expectResponse().type(CON).code(CONTENT).token(tok).newMID("MID").checkObs("B", "B").payload(payload6).go();
+		client.sendEmpty(ACK).loadMID("MID").go();
+	}
+
+	@Test
+	public void testQuickChangeAndTimeout() throws Exception {
+		respPayload = generateRandomPayload(20);
+		Token tok = generateNextToken();
+
+		client.sendRequest(CON, GET, tok, ++mid).path(RESOURCE_PATH).observe(0).go();
+		client.expectResponse(ACK, CONTENT, tok, mid).storeObserve("A").payload(respPayload).go();
+		Assert.assertEquals("Resource has not added relation:", 1, testObsResource.getObserverCount());
+		serverInterceptor.logNewLine("Observe relation established");
+
+		// First notification
+		testObsResource.change("First notification " + generateRandomPayload(10));
+		client.expectResponse().type(NON).code(CONTENT).token(tok).newMID("MID").checkObs("A", "B").payload(respPayload).go();
+
+		// Now client crashes and no longer responds
+
+		testObsResource.setObserveType(CON);
+		testObsResource.change("Second notification " + generateRandomPayload(10));
+		client.expectResponse().type(CON).code(CONTENT).token(tok).newMID("MID").checkObs("B", "B").payload(respPayload).go();
+		// client does not ACK the CON notification
+
+		testObsResource.setObserveType(NON);
+		testObsResource.change("NON notification 1 " + generateRandomPayload(10));
+		// server re-transmits unACKed CON notification but client does not reply
+		client.expectResponse().type(CON).code(CONTENT).token(tok).newMID("MID").checkObs("B", "B").payload(respPayload).go();
+
+		testObsResource.change("NON notification 2 " + generateRandomPayload(10));
+		// server re-transmits unACKed CON notification but client does not reply
+		client.expectResponse().type(CON).code(CONTENT).token(tok).newMID("MID").checkObs("B", "B").payload(respPayload).go();
+
+		// server re-transmits unACKed CON notification with unmodified payload and (repeated) MID
+		client.expectResponse().type(CON).code(CONTENT).token(tok).sameMID("MID").loadObserve("B").payload(respPayload).go();
+
 		testObsResource.change("NON notification 3 " + generateRandomPayload(10));
 		// server re-transmits unACKed CON notification but client does not reply
 		client.expectResponse().type(CON).code(CONTENT).token(tok).newMID("MID").checkObs("B", "B").payload(respPayload).go();
@@ -524,7 +607,6 @@ public class ObserveServerSideTest {
 	 */
 	@Test
 	public void testIncompleteBlock2Notification() throws Exception {
-		System.out.println("Observe with blockwise");
 		respPayload = generateRandomPayload(32);
 		Token tok = generateNextToken();
 
@@ -553,7 +635,6 @@ public class ObserveServerSideTest {
 	@Test
 	public void testFailedToSendNonNotification() throws Exception {
 
-		System.out.println("Establish an observe relation and failed to send NON notification");
 		respPayload = generateRandomPayload(30);
 		Token tok = generateNextToken();
 
@@ -590,7 +671,6 @@ public class ObserveServerSideTest {
 	@Test
 	public void testRejectAfterFailedToSendNonNotification() throws Exception {
 
-		System.out.println("Establish an observe relation and failed to send NON notification");
 		respPayload = generateRandomPayload(30);
 		Token tok = generateNextToken();
 
@@ -640,6 +720,7 @@ public class ObserveServerSideTest {
 
 		private AtomicInteger etagSequence = new AtomicInteger(1);
 		private AtomicBoolean separateResponse = new AtomicBoolean();
+		private MessageObserver observer;
 
 		public TestObserveResource(String name) {
 			super(name);
@@ -654,12 +735,14 @@ public class ObserveServerSideTest {
 			// payload is altered throughout the test cases
 			response.setPayload(respPayload);
 			addEtag(response);
-
+			if (observer != null) {
+				response.addMessageObserver(observer);
+			}
 			exchange.respond(response);
 		}
 
 		public void change(final String newPayload) {
-			System.out.println("Resource body changed to: [" + newPayload + "]");
+			LOGGER.info("Resource body changed to: [{}]",  newPayload);
 			respPayload = newPayload;
 			changed();
 		}

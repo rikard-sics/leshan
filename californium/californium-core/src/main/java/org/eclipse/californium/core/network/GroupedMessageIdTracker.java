@@ -20,17 +20,18 @@
  ******************************************************************************/
 package org.eclipse.californium.core.network;
 
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
-import org.eclipse.californium.core.coap.Message;
-import org.eclipse.californium.core.network.config.NetworkConfig;
+import org.eclipse.californium.core.config.CoapConfig;
+import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.util.ClockUtil;
 
 /**
  * A helper for keeping track of message IDs.
  * <p>
  * According to the
- * <a href="https://tools.ietf.org/html/rfc7252#section-4.4">CoAP spec</a>
+ * <a href="https://tools.ietf.org/html/rfc7252#section-4.4" target="_blank">CoAP spec</a>
  * 
  * <pre>
  * The same Message ID MUST NOT be reused (in communicating with the
@@ -83,10 +84,10 @@ public class GroupedMessageIdTracker implements MessageIdTracker {
 	 * 
 	 * The following configuration values are used:
 	 * <ul>
-	 * <li>{@link org.eclipse.californium.core.network.config.NetworkConfig.Keys#MID_TRACKER_GROUPS}
+	 * <li>{@link CoapConfig#MID_TRACKER_GROUPS}
 	 * - determine the group size for the message IDs. Each group is marked as
 	 * <em>in use</em>, if a MID within the group is used.</li>
-	 * <li>{@link org.eclipse.californium.core.network.config.NetworkConfig.Keys#EXCHANGE_LIFETIME}
+	 * <li>{@link CoapConfig#EXCHANGE_LIFETIME}
 	 * - each group of a message ID returned by <em>getNextMessageId</em> is
 	 * marked as <em>in use</em> for this amount of time (ms).</li>
 	 * </ul>
@@ -97,8 +98,9 @@ public class GroupedMessageIdTracker implements MessageIdTracker {
 	 * @param config configuration
 	 * @throws IllegalArgumentException if minMid is not smaller than maxMid or
 	 *             initialMid is not in the range of minMid and maxMid
+	 * @since 3.0 (changed parameter to Configuration)
 	 */
-	public GroupedMessageIdTracker(int initialMid, int minMid, int maxMid, NetworkConfig config) {
+	public GroupedMessageIdTracker(int initialMid, int minMid, int maxMid, Configuration config) {
 		if (minMid >= maxMid) {
 			throw new IllegalArgumentException("max. MID " + maxMid + " must be larger than min. MID " + minMid + "!");
 		}
@@ -106,21 +108,17 @@ public class GroupedMessageIdTracker implements MessageIdTracker {
 			throw new IllegalArgumentException(
 					"initial MID " + initialMid + " must be in range [" + minMid + "-" + maxMid + ")!");
 		}
-		exchangeLifetimeNanos = TimeUnit.MILLISECONDS.toNanos(config.getLong(NetworkConfig.Keys.EXCHANGE_LIFETIME));
+		exchangeLifetimeNanos = config.get(CoapConfig.EXCHANGE_LIFETIME, TimeUnit.NANOSECONDS);
 		currentMID = initialMid - minMid;
 		this.min = minMid;
 		this.range = maxMid - minMid;
-		this.numberOfGroups = config.getInt(NetworkConfig.Keys.MID_TRACKER_GROUPS);
+		this.numberOfGroups = config.get(CoapConfig.MID_TRACKER_GROUPS);
 		this.sizeOfGroups = (range + numberOfGroups - 1) / numberOfGroups;
 		midLease = new long[numberOfGroups];
+		Arrays.fill(midLease, ClockUtil.nanoRealtime() - 1000);
 	}
 
-	/**
-	 * Gets the next usable message ID.
-	 * 
-	 * @return a message ID or {@code -1} if all message IDs are in use
-	 *         currently.
-	 */
+	@Override
 	public int getNextMessageId() {
 		final long now = ClockUtil.nanoRealtime();
 		synchronized (this) {
@@ -128,13 +126,15 @@ public class GroupedMessageIdTracker implements MessageIdTracker {
 			int mid = (currentMID & 0xffff) % range;
 			int index = mid / sizeOfGroups;
 			int nextIndex = (index + 1) % numberOfGroups;
-			if (midLease[nextIndex] - now < 0) {
+			if ((midLease[nextIndex] - now) < 0) {
 				midLease[index] = now + exchangeLifetimeNanos;
 				currentMID = mid + 1;
 				return mid + min;
 			}
 		}
-		return Message.NONE;
+		String time = TimeUnit.NANOSECONDS.toSeconds(exchangeLifetimeNanos) + "s";
+		throw new IllegalStateException(
+				"No MID available, all [" + min + "-" + (min + range) + ") MID-groups in use! (MID lifetime " + time + "!)");
 	}
 
 	/**

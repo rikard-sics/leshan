@@ -20,10 +20,13 @@ import java.security.GeneralSecurityException;
 import javax.crypto.SecretKey;
 import javax.security.auth.DestroyFailedException;
 
+import org.eclipse.californium.elements.util.DatagramReader;
+import org.eclipse.californium.elements.util.DatagramWriter;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.scandium.dtls.cipher.CbcBlockCipher;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
 import org.eclipse.californium.scandium.util.SecretUtil;
+import org.eclipse.californium.scandium.util.SecretSerializationUtil;
 
 /**
  * DTLS connection state for block cipher.
@@ -88,9 +91,9 @@ public class DtlsBlockConnectionState extends DTLSConnectionState {
 		 */
 		if (ciphertextFragment == null) {
 			throw new NullPointerException("Ciphertext must not be null");
-		} else if (ciphertextFragment.length % getRecordIvLength() != 0) {
+		} else if (ciphertextFragment.length % cipherSuite.getRecordIvLength() != 0) {
 			throw new GeneralSecurityException("Ciphertext doesn't fit block size!");
-		} else if (ciphertextFragment.length < getRecordIvLength() + getMacLength() + 1) {
+		} else if (ciphertextFragment.length < cipherSuite.getRecordIvLength() + cipherSuite.getMacLength() + 1) {
 			throw new GeneralSecurityException("Ciphertext too short!");
 		}
 		// additional data for MAC, use length 0 
@@ -111,13 +114,37 @@ public class DtlsBlockConnectionState extends DTLSConnectionState {
 
 	@Override
 	public final String toString() {
-		StringBuilder b = new StringBuilder("DtlsBlockConnectionState:");
-		b.append(StringUtil.lineSeparator()).append("\tCipher suite: ").append(cipherSuite);
-		b.append(StringUtil.lineSeparator()).append("\tCompression method: ").append(compressionMethod);
-		b.append(StringUtil.lineSeparator()).append("\tMAC key: ").append(macKey == null ? "null" : "not null");
-		b.append(StringUtil.lineSeparator()).append("\tEncryption key: ")
-				.append(encryptionKey == null ? "null" : "not null");
+		StringBuilder b = new StringBuilder("DtlsBlockConnectionState:").append(StringUtil.lineSeparator());
+		String indentation = StringUtil.indentation(1);
+		b.append(indentation).append("Cipher suite: ").append(cipherSuite).append(StringUtil.lineSeparator());
+		b.append(indentation).append("Compression method: ").append(compressionMethod)
+				.append(StringUtil.lineSeparator());
+		b.append(indentation).append("MAC key: ").append(macKey == null ? "null" : "not null")
+				.append(StringUtil.lineSeparator());
+		b.append(indentation).append("Encryption key: ").append(encryptionKey == null ? "null" : "not null")
+				.append(StringUtil.lineSeparator());
 		return b.toString();
+	}
+
+	@Override
+	public void writeTo(DatagramWriter writer) {
+		SecretSerializationUtil.write(writer, macKey);
+		SecretSerializationUtil.write(writer, encryptionKey);
+	}
+
+	/**
+	 * Create connection state and read specific connection state from provided
+	 * reader
+	 * 
+	 * @param cipherSuite cipher suite
+	 * @param compressionMethod compression method
+	 * @param reader reader with serialized keys
+	 * @since 3.0
+	 */
+	DtlsBlockConnectionState(CipherSuite cipherSuite, CompressionMethod compressionMethod, DatagramReader reader) {
+		super(cipherSuite, compressionMethod);
+		macKey = SecretSerializationUtil.readSecretKey(reader);
+		encryptionKey = SecretSerializationUtil.readSecretKey(reader);
 	}
 
 }

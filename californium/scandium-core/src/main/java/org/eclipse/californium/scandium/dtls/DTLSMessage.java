@@ -18,8 +18,6 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
-import java.net.InetSocketAddress;
-
 import org.eclipse.californium.elements.util.NoPublicAPI;
 
 /**
@@ -29,8 +27,9 @@ import org.eclipse.californium.elements.util.NoPublicAPI;
 public interface DTLSMessage {
 
 	/**
-	 * Gets the number of bytes representing this message as defined
-	 * by <a href="http://tools.ietf.org/html/rfc5246#appendix-A">TLS 1.2, Appendix A</a>.
+	 * Gets the number of bytes representing this message as defined by
+	 * <a href="https://tools.ietf.org/html/rfc5246#appendix-A" target=
+	 * "_blank">TLS 1.2, Appendix A</a>.
 	 * 
 	 * @return number of bytes
 	 * @since 2.4
@@ -38,8 +37,9 @@ public interface DTLSMessage {
 	int size();
 
 	/**
-	 * Gets the byte array representation of this message as defined
-	 * by <a href="http://tools.ietf.org/html/rfc5246#appendix-A">TLS 1.2, Appendix A</a>.
+	 * Gets the byte array representation of this message as defined by
+	 * <a href="https://tools.ietf.org/html/rfc5246#appendix-A" target=
+	 * "_blank">TLS 1.2, Appendix A</a>.
 	 * 
 	 * @return the byte array
 	 */
@@ -53,10 +53,11 @@ public interface DTLSMessage {
 	ContentType getContentType();
 
 	/**
-	 * Gets the IP address and port of the peer this message
-	 * has been received from or is to be sent to.
+	 * Gets the textual presentation of this message.
 	 * 
-	 * @return the address
+	 * @param indent line indentation
+	 * @return textual presentation
+	 * @since 3.0
 	 */
-	InetSocketAddress getPeer();
+	String toString(int indent);
 }

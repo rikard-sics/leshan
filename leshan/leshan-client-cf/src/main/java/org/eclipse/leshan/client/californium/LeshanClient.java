@@ -23,9 +23,10 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.CoapServer;
+import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.network.CoapEndpoint;
-import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.server.resources.Resource;
+import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.util.ExecutorsUtil;
 import org.eclipse.californium.elements.util.NamedThreadFactory;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig.Builder;
@@ -87,7 +88,7 @@ public class LeshanClient implements LwM2mClient {
     private final LwM2mClientObserverDispatcher observers;
 
     public LeshanClient(String endpoint, InetSocketAddress localAddress,
-            List<? extends LwM2mObjectEnabler> objectEnablers, NetworkConfig coapConfig, Builder dtlsConfigBuilder,
+			List<? extends LwM2mObjectEnabler> objectEnablers, Configuration coapConfig, Builder dtlsConfigBuilder,
             EndpointFactory endpointFactory, RegistrationEngineFactory engineFactory,
             Map<String, String> additionalAttributes, LwM2mNodeEncoder encoder, LwM2mNodeDecoder decoder,
             ScheduledExecutorService sharedExecutor) {
@@ -97,7 +98,7 @@ public class LeshanClient implements LwM2mClient {
 
     /** @since 1.1 */
     public LeshanClient(String endpoint, InetSocketAddress localAddress,
-            List<? extends LwM2mObjectEnabler> objectEnablers, NetworkConfig coapConfig, Builder dtlsConfigBuilder,
+			List<? extends LwM2mObjectEnabler> objectEnablers, Configuration coapConfig, Builder dtlsConfigBuilder,
             EndpointFactory endpointFactory, RegistrationEngineFactory engineFactory,
             Map<String, String> additionalAttributes, Map<String, String> bsAdditionalAttributes,
             LwM2mNodeEncoder encoder, LwM2mNodeDecoder decoder, ScheduledExecutorService sharedExecutor) {
@@ -107,7 +108,7 @@ public class LeshanClient implements LwM2mClient {
 
     /** @since 2.0 */
     public LeshanClient(String endpoint, InetSocketAddress localAddress,
-            List<? extends LwM2mObjectEnabler> objectEnablers, NetworkConfig coapConfig, Builder dtlsConfigBuilder,
+			List<? extends LwM2mObjectEnabler> objectEnablers, Configuration coapConfig, Builder dtlsConfigBuilder,
             List<Certificate> trustStore, EndpointFactory endpointFactory, RegistrationEngineFactory engineFactory,
             Map<String, String> additionalAttributes, Map<String, String> bsAdditionalAttributes,
             LwM2mNodeEncoder encoder, LwM2mNodeDecoder decoder, ScheduledExecutorService sharedExecutor) {
@@ -160,7 +161,7 @@ public class LeshanClient implements LwM2mClient {
         return new BootstrapHandler(objectTree.getObjectEnablers());
     }
 
-    protected CoapServer createCoapServer(NetworkConfig coapConfig, ScheduledExecutorService sharedExecutor) {
+	protected CoapServer createCoapServer(Configuration coapConfig, ScheduledExecutorService sharedExecutor) {
         // create coap server
         CoapServer coapServer = new CoapServer(coapConfig) {
             @Override
@@ -177,7 +178,7 @@ public class LeshanClient implements LwM2mClient {
         } else {
             // use same executor as main and secondary one.
             ScheduledExecutorService executor = ExecutorsUtil.newScheduledThreadPool(
-                    coapConfig.getInt(NetworkConfig.Keys.PROTOCOL_STAGE_THREAD_COUNT),
+					coapConfig.get(CoapConfig.PROTOCOL_STAGE_THREAD_COUNT),
                     new NamedThreadFactory("CoapServer(main)#"));
             coapServer.setExecutors(executor, executor, false);
         }
@@ -226,7 +227,7 @@ public class LeshanClient implements LwM2mClient {
     }
 
     protected CaliforniumEndpointsManager createEndpointsManager(InetSocketAddress localAddress,
-            NetworkConfig coapConfig, Builder dtlsConfigBuilder, List<Certificate> trustStore,
+			Configuration coapConfig, Builder dtlsConfigBuilder, List<Certificate> trustStore,
             EndpointFactory endpointFactory) {
         return new CaliforniumEndpointsManager(localAddress, coapConfig, dtlsConfigBuilder, trustStore,
                 endpointFactory);

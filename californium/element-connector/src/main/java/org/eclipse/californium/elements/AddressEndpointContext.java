@@ -21,11 +21,14 @@ import java.security.Principal;
 import java.util.Collections;
 import java.util.Map;
 
+import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.StringUtil;
 
 /**
- * A endpoint context providing the inet socket address and a optional
- * principal.
+ * A endpoint context providing the inet socket address, a virtual host, and a
+ * optional principal.
+ * 
+ * Attributes are not supported but may get added by extending this class.
  */
 public class AddressEndpointContext implements EndpointContext {
 
@@ -36,6 +39,23 @@ public class AddressEndpointContext implements EndpointContext {
 	private final Principal peerIdentity;
 
 	private final String virtualHost;
+
+	/**
+	 * Creates a context for an IP address and port.
+	 * 
+	 * @param address address of peer
+	 * @param port port of peer
+	 * @throws NullPointerException if provided address is {@code null}.
+	 * @since 3.0
+	 */
+	public AddressEndpointContext(String address, int port) {
+		if (address == null) {
+			throw new NullPointerException("missing peer inet address!");
+		}
+		this.peerAddress = new InetSocketAddress(address, port);
+		this.peerIdentity = null;
+		this.virtualHost = null;
+	}
 
 	/**
 	 * Creates a context for an IP address and port.
@@ -94,11 +114,25 @@ public class AddressEndpointContext implements EndpointContext {
 	/**
 	 * {@inheritDoc}
 	 * 
-	 * @return {@code null}
+	 * If not override in an extending class, only {@code null} will be returned.
 	 */
 	@Override
-	public String get(String key) {
+	public <T> T get(Definition<T> definition) {
 		return null;
+	}
+
+	@Override
+	public <T> String getString(Definition<T> definition) {
+		T value = get(definition);
+		if (value != null) {
+			if (value instanceof Bytes) {
+				return ((Bytes) value).getAsString();
+			} else {
+				return value.toString();
+			}
+		} else {
+			return null;
+		}
 	}
 
 	/**
@@ -107,7 +141,7 @@ public class AddressEndpointContext implements EndpointContext {
 	 * @return an empty map
 	 */
 	@Override
-	public Map<String, String> entries() {
+	public Map<Definition<?>, Object> entries() {
 		return Collections.emptyMap();
 	}
 

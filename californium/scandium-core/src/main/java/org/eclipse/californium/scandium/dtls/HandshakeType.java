@@ -18,15 +18,23 @@ package org.eclipse.californium.scandium.dtls;
 
 /**
  * Represents the possible types of a handshake message. See <a
- * href="http://tools.ietf.org/html/rfc5246#section-7.4">RFC 5246</a> for
+ * href="https://tools.ietf.org/html/rfc5246#section-7.4" target="_blank">RFC 5246</a> for
  * details.
  */
 public enum HandshakeType {
-	HELLO_REQUEST(0), CLIENT_HELLO(1), SERVER_HELLO(2), HELLO_VERIFY_REQUEST(3),
-	CERTIFICATE(11), SERVER_KEY_EXCHANGE(12), CERTIFICATE_REQUEST(13), SERVER_HELLO_DONE(14),
-	CERTIFICATE_VERIFY(15), CLIENT_KEY_EXCHANGE(16), FINISHED(20);
+	HELLO_REQUEST(0),
+	CLIENT_HELLO(1),
+	SERVER_HELLO(2),
+	HELLO_VERIFY_REQUEST(3),
+	CERTIFICATE(11),
+	SERVER_KEY_EXCHANGE(12),
+	CERTIFICATE_REQUEST(13),
+	SERVER_HELLO_DONE(14),
+	CERTIFICATE_VERIFY(15),
+	CLIENT_KEY_EXCHANGE(16),
+	FINISHED(20);
 
-	private int code;
+	private final int code;
 
 	private HandshakeType(int code) {
 		this.code = code;

@@ -23,12 +23,14 @@ import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 
 import org.eclipse.californium.core.CoapServer;
+import org.eclipse.californium.core.config.CoapConfig;
+import org.eclipse.californium.core.config.CoapConfig.TrackerMode;
 import org.eclipse.californium.core.network.CoapEndpoint;
-import org.eclipse.californium.core.network.config.NetworkConfig;
-import org.eclipse.californium.core.network.config.NetworkConfig.Keys;
 import org.eclipse.californium.elements.Connector;
 import org.eclipse.californium.elements.UDPConnector;
+import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.scandium.DTLSConnector;
+import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig.Builder;
 import org.eclipse.leshan.client.engine.DefaultRegistrationEngineFactory;
@@ -61,8 +63,8 @@ public class LeshanClientBuilder {
     private InetSocketAddress localAddress;
     private List<? extends LwM2mObjectEnabler> objectEnablers;
 
-    private NetworkConfig coapConfig;
-    private Builder dtlsConfigBuilder;
+	private Configuration coapConfig;
+	private Configuration dtlsConfigBuilder;
     private List<Certificate> trustStore;
 
     private LwM2mNodeEncoder encoder;
@@ -144,9 +146,9 @@ public class LeshanClientBuilder {
     }
 
     /**
-     * Set the Californium/CoAP {@link NetworkConfig}.
-     */
-    public LeshanClientBuilder setCoapConfig(NetworkConfig config) {
+	 * Set the Californium/CoAP {@link Configuration}.
+	 */
+	public LeshanClientBuilder setCoapConfig(Configuration config) {
         this.coapConfig = config;
         return this;
     }
@@ -154,7 +156,7 @@ public class LeshanClientBuilder {
     /**
      * Set the Scandium/DTLS Configuration : {@link DtlsConnectorConfig}.
      */
-    public LeshanClientBuilder setDtlsConfig(DtlsConnectorConfig.Builder config) {
+	public LeshanClientBuilder setDtlsConfig(Configuration config) {
         this.dtlsConfigBuilder = config;
         return this;
     }
@@ -236,11 +238,11 @@ public class LeshanClientBuilder {
         return this;
     }
 
-    public static NetworkConfig createDefaultNetworkConfig() {
-        NetworkConfig networkConfig = new NetworkConfig();
-        networkConfig.set(Keys.MID_TRACKER, "NULL");
-        networkConfig.set(Keys.MAX_ACTIVE_PEERS, 10);
-        networkConfig.set(Keys.PROTOCOL_STAGE_THREAD_COUNT, 1);
+	public static Configuration createDefaultNetworkConfig() {
+		Configuration networkConfig = new Configuration();
+		networkConfig.set(CoapConfig.MID_TRACKER, TrackerMode.NULL);
+		networkConfig.set(CoapConfig.MAX_ACTIVE_PEERS, 10);
+		networkConfig.set(CoapConfig.PROTOCOL_STAGE_THREAD_COUNT, 1);
 
         return networkConfig;
     }
@@ -286,7 +288,7 @@ public class LeshanClientBuilder {
 
         // handle dtlsConfig
         if (dtlsConfigBuilder == null) {
-            dtlsConfigBuilder = new DtlsConnectorConfig.Builder();
+			DtlsConnectorConfig = DtlsConnectorConfig.getStandard();
         }
         DtlsConnectorConfig incompleteConfig = dtlsConfigBuilder.getIncompleteConfig();
 
@@ -304,17 +306,18 @@ public class LeshanClientBuilder {
 
         // Handle active peers
         if (incompleteConfig.getMaxConnections() == null)
-            dtlsConfigBuilder.setMaxConnections(coapConfig.getInt(Keys.MAX_ACTIVE_PEERS));
+			dtlsConfigBuilder.set(DtlsConfig.DTLS_MAX_CONNECTIONS, coapConfig.get(CoapConfig.MAX_ACTIVE_PEERS));
         if (incompleteConfig.getStaleConnectionThreshold() == null)
-            dtlsConfigBuilder.setStaleConnectionThreshold(coapConfig.getLong(Keys.MAX_PEER_INACTIVITY_PERIOD));
+			dtlsConfigBuilder.set(DtlsConfig.DTLS_STALE_CONNECTION_THRESHOLD,
+					coapConfig.get(CoapConfig.MAX_PEER_INACTIVITY_PERIOD));
 
         // Use only 1 thread to handle DTLS connection by default
         if (incompleteConfig.getConnectionThreadCount() == null) {
-            dtlsConfigBuilder.setConnectionThreadCount(1);
+			dtlsConfigBuilder.set(DtlsConfig.DTLS_CONNECTOR_THREAD_COUNT, 1);
         }
         // Use only 1 thread to receive DTLS data by default
         if (incompleteConfig.getReceiverThreadCount() == null) {
-            dtlsConfigBuilder.setReceiverThreadCount(1);
+			dtlsConfigBuilder.set(DtlsConfig.DTLS_RECEIVER_THREAD_COUNT, 1);
         }
 
         // Deactivate SNI by default
@@ -352,7 +355,7 @@ public class LeshanClientBuilder {
      * @return the new {@link LeshanClient}
      */
     protected LeshanClient createLeshanClient(String endpoint, InetSocketAddress localAddress,
-            List<? extends LwM2mObjectEnabler> objectEnablers, NetworkConfig coapConfig, Builder dtlsConfigBuilder,
+			List<? extends LwM2mObjectEnabler> objectEnablers, Configuration coapConfig, Builder dtlsConfigBuilder,
             List<Certificate> trustStore, EndpointFactory endpointFactory, RegistrationEngineFactory engineFactory,
             Map<String, String> additionalAttributes, LwM2mNodeEncoder encoder, LwM2mNodeDecoder decoder,
             ScheduledExecutorService sharedExecutor) {

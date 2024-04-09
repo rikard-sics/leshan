@@ -47,8 +47,11 @@ import org.eclipse.californium.elements.util.DaemonThreadFactory;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.RawDataChannel;
+import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.config.TcpConfig;
 
 import java.io.IOException;
+import java.net.DatagramPacket;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.concurrent.CancellationException;
@@ -61,8 +64,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * TCP server connection is used by CoapEndpoint when instantiated by the CoapServer. Per RFC the server can both
- * send and receive messages, but cannot initiated new outgoing connections.
+ * TCP server connection is used by CoapEndpoint when instantiated by the
+ * CoapServer. Per RFC the server can both send and receive messages, but cannot
+ * initiated new outgoing connections.
  */
 public class TcpServerConnector implements Connector {
 
@@ -73,6 +77,12 @@ public class TcpServerConnector implements Connector {
 		TCP_THREAD_GROUP.setDaemon(false);
 	}
 
+	/**
+	 * The logger.
+	 * 
+	 * @deprecated scope will change to private.
+	 */
+	@Deprecated
 	protected final Logger LOGGER = LoggerFactory.getLogger(getClass());
 
 	private final int numberOfThreads;
@@ -90,20 +100,29 @@ public class TcpServerConnector implements Connector {
 	private volatile EndpointContextMatcher endpointContextMatcher;
 	private volatile InetSocketAddress effectiveLocalAddress;
 
+	protected volatile boolean running;
+
 	private RawDataChannel rawDataChannel;
 	private EventLoopGroup bossGroup;
 	private EventLoopGroup workerGroup;
 
-	public TcpServerConnector(InetSocketAddress localAddress, int numberOfThreads, int idleTimeout) {
-		this(localAddress, numberOfThreads, idleTimeout, new TcpContextUtil());
+	public TcpServerConnector(InetSocketAddress localAddress, Configuration configuration) {
+		this(localAddress, configuration, new TcpContextUtil());
 	}
 
-	protected TcpServerConnector(InetSocketAddress localAddress, int numberOfThreads, int idleTimeout, TcpContextUtil contextUtil) {
-		this.numberOfThreads = numberOfThreads;
-		this.connectionIdleTimeoutSeconds = idleTimeout;
+	protected TcpServerConnector(InetSocketAddress localAddress, Configuration configuration,
+			TcpContextUtil contextUtil) {
+		this.numberOfThreads = configuration.get(TcpConfig.TCP_WORKER_THREADS);
+		this.connectionIdleTimeoutSeconds = configuration.getTimeAsInt(TcpConfig.TCP_CONNECTION_IDLE_TIMEOUT,
+				TimeUnit.SECONDS);
 		this.localAddress = localAddress;
 		this.contextUtil = contextUtil;
 		this.effectiveLocalAddress = localAddress;
+	}
+
+	@Override
+	public boolean isRunning() {
+		return running;
 	}
 
 	@Override
@@ -111,24 +130,20 @@ public class TcpServerConnector implements Connector {
 		if (rawDataChannel == null) {
 			throw new IllegalStateException("Cannot start without message handler.");
 		}
-		if (bossGroup != null) {
+		if (running || bossGroup != null || workerGroup != null) {
 			throw new IllegalStateException("Connector already started");
 		}
-		if (workerGroup != null) {
-			throw new IllegalStateException("Connector already started");
-		}
+		running = true;
 		int id = THREAD_COUNTER.incrementAndGet();
 		bossGroup = new NioEventLoopGroup(1, new DaemonThreadFactory("TCP-Server-" + id, TCP_THREAD_GROUP));
 		workerGroup = new NioEventLoopGroup(numberOfThreads,
 				new DaemonThreadFactory("TCP-Server-" + id + "#", TCP_THREAD_GROUP));
 
 		ServerBootstrap bootstrap = new ServerBootstrap();
-		// server socket 
+		// server socket
 		bootstrap.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
-				.childHandler(new ChannelRegistry())
-				.option(ChannelOption.SO_BACKLOG, 100)
-				.option(ChannelOption.AUTO_READ, true)
-				.childOption(ChannelOption.SO_KEEPALIVE, true);
+				.childHandler(new ChannelRegistry()).option(ChannelOption.SO_BACKLOG, 100)
+				.option(ChannelOption.AUTO_READ, true).childOption(ChannelOption.SO_KEEPALIVE, true);
 
 		// Start the server.
 		ChannelFuture channelFuture = bootstrap.bind(localAddress).syncUninterruptibly();
@@ -142,15 +157,20 @@ public class TcpServerConnector implements Connector {
 
 	@Override
 	public synchronized void stop() {
-		if (null != bossGroup) {
-			bossGroup.shutdownGracefully(0, 500, TimeUnit.MILLISECONDS).syncUninterruptibly();
-			bossGroup = null;
+		if (running) {
+			running = false;
+			LOGGER.debug("Stopping {} server connector on [{}]", getProtocol(), effectiveLocalAddress);
+			if (null != bossGroup) {
+				bossGroup.shutdownGracefully(0, 500, TimeUnit.MILLISECONDS).syncUninterruptibly();
+				bossGroup = null;
+			}
+			if (null != workerGroup) {
+				workerGroup.shutdownGracefully(0, 500, TimeUnit.MILLISECONDS).syncUninterruptibly();
+				workerGroup = null;
+			}
+			LOGGER.debug("Stopped {} server connector on [{}]", getProtocol(), effectiveLocalAddress);
+			effectiveLocalAddress = localAddress;
 		}
-		if (null != workerGroup) {
-			workerGroup.shutdownGracefully(0, 500, TimeUnit.MILLISECONDS).syncUninterruptibly();
-			workerGroup = null;
-		}
-		effectiveLocalAddress = localAddress;
 	}
 
 	@Override
@@ -159,12 +179,17 @@ public class TcpServerConnector implements Connector {
 	}
 
 	@Override
+	public void processDatagram(DatagramPacket datagram) {
+	}
+
+	@Override
 	public void send(final RawData msg) {
 		if (msg == null) {
 			throw new NullPointerException("Message must not be null");
 		}
 		if (msg.isMulticast()) {
-			LOGGER.warn("TcpConnector drops {} bytes to multicast {}:{}", msg.getSize(), msg.getAddress(), msg.getPort());
+			LOGGER.warn("TcpConnector drops {} bytes to multicast {}", msg.getSize(),
+					StringUtil.toLog(msg.getInetSocketAddress()));
 			msg.onError(new MulticastNotSupportedException("TCP doesn't support multicast!"));
 			return;
 		}
@@ -174,18 +199,21 @@ public class TcpServerConnector implements Connector {
 		}
 		Channel channel = activeChannels.get(msg.getInetSocketAddress());
 		if (channel == null) {
-			// TODO: Is it worth allowing opening a new connection when in server mode?
+			// TODO: Is it worth allowing opening a new connection when in
+			// server mode?
 			LOGGER.debug("Attempting to send message to an address without an active connection {}",
-					msg.getAddress());
-			msg.onError(new EndpointUnconnectedException());
+					StringUtil.toLog(msg.getInetSocketAddress()));
+			msg.onError(new EndpointUnconnectedException(getProtocol() + " client not connected!"));
 			return;
 		}
 		EndpointContext context = contextUtil.buildEndpointContext(channel);
 		final EndpointContextMatcher endpointMatcher = getEndpointContextMatcher();
-		/* check, if the message should be sent with the established connection */
-		if (null != endpointMatcher
-				&& !endpointMatcher.isToBeSent(msg.getEndpointContext(), context)) {
-			LOGGER.warn("TcpConnector drops {} bytes to {}:{}", msg.getSize(), msg.getAddress(), msg.getPort());
+		/*
+		 * check, if the message should be sent with the established connection
+		 */
+		if (null != endpointMatcher && !endpointMatcher.isToBeSent(msg.getEndpointContext(), context)) {
+			LOGGER.warn("TcpConnector drops {} bytes to {}", msg.getSize(),
+					StringUtil.toLog(msg.getInetSocketAddress()));
 			msg.onError(new EndpointMismatchException());
 			return;
 		}
@@ -231,12 +259,14 @@ public class TcpServerConnector implements Connector {
 	}
 
 	/**
-	 * Called when a new channel is created, Allows subclasses to add their own handlers first, like an SSL handler.
+	 * Called when a new channel is created, Allows subclasses to add their own
+	 * handlers first, like an SSL handler.
+	 * 
+	 * @param ch channel
 	 */
 	protected void onNewChannelCreated(Channel ch) {
-		
-	}
 
+	}
 
 	@Override
 	public String getProtocol() {
@@ -255,7 +285,8 @@ public class TcpServerConnector implements Connector {
 			onNewChannelCreated(ch);
 
 			// Handler order:
-			// 0. Register/unregister new channel: all messages can only be sent over open connections.
+			// 0. Register/unregister new channel: all messages can only be sent
+			// over open connections.
 			// 1. Generate Idle events
 			// 2. Close idle channels.
 			// 3. Stream-to-message decoder
@@ -270,7 +301,10 @@ public class TcpServerConnector implements Connector {
 		}
 	}
 
-	/** Tracks active channels to send messages over them. TCPServer connector does not establish new connections. */
+	/**
+	 * Tracks active channels to send messages over them. TCPServer connector
+	 * does not establish new connections.
+	 */
 	private class ChannelTracker extends ChannelInboundHandlerAdapter {
 
 		@Override

@@ -25,6 +25,7 @@ import static org.eclipse.californium.core.coap.MediaTypeRegistry.TEXT_PLAIN;
 import static org.eclipse.californium.core.coap.MediaTypeRegistry.UNDEFINED;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -39,15 +40,20 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.coap.MediaTypeRegistry;
 import org.eclipse.californium.core.coap.MessageObserverAdapter;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.coap.ResponseTimeout;
 import org.eclipse.californium.core.coap.Token;
+import org.eclipse.californium.core.coap.UriQueryParameter;
 import org.eclipse.californium.core.network.Endpoint;
-import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.observe.NotificationListener;
 import org.eclipse.californium.core.server.resources.CoapExchange;
+import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.config.SystemConfig;
 import org.eclipse.californium.elements.exception.ConnectorException;
+import org.eclipse.californium.elements.exception.EndpointUnconnectedException;
 import org.eclipse.californium.elements.util.DatagramWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,8 +68,8 @@ import org.slf4j.LoggerFactory;
  * 
  * <dl>
  * <dt>obs=number</dt>
- * <dd>number of notifies before the observation is reregistered.
- * 0 to cancel a established observation</dd>
+ * <dd>number of notifies before the observation is reregistered. 0 to cancel a
+ * established observation</dd>
  * <dt>res=path</dt>
  * <dd>path of resource to observe.</dd>
  * </dl>
@@ -82,8 +88,9 @@ import org.slf4j.LoggerFactory;
  * coap://localhost:???/feed-CON?rlen=400
  * </pre>
  * 
- * (Please refer to the documentation of the Feed resource in the extplugtest client.
- *  "feed-CON" resource will send notifies using CON, "feed-NON" using NON)
+ * (Please refer to the documentation of the Feed resource in the extplugtest
+ * client. "feed-CON" resource will send notifies using CON, "feed-NON" using
+ * NON)
  */
 public class ReverseObserve extends CoapResource implements NotificationListener {
 
@@ -104,9 +111,20 @@ public class ReverseObserve extends CoapResource implements NotificationListener
 	 */
 	private static final String URI_QUERY_OPTION_TIMEOUT = "timeout";
 	/**
+	 * Supported query parameter.
+	 * 
+	 * @since 3.2
+	 */
+	private static final List<String> SUPPORTED = Arrays.asList(URI_QUERY_OPTION_OBSERVE, URI_QUERY_OPTION_RESOURCE,
+			URI_QUERY_OPTION_TIMEOUT);
+	/**
 	 * Maximum number of notifies before reregister is triggered.
 	 */
 	private static final int MAX_NOTIFIES = 10000000;
+	/**
+	 * Timeout for response in milliseconds.
+	 */
+	private static final int RESPONSE_TIMEOUT_MILLIS = 120000;
 
 	/**
 	 * Observation tokens by peer address.
@@ -135,16 +153,16 @@ public class ReverseObserve extends CoapResource implements NotificationListener
 	/**
 	 * Create reverse observation resource.
 	 * 
-	 * @param config network configuration to read HEALTH_STATUS_INTERVAL.
+	 * @param config configuration to read HEALTH_STATUS_INTERVAL.
 	 * @param executor executor for notification timeout.
 	 */
-	public ReverseObserve(NetworkConfig config, ScheduledExecutorService executor) {
+	public ReverseObserve(Configuration config, ScheduledExecutorService executor) {
 		super(RESOURCE_NAME);
 		this.executor = executor;
 		getAttributes().setTitle("Reverse Observe");
 		getAttributes().addContentType(TEXT_PLAIN);
 		getAttributes().addContentType(APPLICATION_OCTET_STREAM);
-		int healthStatusInterval = config.getInt(NetworkConfig.Keys.HEALTH_STATUS_INTERVAL, 60); // seconds
+		long healthStatusInterval = config.get(SystemConfig.HEALTH_STATUS_INTERVAL, TimeUnit.MILLISECONDS);
 		if (healthStatusInterval > 0 && HEALTH_LOGGER.isDebugEnabled()) {
 			executor.scheduleWithFixedDelay(new Runnable() {
 
@@ -156,7 +174,7 @@ public class ReverseObserve extends CoapResource implements NotificationListener
 								overallObserves.get());
 					}
 				}
-			}, healthStatusInterval, healthStatusInterval, TimeUnit.SECONDS);
+			}, healthStatusInterval, healthStatusInterval, TimeUnit.MILLISECONDS);
 		}
 	}
 
@@ -206,6 +224,8 @@ public class ReverseObserve extends CoapResource implements NotificationListener
 					}
 					observeRequest.setDestinationContext(request.getSourceContext());
 					observeRequest.addMessageObserver(new RequestObserver(exchange, observeRequest, observe));
+					observeRequest
+							.addMessageObserver(new ResponseTimeout(observeRequest, RESPONSE_TIMEOUT_MILLIS, executor));
 					observeRequest.send(endpoint);
 					overallObserves.incrementAndGet();
 				} else {
@@ -224,8 +244,8 @@ public class ReverseObserve extends CoapResource implements NotificationListener
 					observesByPeer.size() + " active observes, " + overallNotifies.get() + " notifies.", TEXT_PLAIN);
 		} else {
 			DatagramWriter writer = new DatagramWriter(12);
-			writer.writeLong(observesByPeer.size(),32);
-			writer.writeLong(overallNotifies.get(),64);
+			writer.writeLong(observesByPeer.size(), 32);
+			writer.writeLong(overallNotifies.get(), 64);
 			exchange.respond(CHANGED, writer.toByteArray(), APPLICATION_OCTET_STREAM);
 			writer.close();
 		}
@@ -252,9 +272,9 @@ public class ReverseObserve extends CoapResource implements NotificationListener
 
 		private final CoapExchange incomingExchange;
 		private final int accept;
+		private final int timeout;
 		private final String resource;
 		private final Integer observe;
-		private final Integer timeout;
 		private final List<String> observeUriQuery = new ArrayList<>();
 		private final AtomicBoolean processed = new AtomicBoolean();
 
@@ -262,53 +282,20 @@ public class ReverseObserve extends CoapResource implements NotificationListener
 			this.incomingExchange = incomingExchange;
 			Request request = incomingExchange.advanced().getRequest();
 			this.accept = request.getOptions().getAccept();
-			List<String> uriQuery = request.getOptions().getUriQuery();
-			Integer timeout = 30;
+			int timeout = 30;
 			Integer observe = null;
 			String resource = null;
-			for (String query : uriQuery) {
-				if (query.startsWith(URI_QUERY_OPTION_OBSERVE + "=")) {
-					String message = null;
-					String obs = query.substring(URI_QUERY_OPTION_OBSERVE.length() + 1);
-					try {
-						observe = Integer.parseInt(obs);
-						if (observe < 0) {
-							message = "URI-query-option " + query + " is negative number!";
-						} else if (observe > MAX_NOTIFIES) {
-							message = "URI-query-option " + query + " is too large (max. " + MAX_NOTIFIES + ")!";
-						}
-					} catch (NumberFormatException ex) {
-						message = "URI-query-option " + query + " is no number!";
-					}
-					if (message != null) {
-						Response response = Response.createResponse(request, BAD_OPTION);
-						response.setPayload(message);
-						respond(response);
-						break;
-					}
-				} else if (query.startsWith(URI_QUERY_OPTION_TIMEOUT + "=")) {
-					String message = null;
-					String obs = query.substring(URI_QUERY_OPTION_TIMEOUT.length() + 1);
-					try {
-						timeout = Integer.parseInt(obs);
-						if (timeout < 0) {
-							message = "URI-query-option " + query + " is negative number!";
-						}
-					} catch (NumberFormatException ex) {
-						message = "URI-query-option " + query + " is no number!";
-					}
-					if (message != null) {
-						Response response = Response.createResponse(request, BAD_OPTION);
-						response.setPayload(message);
-						respond(response);
-						break;
-					}
-				} else if (query.startsWith(URI_QUERY_OPTION_RESOURCE + "=")) {
-					resource = query.substring(URI_QUERY_OPTION_RESOURCE.length() + 1);
-				} else {
-					observeUriQuery.add(query);
+			try {
+				UriQueryParameter helper = request.getOptions().getUriQueryParameter(SUPPORTED, observeUriQuery);
+				resource = helper.getArgument(URI_QUERY_OPTION_RESOURCE, null);
+				timeout = helper.getArgumentAsInteger(URI_QUERY_OPTION_TIMEOUT, timeout, 0);
+				if (helper.hasParameter(URI_QUERY_OPTION_OBSERVE)) {
+					observe = helper.getArgumentAsInteger(URI_QUERY_OPTION_OBSERVE, 0, 0, MAX_NOTIFIES);
 				}
+			} catch (IllegalArgumentException ex) {
+				respond(BAD_OPTION, ex.getMessage(), MediaTypeRegistry.UNDEFINED);
 			}
+
 			this.resource = resource;
 			this.observe = observe;
 			this.timeout = timeout;
@@ -336,12 +323,6 @@ public class ReverseObserve extends CoapResource implements NotificationListener
 			}
 		}
 
-		private void respond(Response response) {
-			if (processed.compareAndSet(false, true)) {
-				incomingExchange.respond(response);
-			}
-		}
-
 		private boolean isProcessed() {
 			return processed.get();
 		}
@@ -358,11 +339,11 @@ public class ReverseObserve extends CoapResource implements NotificationListener
 			return observe;
 		}
 
-		private Integer getTimeout() {
+		private int getTimeout() {
 			return timeout;
 		}
 
-		private List<String>  getUriQuery() {
+		private List<String> getUriQuery() {
 			return observeUriQuery;
 		}
 
@@ -398,7 +379,8 @@ public class ReverseObserve extends CoapResource implements NotificationListener
 		public void onResponse(final Response response) {
 			Token token = response.getToken();
 			if (response.isError()) {
-				LOGGER.info("Observation response error: {}", response.getCode());
+				LOGGER.info("Observation response error: {} {}", outgoingObserveRequest.getScheme(),
+						response.getCode());
 				remove(response.getCode());
 			} else if (response.isNotification()) {
 				if (registered.compareAndSet(false, true)) {
@@ -422,7 +404,8 @@ public class ReverseObserve extends CoapResource implements NotificationListener
 					}
 				}
 			} else {
-				LOGGER.info("Observation {} not established!", outgoingObserveRequest.getToken());
+				LOGGER.info("Observation {} {} not established!", outgoingObserveRequest.getScheme(),
+						outgoingObserveRequest.getToken());
 				remove(NOT_ACCEPTABLE);
 			}
 		}
@@ -430,7 +413,10 @@ public class ReverseObserve extends CoapResource implements NotificationListener
 		@Override
 		public void onSendError(Throwable error) {
 			if (error instanceof ConnectorException) {
-				LOGGER.warn("Observe request failed! {}", outgoingObserveRequest.getToken());
+				if (!(error instanceof EndpointUnconnectedException)) {
+					LOGGER.warn("Observe request failed! {} {} {}", outgoingObserveRequest.getScheme(),
+							outgoingObserveRequest.getToken(), error.getMessage());
+				}
 				failureLogged = true;
 			}
 			super.onSendError(error);
@@ -439,7 +425,8 @@ public class ReverseObserve extends CoapResource implements NotificationListener
 		@Override
 		protected void failed() {
 			if (!failureLogged) {
-				LOGGER.debug("Observe request failed! {}", outgoingObserveRequest.getToken());
+				LOGGER.debug("Observe request failed! {} {}", outgoingObserveRequest.getScheme(),
+						outgoingObserveRequest.getToken());
 			}
 			remove(INTERNAL_SERVER_ERROR);
 		}

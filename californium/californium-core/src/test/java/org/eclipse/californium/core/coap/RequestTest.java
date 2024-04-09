@@ -20,9 +20,9 @@ package org.eclipse.californium.core.coap;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
@@ -41,6 +41,8 @@ import org.eclipse.californium.elements.rule.TestNameLoggerRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -49,6 +51,7 @@ import org.junit.experimental.categories.Category;
  */
 @Category(Small.class)
 public class RequestTest {
+	private static final Logger LOGGER = LoggerFactory.getLogger(RequestTest.class);
 	@Rule
 	public TestNameLoggerRule name = new TestNameLoggerRule();
 
@@ -63,7 +66,7 @@ public class RequestTest {
 	}
 
 	/**
-	 * Verifies that the URI examples from <a href="https://tools.ietf.org/html/rfc7252#section-6.3">
+	 * Verifies that the URI examples from <a href="https://tools.ietf.org/html/rfc7252#section-6.3" target="_blank">
 	 * RFC 7252, Section 6.3</a> result in the same option values.
 	 * @throws URISyntaxException 
 	 */
@@ -110,13 +113,25 @@ public class RequestTest {
 	}
 
 	@Test(expected = IllegalArgumentException.class)
+	public void testSetURIMalformedPort() {
+		// space before port
+		Request.newGet().setURI("coap://iot.eclipse.org: 5683");
+	}
+
+	@Test(expected = IllegalArgumentException.class)
+	public void testSetURIMalformedPort2() {
+		// encoded space before port
+		Request.newGet().setURI("coap://iot.eclipse.org:%205683");
+	}
+
+	@Test(expected = IllegalArgumentException.class)
 	public void testSetURIRejectsUnsupportedScheme() {
 		Request.newGet().setURI("unknown://127.0.0.1");
 	}
 
 	@Test(expected = IllegalArgumentException.class)
 	public void testSetURIRejectsUnresolvableHost() {
-		Request.newGet().setURI("coap://non-existing.host");
+		Request.newGet().setURI("coap://non-existing.eclipseprojects.io");
 	}
 
 	@Test
@@ -192,7 +207,7 @@ public class RequestTest {
 		req.getOptions().addUriPath("non-ascii-path-äöü").addUriQuery("non-ascii-query=äöü");
 
 		String derivedUri = req.getURI();
-		System.out.println(derivedUri);
+		LOGGER.info(derivedUri);
 		URI uri = URI.create(derivedUri);
 		assertThat(uri.getRawPath(), is("/non-ascii-path-%C3%A4%C3%B6%C3%BC"));
 		assertThat(uri.getRawQuery(), is("non-ascii-query=%C3%A4%C3%B6%C3%BC"));
@@ -259,11 +274,11 @@ public class RequestTest {
 		assertThat(req.getOptions().getUriPathString(), is("test2"));
 		assertThat(req.getOptions().getURIQueryCount(), is(0));
 
-		// only for 2.x.y, in 3.x.y the uri-query option must be set after the URI  
+		// since 3.3, a preset uri-query option is cleared by the URI  
 		req.getOptions().addUriQuery("param2");
 		req.setURI("coap://192.168.0.1/test2");
 		assertThat(req.getOptions().getUriPathString(), is("test2"));
-		assertThat(req.getOptions().getUriQueryString(), is("param2"));
+		assertThat(req.getOptions().getURIQueryCount(), is(0));
 	}
 
 	@Test(expected = IllegalStateException.class)

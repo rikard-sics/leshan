@@ -29,6 +29,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.eclipse.californium.oscore.OSCoreEndpointContextInfo.OSCORE_CONTEXT_ID;
+import static org.eclipse.californium.oscore.OSCoreEndpointContextInfo.OSCORE_SENDER_ID;
+import static org.eclipse.californium.oscore.OSCoreEndpointContextInfo.OSCORE_RECIPIENT_ID;
+import static org.eclipse.californium.oscore.OSCoreEndpointContextInfo.OSCORE_URI;
 
 import org.eclipse.californium.TestTools;
 import org.eclipse.californium.core.CoapServer;
@@ -81,12 +85,7 @@ public class EndpointContextInfoTest {
 	private final static byte[] master_secret = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B,
 			0x0C, 0x0D, 0x0E, 0x0F, 0x10 };
 	private final static byte[] context_id = { 0x74, 0x65, 0x73, 0x74 };
-
-	// Keys used in the endpoint context map of strings
-	private final static String OSCORE_SENDER_ID = OSCoreEndpointContextInfo.OSCORE_SENDER_ID;
-	private final static String OSCORE_RECIPIENT_ID = OSCoreEndpointContextInfo.OSCORE_RECIPIENT_ID;
-	private final static String OSCORE_CONTEXT_ID = OSCoreEndpointContextInfo.OSCORE_CONTEXT_ID;
-	private final static String OSCORE_URI = OSCoreEndpointContextInfo.OSCORE_URI;
+	private final static int MAX_UNFRAGMENTED_SIZE = 4096;
 
 	@Before
 	public void initLogger() {
@@ -123,7 +122,7 @@ public class EndpointContextInfoTest {
 		// Set up OSCORE context information for request (client)
 		byte[] sidClient = new byte[] { 0x77, 0x66, 0x55, 0x44 };
 		byte[] ridClient = new byte[] { 0x01, 0x02, 0x03, 0x04 };
-		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sidClient, ridClient, kdf, 32, null, context_id);
+		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sidClient, ridClient, kdf, 32, null, context_id, MAX_UNFRAGMENTED_SIZE);
 		String serverUri = serverEndpoint.getUri().toASCIIString();
 		dbClient.addContext(serverUri, ctx);
 
@@ -171,11 +170,15 @@ public class EndpointContextInfoTest {
 		// Send second request
 		// This makes sure the server did not fail any of its checks on the
 		// first request.
-		request.send();
+
+		Request request2 = new Request(CoAP.Code.GET);
+		request2.getOptions().setOscore(request.getOptions().getOscore());
+		request2.setURI(serverUri);
+		request2.send();
 		System.out.println("client sent second request");
 
 		// Receive response
-		response = request.waitForResponse(1000);
+		response = request2.waitForResponse(1000);
 		assertNotNull("Client received no response", response);
 		System.out.println("client received response");
 		assertEquals(response.getPayloadString(), SERVER_RESPONSE);
@@ -198,7 +201,7 @@ public class EndpointContextInfoTest {
 		// Set up OSCORE context information for request (client)
 		byte[] sidClient = new byte[] { 0x77, 0x66, 0x55, 0x44 };
 		byte[] ridClient = new byte[] { 0x01, 0x02, 0x03, 0x04 };
-		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sidClient, ridClient, kdf, 32, null, context_id);
+		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sidClient, ridClient, kdf, 32, null, context_id, MAX_UNFRAGMENTED_SIZE);
 		String serverUri = serverEndpoint.getUri().toASCIIString();
 		dbClient.addContext(serverUri, ctx);
 
@@ -325,7 +328,7 @@ public class EndpointContextInfoTest {
 		// Set up OSCORE context information for response (server)
 		byte[] sidServer = new byte[] { 0x01, 0x02, 0x03, 0x04 };
 		byte[] ridServer = new byte[] { 0x77, 0x66, 0x55, 0x44 };
-		final OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sidServer, ridServer, kdf, 32, null, context_id);
+		final OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sidServer, ridServer, kdf, 32, null, context_id, MAX_UNFRAGMENTED_SIZE);
 		String clientUri = "coap://" + TestTools.LOCALHOST_EPHEMERAL.getAddress().getHostAddress();
 		dbServer.addContext(clientUri, ctx);
 
@@ -349,26 +352,26 @@ public class EndpointContextInfoTest {
 			@Override
 			public void deliverRequest(Exchange exchange) {
 				System.out.println("server received request");
-
-				// Check request source context after reception
-				assertNull(exchange.getRequest().getDestinationContext());
-				EndpointContext requestSourceContext = exchange.getRequest().getSourceContext();
-
-				System.out.println("Server: Request source context type: " + requestSourceContext.getClass());
-				assertNotNull(requestSourceContext);
-
-				assertEquals(sidServerString, requestSourceContext.get(OSCORE_SENDER_ID));
-				assertEquals(ridServerString, requestSourceContext.get(OSCORE_RECIPIENT_ID));
-				assertEquals(contextIdString, requestSourceContext.get(OSCORE_CONTEXT_ID));
-				assertEquals(ctxUri, requestSourceContext.get(OSCORE_URI));
-
-				// Prepare and send response
-				Response response = new Response(ResponseCode.CONTENT);
-				response.setPayload(SERVER_RESPONSE);
-				exchange.sendResponse(response);
-
-				// Check response destination context after transmission
 				try {
+
+					// Check request source context after reception
+					assertNull(exchange.getRequest().getDestinationContext());
+					EndpointContext requestSourceContext = exchange.getRequest().getSourceContext();
+	
+					System.out.println("Server: Request source context type: " + requestSourceContext.getClass());
+					assertNotNull(requestSourceContext);
+	
+					assertEquals(sidServerString, requestSourceContext.get(OSCORE_SENDER_ID));
+					assertEquals(ridServerString, requestSourceContext.get(OSCORE_RECIPIENT_ID));
+					assertEquals(contextIdString, requestSourceContext.get(OSCORE_CONTEXT_ID));
+					assertEquals(ctxUri, requestSourceContext.get(OSCORE_URI));
+	
+					// Prepare and send response
+					Response response = new Response(ResponseCode.CONTENT);
+					response.setPayload(SERVER_RESPONSE);
+					exchange.sendResponse(response);
+	
+					// Check response destination context after transmission
 					assertNull(response.getSourceContext());
 					EndpointContext responseDestinationContext = response.getDestinationContext();
 

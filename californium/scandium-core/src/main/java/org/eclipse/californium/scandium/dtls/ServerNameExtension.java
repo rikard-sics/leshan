@@ -15,78 +15,108 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
-import java.net.InetSocketAddress;
-
 import org.eclipse.californium.elements.util.DatagramReader;
 import org.eclipse.californium.elements.util.DatagramWriter;
+import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertDescription;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertLevel;
 import org.eclipse.californium.scandium.util.ServerNames;
 
 /**
- * Conveys information specified by the <em>Server Name Indication</em> TLS extension.
+ * Conveys information specified by the <em>Server Name Indication</em> TLS
+ * extension.
  * <p>
- * See <a href="https://tools.ietf.org/html/rfc6066#section-3">RFC 6066, Section 3</a> for additional details.
+ * See
+ * <a href="https://tools.ietf.org/html/rfc6066#section-3" target="_blank">RFC
+ * 6066, Section 3</a> for additional details.
  *
  */
 public final class ServerNameExtension extends HelloExtension {
 
-	private ServerNames serverNames;
+	private static ServerNameExtension EMPTY_SERVER_NAMES = new ServerNameExtension(null);
 
-	private ServerNameExtension() {
-		super(ExtensionType.SERVER_NAME);
-	}
+	private final ServerNames serverNames;
 
 	/**
 	 * Creates a new instance for a server name list.
 	 * <p>
-	 * This constructor should be used by a client who wants to include the <em>Server Name Indication</em>
-	 * extension in its <em>CLIENT_HELLO</em> handshake message.
+	 * This constructor should be used by a client who wants to include the
+	 * <em>Server Name Indication</em> extension in its <em>CLIENT_HELLO</em>
+	 * handshake message.
 	 * 
-	 * @param serverNames The server names.
-	 * @throws NullPointerException if the server name list is {@code null}.
+	 * @param serverNames The server names. May be {@code null}.
 	 */
 	private ServerNameExtension(final ServerNames serverNames) {
-		this();
-		if (serverNames == null) {
-			throw new NullPointerException("server names must not be null");
-		}
+		super(ExtensionType.SERVER_NAME);
 		this.serverNames = serverNames;
 	}
 
 	/**
 	 * Creates a new empty Server Name Indication extension.
 	 * <p>
-	 * This method should be used by a server that wants to include an empty <em>Server Name Indication</em>
-	 * extension in its <em>SERVER_HELLO</em> handshake message.
+	 * This method should be used by a server that wants to include an empty
+	 * <em>Server Name Indication</em> extension in its <em>SERVER_HELLO</em>
+	 * handshake message.
 	 * 
-	 * @return The new instance.
+	 * @return The empty instance.
 	 */
 	public static ServerNameExtension emptyServerNameIndication() {
-		return new ServerNameExtension();
+		return EMPTY_SERVER_NAMES;
 	}
 
 	/**
 	 * Creates a new instance for a server name list.
 	 * <p>
-	 * This constructor should be used by a client who wants to include the <em>Server Name Indication</em>
-	 * extension in its <em>CLIENT_HELLO</em> handshake message.
+	 * This constructor should be used by a client who wants to include the
+	 * <em>Server Name Indication</em> extension in its <em>CLIENT_HELLO</em>
+	 * handshake message.
 	 * 
 	 * @param serverNames The server names.
 	 * @return The new instance.
 	 * @throws NullPointerException if the server name list is {@code null}.
+	 * @throws IllegalArgumentException if the server name list is empty.
+	 * @since 3.0 (added {@link IllegalArgumentException})
 	 */
 	public static ServerNameExtension forServerNames(final ServerNames serverNames) {
+		if (serverNames == null) {
+			throw new NullPointerException("server names must not be null");
+		}
+		if (serverNames.size() == 0) {
+			throw new IllegalArgumentException("server names must not be empty");
+		}
 		return new ServerNameExtension(serverNames);
 	}
 
-	@Override
-	public void addExtensionData(final DatagramWriter writer) {
+	/**
+	 * Gets the server name list conveyed in this extension.
+	 * 
+	 * @return The server names. May be {@code null}.
+	 */
+	public ServerNames getServerNames() {
+		return serverNames;
+	}
 
-		if (serverNames == null) {
-			writer.write(0, LENGTH_BITS);
+	@Override
+	public String toString(int indent) {
+		String text = super.toString(indent);
+		if (serverNames != null) {
+			text = text + serverNames.toString(indent + 1) + StringUtil.lineSeparator();
+		}
+		return text;
+	}
+
+	@Override
+	protected int getExtensionLength() {
+		if (serverNames != null) {
+			return serverNames.getLength();
 		} else {
-			writer.write(serverNames.getEncodedLength() + 2, LENGTH_BITS); //extension_length
+			return 0;
+		}
+	}
+
+	@Override
+	protected void writeExtensionTo(DatagramWriter writer) {
+		if (serverNames != null) {
 			serverNames.encode(writer);
 		}
 	}
@@ -95,14 +125,16 @@ public final class ServerNameExtension extends HelloExtension {
 	 * Creates a new instance from its byte representation.
 	 * 
 	 * @param extensionDataReader The byte representation.
-	 * @param peerAddress The IP address and port that the extension has been received from.
 	 * @return The instance.
-	 * @throws HandshakeException if the byte representation could not be parsed.
+	 * @throws HandshakeException if the byte representation could not be
+	 *             parsed.
 	 */
-	public static ServerNameExtension fromExtensionDataReader(DatagramReader extensionDataReader, final InetSocketAddress peerAddress) throws HandshakeException {
-		if (extensionDataReader == null || !extensionDataReader.bytesAvailable()) {
-			// this is an "empty" Server Name Indication received in a SERVER_HELLO
-			return ServerNameExtension.emptyServerNameIndication();
+	public static ServerNameExtension fromExtensionDataReader(DatagramReader extensionDataReader)
+			throws HandshakeException {
+		if (!extensionDataReader.bytesAvailable()) {
+			// this is an "empty" Server Name Indication received in a
+			// SERVER_HELLO
+			return emptyServerNameIndication();
 		} else {
 			ServerNames serverNames = ServerNames.newInstance();
 			try {
@@ -110,33 +142,13 @@ public final class ServerNameExtension extends HelloExtension {
 			} catch (IllegalArgumentException e) {
 				if (e.getCause() instanceof IllegalArgumentException) {
 					throw new HandshakeException("Server Name Indication extension contains unknown name_type",
-							new AlertMessage(AlertLevel.FATAL, AlertDescription.ILLEGAL_PARAMETER, peerAddress));
+							new AlertMessage(AlertLevel.FATAL, AlertDescription.ILLEGAL_PARAMETER));
 				}
 				throw new HandshakeException("malformed Server Name Indication extension",
-						new AlertMessage(AlertLevel.FATAL, AlertDescription.DECODE_ERROR, peerAddress));
+						new AlertMessage(AlertLevel.FATAL, AlertDescription.DECODE_ERROR));
 			}
 			return new ServerNameExtension(serverNames);
 		}
-	}
-
-	/**
-	 * Gets the server name list conveyed in this extension.
-	 * 
-	 * @return The server names.
-	 */
-	public ServerNames getServerNames() {
-		return serverNames;
-	}
-
-	@Override
-	public int getLength() {
-		int length = 2; // 2 bytes indicating extension type
-		length += 2; // overall extension length
-		if (serverNames != null) {
-			length += 2; // server_name_list_length
-			length += serverNames.getEncodedLength();
-		}
-		return length;
 	}
 
 }

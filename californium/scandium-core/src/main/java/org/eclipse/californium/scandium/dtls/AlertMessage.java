@@ -19,7 +19,6 @@
 package org.eclipse.californium.scandium.dtls;
 
 import java.io.Serializable;
-import java.net.InetSocketAddress;
 
 import org.eclipse.californium.elements.util.DatagramReader;
 import org.eclipse.californium.elements.util.DatagramWriter;
@@ -34,18 +33,13 @@ import org.eclipse.californium.elements.util.StringUtil;
  * invalidated, preventing the failed session from being used to establish new
  * connections. Like other messages, alert messages are encrypted and
  * compressed, as specified by the current connection state. For further details
- * see <a href="http://tools.ietf.org/html/rfc5246#section-7.2">RFC 5246</a>.
+ * see <a href="https://tools.ietf.org/html/rfc5246#section-7.2" target="_blank">RFC 5246</a>.
  */
 public final class AlertMessage implements DTLSMessage, Serializable {
 
-	// CoAP-specific constants/////////////////////////////////////////
 	private static final long serialVersionUID = 1L;
 
 	private static final int BITS = 8;
-
-	// Members ////////////////////////////////////////////////////////
-
-	private final InetSocketAddress peerAddress;
 
 	/** The level of the alert (warning or fatal). */
 	private final AlertLevel level;
@@ -58,26 +52,18 @@ public final class AlertMessage implements DTLSMessage, Serializable {
 	 * 
 	 * @since 2.6
 	 */
-	private transient final ProtocolVersion protocolVersion;
-
-	// Constructors ///////////////////////////////////////////////////
-
-	protected AlertMessage() {
-		this(null, null, null, null);
-	}
+	private final ProtocolVersion protocolVersion;
 
 	/**
 	 * Create new instance of alert message.
 	 * 
 	 * @param level the alert level
 	 * @param description the alert description
-	 * @param peerAddress the IP address and port of the peer this message has
-	 *            been received from or is to be sent to
 	 * @throws NullPointerException if one of the provided parameter is
 	 *             {@code null}
 	 */
-	public AlertMessage(AlertLevel level, AlertDescription description, InetSocketAddress peerAddress) {
-		this(level, description, null, peerAddress);
+	public AlertMessage(AlertLevel level, AlertDescription description) {
+		this(level, description, null);
 	}
 
 	/**
@@ -87,8 +73,6 @@ public final class AlertMessage implements DTLSMessage, Serializable {
 	 * @param description the alert description
 	 * @param protocolVersion protocol version of record to send. Only possible
 	 *            for {@link AlertDescription#PROTOCOL_VERSION} alerts!
-	 * @param peerAddress the IP address and port of the peer this message has
-	 *            been received from or is to be sent to
 	 * @throws NullPointerException if one of the provided parameter is
 	 *             {@code null}
 	 * @throws IllegalArgumentException if a protocol version is provided, but
@@ -96,30 +80,25 @@ public final class AlertMessage implements DTLSMessage, Serializable {
 	 *             {@link AlertDescription#PROTOCOL_VERSION}
 	 * @since 2.6
 	 */
-	public AlertMessage(AlertLevel level, AlertDescription description, ProtocolVersion protocolVersion,
-			InetSocketAddress peerAddress) {
+	public AlertMessage(AlertLevel level, AlertDescription description, ProtocolVersion protocolVersion) {
 		if (level == null) {
 			throw new NullPointerException("Level must not be null");
 		} else if (description == null) {
 			throw new NullPointerException("Description must not be null");
-		} else if (peerAddress == null) {
-			throw new NullPointerException("Peer address must not be null");
 		} else if (protocolVersion != null && description != AlertDescription.PROTOCOL_VERSION) {
 			throw new IllegalArgumentException("Protocol version is only supported for that specific alert!");
 		}
-		this.peerAddress = peerAddress;
 		this.level = level;
 		this.description = description;
 		this.protocolVersion = protocolVersion;
 	}
 
-	// Alert Level Enum ///////////////////////////////////////////////
-
 	/**
-	 * See <a href="http://tools.ietf.org/html/rfc5246#appendix-A.3">Alert
+	 * See <a href="https://tools.ietf.org/html/rfc5246#appendix-A.3" target="_blank">Alert
 	 * Messages</a> for the listing.
 	 */
 	public enum AlertLevel {
+
 		WARNING(1), FATAL(2);
 
 		private byte code;
@@ -136,7 +115,8 @@ public final class AlertMessage implements DTLSMessage, Serializable {
 		 * Gets the alert level for a given code.
 		 * 
 		 * @param code the code
-		 * @return the corresponding level or <code>null</code> if no alert level exists for the given code
+		 * @return the corresponding level or {@code null} if no alert
+		 *         level exists for the given code
 		 */
 		public static AlertLevel getLevelByCode(int code) {
 			switch (code) {
@@ -152,10 +132,8 @@ public final class AlertMessage implements DTLSMessage, Serializable {
 		}
 	}
 
-	// Alert Description Enum /////////////////////////////////////////
-
 	/**
-	 * See <a href="http://tools.ietf.org/html/rfc5246#appendix-A.3">Alert
+	 * See <a href="https://tools.ietf.org/html/rfc5246#appendix-A.3" target="_blank">Alert
 	 * Messages</a> for the listing.
 	 */
 	public enum AlertDescription {
@@ -207,7 +185,8 @@ public final class AlertMessage implements DTLSMessage, Serializable {
 		 * Gets the alert description for a given code.
 		 * 
 		 * @param code the code
-		 * @return the corresponding description or <code>null</code> if no alert description exists for the given code
+		 * @return the corresponding description or {@code null}, if no
+		 *         alert description exists for the given code
 		 */
 		public static AlertDescription getDescriptionByCode(int code) {
 			for (AlertDescription desc : values()) {
@@ -219,31 +198,28 @@ public final class AlertMessage implements DTLSMessage, Serializable {
 		}
 	}
 
-	// Methods ////////////////////////////////////////////////////////
-
-	@Override
-	public final InetSocketAddress getPeer() {
-		return peerAddress;
-	}
-
 	@Override
 	public ContentType getContentType() {
 		return ContentType.ALERT;
 	}
 
 	@Override
-	public String toString() {
+	public String toString(int indent) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("\tAlert Protocol").append(StringUtil.lineSeparator());
-		sb.append("\tLevel: ").append(level).append(StringUtil.lineSeparator());
-		sb.append("\tDescription: ").append(description).append(StringUtil.lineSeparator());
+		String indentation = StringUtil.indentation(indent);
+		sb.append(indentation).append("Alert Protocol").append(StringUtil.lineSeparator());
+		sb.append(indentation).append("Level: ").append(level).append(StringUtil.lineSeparator());
+		sb.append(indentation).append("Description: ").append(description).append(StringUtil.lineSeparator());
 		if (protocolVersion != null) {
-			sb.append("\tProtocol Version: ").append(protocolVersion).append(StringUtil.lineSeparator());
+			sb.append(indentation).append("Protocol Version: ").append(protocolVersion).append(StringUtil.lineSeparator());
 		}
 		return sb.toString();
 	}
 
-	// Serialization //////////////////////////////////////////////////
+	@Override
+	public String toString() {
+		return toString(0);
+	}
 
 	@Override
 	public int size() {
@@ -255,7 +231,7 @@ public final class AlertMessage implements DTLSMessage, Serializable {
 	 */
 	@Override
 	public byte[] toByteArray() {
-		DatagramWriter writer = new DatagramWriter();
+		DatagramWriter writer = new DatagramWriter(2);
 
 		writer.write(level.getCode(), BITS);
 		writer.write(description.getCode(), BITS);
@@ -263,22 +239,20 @@ public final class AlertMessage implements DTLSMessage, Serializable {
 		return writer.toByteArray();
 	}
 
-	public static AlertMessage fromByteArray(final byte[] byteArray, final InetSocketAddress peerAddress) throws HandshakeException {
+	public static AlertMessage fromByteArray(final byte[] byteArray) throws HandshakeException {
 		DatagramReader reader = new DatagramReader(byteArray);
 		byte levelCode = reader.readNextByte();
 		byte descCode = reader.readNextByte();
 		AlertLevel level = AlertLevel.getLevelByCode(levelCode);
 		AlertDescription description = AlertDescription.getDescriptionByCode(descCode);
 		if (level == null) {
-			throw new HandshakeException(
-					String.format("Unknown alert level code [%d]", levelCode),
-					new AlertMessage(AlertLevel.FATAL, AlertDescription.DECODE_ERROR, peerAddress));
+			throw new HandshakeException(String.format("Unknown alert level code [%d]", levelCode),
+					new AlertMessage(AlertLevel.FATAL, AlertDescription.DECODE_ERROR));
 		} else if (description == null) {
-			throw new HandshakeException(
-					String.format("Unknown alert description code [%d]", descCode),
-					new AlertMessage(AlertLevel.FATAL, AlertDescription.DECODE_ERROR, peerAddress));
+			throw new HandshakeException(String.format("Unknown alert description code [%d]", descCode),
+					new AlertMessage(AlertLevel.FATAL, AlertDescription.DECODE_ERROR));
 		} else {
-			return new AlertMessage(level, description, peerAddress);
+			return new AlertMessage(level, description);
 		}
 	}
 
@@ -302,5 +276,26 @@ public final class AlertMessage implements DTLSMessage, Serializable {
 
 	public boolean isFatal() {
 		return AlertLevel.FATAL.equals(level);
+	}
+
+	@Override
+	public int hashCode() {
+		return level.code + (description.code & 0xff) << 8;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) {
+			return true;
+		} else if (obj == null) {
+			return false;
+		} else if (getClass() != obj.getClass()) {
+			return false;
+		}
+		AlertMessage other = (AlertMessage) obj;
+		if (description != other.description) {
+			return false;
+		}
+		return level == other.level;
 	}
 }

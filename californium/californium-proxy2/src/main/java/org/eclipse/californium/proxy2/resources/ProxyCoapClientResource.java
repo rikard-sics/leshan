@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.coap.MediaTypeRegistry;
 import org.eclipse.californium.core.coap.MessageObserverAdapter;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
@@ -108,12 +109,14 @@ public class ProxyCoapClientResource extends ProxyCoapResource {
 				exchange.sendAccept();
 			}
 			outgoingRequest.addMessageObserver(
-					new ProxySendResponseMessageObserver(translator, exchange, cacheKey, cache));
+					new ProxySendResponseMessageObserver(translator, exchange, cacheKey, cache, this));
 			ClientEndpoints endpoints = mapSchemeToEndpoints.get(outgoingRequest.getScheme());
 			endpoints.sendRequest(outgoingRequest);
 		} catch (TranslationException e) {
 			LOGGER.debug("Proxy-uri option malformed: {}", e.getMessage());
-			exchange.sendResponse(new Response(Coap2CoapTranslator.STATUS_FIELD_MALFORMED));
+			Response response = new Response(Coap2CoapTranslator.STATUS_FIELD_MALFORMED);
+			response.setPayload(e.getMessage());
+			exchange.sendResponse(response);
 		} catch (Exception e) {
 			LOGGER.warn("Failed to execute request: {}", e.getMessage(), e);
 			exchange.sendResponse(new Response(ResponseCode.INTERNAL_SERVER_ERROR));
@@ -136,17 +139,26 @@ public class ProxyCoapClientResource extends ProxyCoapResource {
 		private final Exchange incomingExchange;
 		private final CacheKey cacheKey;
 		private final CacheResource cache;
+		private final ProxyCoapResource baseResource;
 
 		private ProxySendResponseMessageObserver(Coap2CoapTranslator translator, Exchange incomingExchange,
-				CacheKey cacheKey, CacheResource cache) {
+				CacheKey cacheKey, CacheResource cache, ProxyCoapResource baseResource) {
 			this.translator = translator;
 			this.incomingExchange = incomingExchange;
 			this.cacheKey = cacheKey;
 			this.cache = cache;
+			this.baseResource = baseResource;
 		}
 
 		@Override
 		public void onResponse(Response incomingResponse) {
+			int size = incomingResponse.getPayloadSize();
+			if (!baseResource.checkMaxResourceBodySize(size)) {
+				incomingResponse = new Response(ResponseCode.BAD_GATEWAY);
+				incomingResponse.setPayload("CoAP response of " + size + " bytes exceeds maximum support size of "
+						+ baseResource.getMaxResourceBodySize() + " bytes!");
+				incomingResponse.getOptions().setContentFormat(MediaTypeRegistry.TEXT_PLAIN);
+			}
 			if (cache != null) {
 				cache.cacheResponse(cacheKey, incomingResponse);
 			}

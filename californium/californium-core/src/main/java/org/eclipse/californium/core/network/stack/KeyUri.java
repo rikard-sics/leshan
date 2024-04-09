@@ -18,46 +18,67 @@
 package org.eclipse.californium.core.network.stack;
 
 import java.net.InetSocketAddress;
-import java.util.Arrays;
 
-import org.eclipse.californium.core.Utils;
+import org.eclipse.californium.core.coap.CoAP.Code;
 import org.eclipse.californium.core.coap.Request;
-import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.network.Exchange;
+import org.eclipse.californium.elements.util.StringUtil;
 
 /**
- * A key based on a CoAP message's target URI that is scoped to an endpoint address.
+ * A key based on a CoAP message's target URI that is scoped to an endpoint
+ * address.
  * <p>
- * This class is used by the blockwise layer to correlate blockwise transfer exchanges.
+ * This class is used by the blockwise layer to correlate blockwise transfer
+ * exchanges. 
+ * <p>
+ * Note: since 3.9, the message code is also used part of the key.
  */
 public final class KeyUri {
 
-	private static final int MAX_PORT_NO = (1 << 16) - 1;
+	private final Code code;
 	private final String uri;
-	private final byte[] address;
-	private final int port;
+	private final Object peersIdentity;
 	private final int hash;
 
 	/**
 	 * Creates a new key for a URI scoped to an endpoint address.
 	 * 
 	 * @param requestUri The URI of the requested resource.
-	 * @param address the endpoint's address.
-	 * @param port the endpoint's port.
+	 * @param peersIdentity peer's identity. Usually that's the peer's
+	 *            {@link InetSocketAddress}.
 	 * @throws NullPointerException if uri or address is {@code null}
-	 * @throws IllegalArgumentException if port &lt; 0 or port &gt; 65535.
+	 * @since 3.0
+	 * @deprecated use KeyUri(String, Object, Code) instead
 	 */
-	public KeyUri(final String requestUri, final byte[] address, final int port) {
+	@Deprecated
+	public KeyUri(String requestUri, Object peersIdentity) {
+		this(requestUri, peersIdentity, null);
+	}
+
+	/**
+	 * Creates a new key for a URI scoped to an endpoint address.
+	 * 
+	 * @param requestUri The URI of the requested resource.
+	 * @param peersIdentity peer's identity. Usually that's the peer's
+	 *            {@link InetSocketAddress}.
+	 * @param code message code. {@code null} for ping request.
+	 * @throws NullPointerException if uri or address is {@code null}
+	 * @since 3.9
+	 */
+	public KeyUri(String requestUri, Object peersIdentity, Code code) {
 		if (requestUri == null) {
 			throw new NullPointerException("URI must not be null");
-		} else if (address == null) {
-			throw new NullPointerException("address must not be null");
-		} else if (port < 0 || port > MAX_PORT_NO) {
-			throw new IllegalArgumentException("port must be an unsigned 16 bit int");
+		} else if (peersIdentity == null) {
+			throw new NullPointerException("peer's identity must not be null");
 		} else {
+			this.code = code;
 			this.uri = requestUri;
-			this.address = address;
-			this.port = port;
-			this.hash = (port * 31 + requestUri.hashCode()) * 31 + Arrays.hashCode(address);
+			this.peersIdentity = peersIdentity;
+			int hash = requestUri.hashCode() * 31 + peersIdentity.hashCode();
+			if (code != null) {
+				hash = hash * 31 + code.hashCode();
+			}
+			this.hash = hash;
 		}
 	}
 
@@ -73,17 +94,13 @@ public final class KeyUri {
 			return false;
 		}
 		KeyUri other = (KeyUri) obj;
-		if (!Arrays.equals(address, other.address)) {
+		if (!peersIdentity.equals(other.peersIdentity)) {
 			return false;
 		}
-		if (port != other.port) {
+		if (!uri.equals(other.uri)) {
 			return false;
 		}
-		if (uri == null) {
-			if (other.uri != null) {
-				return false;
-			}
-		} else if (!uri.equals(other.uri)) {
+		if (code != other.code && !code.equals(other.code)) {
 			return false;
 		}
 		return true;
@@ -97,8 +114,12 @@ public final class KeyUri {
 	@Override
 	public String toString() {
 		StringBuilder b = new StringBuilder("KeyUri[");
-		b.append(uri);
-		b.append(", ").append(Utils.toHexString(address)).append(":").append(port).append("]");
+		b.append(code).append(", ").append(uri);
+		Object peer = this.peersIdentity;
+		if (peer instanceof InetSocketAddress) {
+			peer = StringUtil.toDisplayString((InetSocketAddress) peer);
+		}
+		b.append(", ").append(peer).append("]");
 		return b.toString();
 	}
 
@@ -119,62 +140,22 @@ public final class KeyUri {
 	}
 
 	/**
-	 * Creates a new key for an incoming response scoped to the response's source endpoint address.
+	 * Creates a new key scoped to the other peer's identity.
 	 * 
-	 * @param request The request with the URI of the requested resource.
-	 * @param response The response.
+	 * @param exchange The exchange with the URI of the requested resource and
+	 *            the identity.
 	 * @return The key.
-	 * @throws NullPointerException if any of the parameters is {@code null}.
+	 * @throws NullPointerException if exchange is {@code null}.
+	 * @since 3.0
 	 */
-	public static KeyUri fromInboundResponse(final Request request, final Response response) {
-		if (response == null) {
-			throw new NullPointerException("response must not be null");
-		} else {
-			InetSocketAddress address = response.getSourceContext().getPeerAddress();
-			return new KeyUri(getUri(request), address.getAddress().getAddress(), address.getPort());
+	public static KeyUri getKey(Exchange exchange) {
+		if (exchange == null) {
+			throw new NullPointerException("exchange must not be null");
 		}
-	}
-
-	/**
-	 * Creates a new key for an outgoing response scoped to the response's destination endpoint address.
-	 * 
-	 * @param request The request with the URI of the requested resource.
-	 * @param response The response.
-	 * @return The key.
-	 * @throws NullPointerException if any of the parameters is {@code null}.
-	 */
-	public static KeyUri fromOutboundResponse(final Request request, final Response response) {
-		if (response == null) {
-			throw new NullPointerException("response must not be null");
-		} else {
-			InetSocketAddress address = response.getDestinationContext().getPeerAddress();
-			return new KeyUri(getUri(request), address.getAddress().getAddress(), address.getPort());
-		}
-	}
-
-	/**
-	 * Creates a new key for an incoming request scoped to the request's source endpoint address.
-	 * 
-	 * @param request The request.
-	 * @return The key.
-	 * @throws NullPointerException if the request is {@code null}.
-	 */
-	public static KeyUri fromInboundRequest(final Request request) {
+		Request request = exchange.getRequest();
 		String uri = getUri(request);
-		InetSocketAddress address = request.getSourceContext().getPeerAddress();
-		return new KeyUri(uri, address.getAddress().getAddress(), address.getPort());
+		Code code = request.getCode();
+			return new KeyUri(uri, exchange.getPeersIdentity(), code);
 	}
 
-	/**
-	 * Creates a new key for an outgoing request scoped to the request's destination endpoint address.
-	 * 
-	 * @param request The request.
-	 * @return The key.
-	 * @throws NullPointerException if the request is {@code null}.
-	 */
-	public static KeyUri fromOutboundRequest(final Request request) {
-		String uri = getUri(request);
-		InetSocketAddress address = request.getDestinationContext().getPeerAddress();
-		return new KeyUri(uri, address.getAddress().getAddress(), address.getPort());
-	}
 }

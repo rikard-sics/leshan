@@ -20,7 +20,6 @@ import org.eclipse.californium.core.coap.EmptyMessage;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.network.interceptors.MessageInterceptor;
-import org.eclipse.californium.core.test.BlockwiseTransferTest.ReceiveRequestHandler;
 import org.eclipse.californium.elements.util.IntendedTestException;
 
 /**
@@ -35,6 +34,12 @@ public final class ServerBlockwiseInterceptor extends BlockwiseInterceptor imple
 	 */
 	public ReceiveRequestHandler handler;
 
+	private Response lastSentResponse;
+
+	public synchronized Response getLastSentResponse() {
+		return lastSentResponse;
+	}
+
 	@Override
 	public synchronized void sendRequest(final Request request) {
 		logNewLine();
@@ -43,6 +48,7 @@ public final class ServerBlockwiseInterceptor extends BlockwiseInterceptor imple
 
 	@Override
 	public synchronized void sendResponse(final Response response) {
+		lastSentResponse = response;
 		if (errorInjector != null) {
 			logNewLine("(should be dropped by error)   ");
 			appendResponseDetails(response);
@@ -104,5 +110,9 @@ public final class ServerBlockwiseInterceptor extends BlockwiseInterceptor imple
 		logNewLine();
 		appendEmptyMessageDetails(message);
 		buffer.append("    ----->");
+	}
+
+	public interface ReceiveRequestHandler {
+		void receiveRequest(Request received);
 	}
 }

@@ -23,10 +23,14 @@
 package org.eclipse.californium.core.network;
 
 import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
+import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -41,7 +45,6 @@ import org.eclipse.californium.TestTools;
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
-import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.server.MessageDeliverer;
 import org.eclipse.californium.core.test.CountingMessageObserver;
 import org.eclipse.californium.elements.AddressEndpointContext;
@@ -52,6 +55,9 @@ import org.eclipse.californium.elements.EndpointContextMatcher;
 import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.RawDataChannel;
 import org.eclipse.californium.elements.category.Small;
+import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.util.Bytes;
+import org.eclipse.californium.elements.util.ClockUtil;
 import org.eclipse.californium.rule.CoapThreadsRule;
 import org.junit.After;
 import org.junit.Before;
@@ -62,7 +68,7 @@ import org.junit.experimental.categories.Category;
 @Category(Small.class)
 public class CoapEndpointTest {
 
-	static final NetworkConfig CONFIG = NetworkConfig.createStandardWithoutFile();
+	static final Configuration CONFIG = Configuration.createStandardWithoutFile();
 	static final int MESSAGE_ID = 4711;
 	static final byte[] TOKEN = new byte[] { 0x01, 0x02, 0x03 };
 	static final InetSocketAddress SOURCE_ADDRESS = new InetSocketAddress(InetAddress.getLoopbackAddress(), 12000);
@@ -85,7 +91,7 @@ public class CoapEndpointTest {
 		connector = new SimpleConnector();
 		CoapEndpoint.Builder builder = new CoapEndpoint.Builder();
 		builder.setConnector(connector);
-		builder.setNetworkConfig(CONFIG);
+		builder.setConfiguration(CONFIG);
 
 		endpoint = builder.build();
 		connectorSentLatch = new CountDownLatch(1);
@@ -110,6 +116,27 @@ public class CoapEndpointTest {
 	@After
 	public void shutDownEndpoint() {
 		endpoint.destroy();
+	}
+
+	@Test
+	public void testAddEndpointObserver() throws IOException {
+		EndpointObserver observer = mock(EndpointObserver.class);
+		endpoint.addObserver(observer);
+		verify(observer, times(1)).started(endpoint);
+		endpoint.stop();
+		verify(observer, times(1)).stopped(endpoint);
+		endpoint.destroy();
+		verify(observer, times(1)).destroyed(endpoint);
+
+		CoapEndpoint.Builder builder = new CoapEndpoint.Builder();
+		builder.setConnector(connector);
+		builder.setConfiguration(CONFIG);
+		endpoint = builder.build();
+		observer = mock(EndpointObserver.class);
+		endpoint.addObserver(observer);
+		verify(observer, times(0)).started(endpoint);
+		endpoint.start();
+		verify(observer, times(1)).started(endpoint);
 	}
 
 	@Test
@@ -145,8 +172,9 @@ public class CoapEndpointTest {
 			}
 		};
 
-		
-		RawData inboundRequest = RawData.inbound(getSerializedRequest(), new AddressEndpointContext(SOURCE_ADDRESS, clientId), false, System.nanoTime());
+		RawData inboundRequest = RawData.inbound(getSerializedRequest(),
+				new AddressEndpointContext(SOURCE_ADDRESS, clientId), false, ClockUtil.nanoRealtime(),
+				CONNECTOR_ADDRESS);
 		connector.receiveMessage(inboundRequest);
 		assertTrue(latch.await(2, TimeUnit.SECONDS));
 		assertThat(receivedRequests.get(0).getSourceContext().getPeerIdentity(), is(clientId));
@@ -154,7 +182,8 @@ public class CoapEndpointTest {
 
 	@Test
 	public void testStandardSchemeIsSetOnIncomingRequest() throws Exception {
-		RawData inboundRequest = RawData.inbound(getSerializedRequest(), new AddressEndpointContext(SOURCE_ADDRESS), false, System.nanoTime());
+		RawData inboundRequest = RawData.inbound(getSerializedRequest(), new AddressEndpointContext(SOURCE_ADDRESS),
+				false, ClockUtil.nanoRealtime(), CONNECTOR_ADDRESS);
 		connector.receiveMessage(inboundRequest);
 		assertTrue(latch.await(2, TimeUnit.SECONDS));
 		assertThat(receivedRequests.get(0).getScheme(), is(CoAP.COAP_URI_SCHEME));
@@ -165,7 +194,7 @@ public class CoapEndpointTest {
 		SimpleConnector connector = new SimpleSecureConnector();
 		CoapEndpoint.Builder builder = new CoapEndpoint.Builder();
 		builder.setConnector(connector);
-		builder.setNetworkConfig(CONFIG);
+		builder.setConfiguration(CONFIG);
 		Endpoint endpoint = builder.build();
 		final CountDownLatch latch = new CountDownLatch(1);
 		MessageDeliverer deliverer = new MessageDeliverer() {
@@ -183,9 +212,10 @@ public class CoapEndpointTest {
 		endpoint.setMessageDeliverer(deliverer);
 		endpoint.start();
 		cleanup.add(endpoint);
-		
-		EndpointContext secureCtx = new DtlsEndpointContext(SOURCE_ADDRESS, null, "session", "1", "CIPHER", "100");
-		RawData inboundRequest = RawData.inbound(getSerializedRequest(), secureCtx, false, System.nanoTime());
+		Bytes session = new Bytes("session".getBytes());
+		EndpointContext secureCtx = new DtlsEndpointContext(SOURCE_ADDRESS, null, null, session, 1, "CIPHER", 100);
+		RawData inboundRequest = RawData.inbound(getSerializedRequest(), secureCtx, false, ClockUtil.nanoRealtime(),
+				CONNECTOR_ADDRESS);
 		connector.receiveMessage(inboundRequest);
 		assertTrue(latch.await(2, TimeUnit.SECONDS));
 		assertThat(receivedRequests.get(0).getScheme(), is(CoAP.COAP_SECURE_URI_SCHEME));
@@ -200,7 +230,8 @@ public class CoapEndpointTest {
 				0x00, 0x10, // message ID
 				(byte) 0xFF // payload marker
 		};
-		RawData inboundMessage = RawData.inbound(malformedGetRequest, new AddressEndpointContext(SOURCE_ADDRESS), false, System.nanoTime());
+		RawData inboundMessage = RawData.inbound(malformedGetRequest, new AddressEndpointContext(SOURCE_ADDRESS), false,
+				ClockUtil.nanoRealtime(), CONNECTOR_ADDRESS);
 
 		// WHEN the incoming message is processed by the Inbox
 		connector.receiveMessage(inboundMessage);
@@ -232,6 +263,11 @@ public class CoapEndpointTest {
 		}
 
 		@Override
+		public boolean isRunning() {
+			return true;
+		}
+
+		@Override
 		public void start() throws IOException {
 		}
 
@@ -241,6 +277,10 @@ public class CoapEndpointTest {
 
 		@Override
 		public void destroy() {
+		}
+
+		@Override
+		public void processDatagram(DatagramPacket datagram) {
 		}
 
 		@Override

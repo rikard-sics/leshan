@@ -19,9 +19,29 @@
  ******************************************************************************/
 package org.eclipse.californium.core.coap;
 
+import org.eclipse.californium.core.coap.option.IntegerOptionDefinition;
+import org.eclipse.californium.core.coap.option.OptionDefinition;
+import org.eclipse.californium.core.coap.option.OptionRegistry;
+import org.eclipse.californium.core.coap.option.StandardOptionRegistry;
+import org.eclipse.californium.core.network.CoapEndpoint.Builder;
+import org.eclipse.californium.core.network.serialization.TcpDataParser;
+import org.eclipse.californium.core.network.serialization.UdpDataParser;
+
 /**
- * This class describes the CoAP Option Number Registry as defined in
- * RFC 7252, Section 12.2 and other CoAP extensions.
+ * This class describes the CoAP Option Number Registry as defined in RFC 7252,
+ * Section 12.2 and other CoAP extensions.
+ * 
+ * <a href=
+ * "https://www.iana.org/assignments/core-parameters/core-parameters.xhtml#option-numbers">
+ * IANA - CoAP Option Numbers</a>.
+ * 
+ * Since 3.8 {@link OptionDefinition} and {@link OptionRegistry} is introduced
+ * and is the preferred and future way to specify, which option is represented.
+ * The option number on it's own represents this only for the traditional
+ * options, but options introduced with
+ * <a href="https://www.rfc-editor.org/rfc/rfc8323#section-5.2" target=
+ * "_blank"> RFC8323 5.2. Signaling Option Numbers</a> options dependent also on
+ * the message code.
  */
 public final class OptionNumberRegistry {
 	public static final int UNKNOWN			= -1;
@@ -48,39 +68,42 @@ public final class OptionNumberRegistry {
 	public static final int RESERVED_3		= 136;
 	public static final int RESERVED_4		= 140;
 
-	// draft-ietf-core-observe-14
+	// RFC 7641
 	public static final int OBSERVE			= 6;
 
-	// draft-ietf-core-block-14
+	// RFC 7959
 	public static final int BLOCK2			= 23;
 	public static final int BLOCK1			= 27;
 	public static final int SIZE2			= 28;
 
-	//TODO temporary assignment
+	// RFC 8613
 	public static final int OSCORE			= 9;
-
+	
 	// EDHOC (temporary assignment)
 	public static final int EDHOC			= 21;
+
+	// RFC 7967
+	public static final int NO_RESPONSE		= 258;
 
 	/**
 	 * Option names.
 	 */
 	public static class Names {
-		public static final String Reserved 		= "Reserved";
+		public static final String Reserved			= "Reserved";
 
-		public static final String If_Match 		= "If-Match";
-		public static final String Uri_Host 		= "Uri-Host";
-		public static final String ETag 			= "ETag";
-		public static final String If_None_Match 	= "If-None-Match";
-		public static final String Uri_Port 		= "Uri-Port";
-		public static final String Location_Path 	= "Location-Path";
-		public static final String Uri_Path 		= "Uri-Path";
+		public static final String If_Match			= "If-Match";
+		public static final String Uri_Host			= "Uri-Host";
+		public static final String ETag				= "ETag";
+		public static final String If_None_Match	= "If-None-Match";
+		public static final String Uri_Port			= "Uri-Port";
+		public static final String Location_Path	= "Location-Path";
+		public static final String Uri_Path			= "Uri-Path";
 		public static final String Content_Format	= "Content-Format";
-		public static final String Max_Age 			= "Max-Age";
-		public static final String Uri_Query 		= "Uri-Query";
-		public static final String Accept 			= "Accept";
-		public static final String Location_Query 	= "Location-Query";
-		public static final String Proxy_Uri 		= "Proxy-Uri";
+		public static final String Max_Age			= "Max-Age";
+		public static final String Uri_Query		= "Uri-Query";
+		public static final String Accept			= "Accept";
+		public static final String Location_Query	= "Location-Query";
+		public static final String Proxy_Uri		= "Proxy-Uri";
 		public static final String Proxy_Scheme		= "Proxy-Scheme";
 		public static final String Size1			= "Size1";
 
@@ -90,9 +113,12 @@ public final class OptionNumberRegistry {
 		public static final String Block1			= "Block1";
 		public static final String Size2			= "Size2";
 
-		public static final String Object_Security  = "Object-Security";
+		public static final String Object_Security	= "Object-Security";
 
+		public static final String No_Response		= "No-Response";
+		
 		public static final String Edhoc            = "EDHOC";
+		
 	}
 
 	/**
@@ -107,9 +133,19 @@ public final class OptionNumberRegistry {
 	/**
 	 * The format types of CoAP options.
 	 */
-	public static enum optionFormats {
+	public static enum OptionFormat {
 		INTEGER, STRING, OPAQUE, UNKNOWN, EMPTY
 	}
+
+	/**
+	 * Custom option number registry.
+	 * 
+	 * @since 3.7
+	 * @deprecated please use
+	 *             {@link StandardOptionRegistry#getDefaultOptionRegistry()}.
+	 */
+	@Deprecated
+	private static volatile CustomOptionNumberRegistry customRegistry;
 
 	/**
 	 * Returns the option format based on the option number.
@@ -117,38 +153,16 @@ public final class OptionNumberRegistry {
 	 * @param optionNumber
 	 *            The option number
 	 * @return The option format corresponding to the option number
+	 * @deprecated please use
+	 *             {@link StandardOptionRegistry#getDefaultOptionRegistry()}.
 	 */
-	public static optionFormats getFormatByNr(int optionNumber) {
-		switch (optionNumber) {
-		case CONTENT_FORMAT:
-		case MAX_AGE:
-		case URI_PORT:
-		case OBSERVE:
-		case BLOCK2:
-		case BLOCK1:
-		case SIZE2:
-		case SIZE1:
-		case ACCEPT:
-			return optionFormats.INTEGER;
-		case IF_NONE_MATCH:
-			return optionFormats.EMPTY;
-		case URI_HOST:
-		case URI_PATH:
-		case URI_QUERY:
-		case LOCATION_PATH:
-		case LOCATION_QUERY:
-		case PROXY_URI:
-		case PROXY_SCHEME:
-			return optionFormats.STRING;
-		case ETAG:
-		case IF_MATCH:
-		case OSCORE:
-			return optionFormats.OPAQUE;
-		// EDHOC
-		case EDHOC:
-			return optionFormats.EMPTY;
-		default:
-			return optionFormats.UNKNOWN;
+	@Deprecated
+	public static OptionFormat getFormatByNr(int optionNumber) {
+		OptionDefinition definition = StandardOptionRegistry.getDefaultOptionRegistry().getDefinitionByNumber(optionNumber);
+		if (definition != null) {
+			return definition.getFormat();
+		} else {
+			return OptionFormat.UNKNOWN;
 		}
 	}
 
@@ -209,6 +223,14 @@ public final class OptionNumberRegistry {
 		 * When an option is not Unsafe, it is not a Cache-Key (NoCacheKey) if
 		 * and only if bits 3-5 are all set to 1; all other bit combinations
 		 * mean that it indeed is a Cache-Key
+		 * 
+		 * https://tools.ietf.org/html/rfc7252#page-40
+		 * 
+		 * Critical = (onum & 1);
+		 * UnSafe = (onum & 2);
+		 * NoCacheKey = ((onum & 0x1e) == 0x1c);
+		 * 
+		 *    Figure 11: Determining Characteristics from an Option Number
 		 */
 		return (optionNumber & 0x1E) == 0x1C;
 	}
@@ -225,34 +247,111 @@ public final class OptionNumberRegistry {
 	}
 
 	/**
-	 * Checks if is single value.
+	 * Checks whether an option is a custom option.
+	 * 
+	 * CoAP may be extended by custom options. If critical custom option are
+	 * considered, such option numbers must be provided with
+	 * {@link Builder#setCriticalCustomOptions}.
 	 * 
 	 * @param optionNumber
 	 *            the option number
-	 * @return {@code true} if is single value
+	 * @return {@code true} if the option is a custom option
+	 * @since 3.7
+	 * @deprecated obsolete
 	 */
+	@Deprecated
+	public static boolean isCustomOption(int optionNumber) {
+		return StandardOptionRegistry.STANDARD_OPTIONS.getDefinitionByNumber(optionNumber) == null;
+	}
+
+	/**
+	 * Checks whether an option has a single value.
+	 * 
+	 * @param optionNumber
+	 *            the option number
+	 * @return {@code true} if the option has a single value
+	 * @deprecated please use
+	 *             {@link StandardOptionRegistry#getDefaultOptionRegistry()}.
+	 */
+	@Deprecated
 	public static boolean isSingleValue(int optionNumber) {
-		switch (optionNumber) {
-		case CONTENT_FORMAT:
-		case MAX_AGE:
-		case PROXY_URI:
-		case PROXY_SCHEME:
-		case URI_HOST:
-		case URI_PORT:
-		case IF_NONE_MATCH:
-		case OBSERVE:
-		case ACCEPT:
-		case OSCORE:
-		case EDHOC: // EDHOC
-		default:
+		OptionDefinition definition = StandardOptionRegistry.getDefaultOptionRegistry().getDefinitionByNumber(optionNumber);
+		if (definition != null) {
+			return definition.isSingleValue();
+		} else {
 			return true;
-		case ETAG:
-		case IF_MATCH:
-		case URI_PATH:
-		case URI_QUERY:
-		case LOCATION_PATH:
-		case LOCATION_QUERY:
-			return false;
+		}
+	}
+
+	/**
+	 * Assert, that the value matches the options's definition.
+	 * 
+	 * See <a href="https://tools.ietf.org/html/rfc7252#page-53" target="_blank">RFC7252, 5.10.
+	 * Option Definitions </a>.
+	 * 
+	 * @param optionNumber option's number
+	 * @param value value to check
+	 * @throws IllegalArgumentException if value doesn't match the definition
+	 * @since 3.0
+	 * @deprecated please use
+	 *             {@link StandardOptionRegistry#getDefaultOptionRegistry()}.
+	 */
+	@Deprecated
+	public static void assertValue(int optionNumber, long value) {
+		OptionDefinition definition = StandardOptionRegistry.getDefaultOptionRegistry().getDefinitionByNumber(optionNumber);
+		if (definition != null) {
+			try {
+				definition.assertValue(IntegerOptionDefinition.setLongValue(value));
+			} catch (IllegalArgumentException ex) {
+				throw new IllegalArgumentException(ex.getMessage() + " Value " + value);
+			}
+		}
+	}
+
+	/**
+	 * Assert, that the value length matches the options's definition.
+	 * 
+	 * See <a href="https://tools.ietf.org/html/rfc7252#page-53" target="_blank">RFC7252, 5.10.
+	 * Option Definitions </a>.
+	 * 
+	 * @param optionNumber option's number
+	 * @param valueLength value length
+	 * @throws IllegalArgumentException if value length doesn't match the
+	 *             definition
+	 * @since 3.0
+	 * @deprecated
+	 */
+	public static void assertValueLength(int optionNumber, int valueLength) {
+		int min = 0;
+		int max = 65535 + 269;
+		int[] lengths = null;
+		OptionDefinition definition = StandardOptionRegistry.getDefaultOptionRegistry().getDefinitionByNumber(optionNumber);
+		if (definition != null) {
+			lengths = definition.getValueLengths();
+		}
+		if (lengths != null) {
+			if (lengths.length == 2) {
+				min = lengths[0];
+				max = lengths[1];
+			} else if (lengths.length == 1) {
+				min = lengths[0];
+				max = lengths[0];
+			}
+		}
+		if (valueLength < min || valueLength > max) {
+			String name = toString(optionNumber);
+			if (min == max) {
+				if (min == 0) {
+					throw new IllegalArgumentException(
+							"Option " + name + " value of " + valueLength + " bytes must be empty.");
+				} else {
+					throw new IllegalArgumentException(
+							"Option " + name + " value of " + valueLength + " bytes must be " + min + " bytes.");
+				}
+			} else {
+				throw new IllegalArgumentException("Option " + name + " value of " + valueLength
+						+ " bytes must be in range of [" + min + "-" + max + "] bytes.");
+			}
 		}
 	}
 
@@ -274,90 +373,189 @@ public final class OptionNumberRegistry {
 	 * @param optionNumber
 	 *            the option number to describe
 	 * @return a string describing the option number
+	 * @deprecated please use
+	 *             {@link StandardOptionRegistry#getDefaultOptionRegistry()}.
 	 */
+	@Deprecated
 	public static String toString(int optionNumber) {
-		switch (optionNumber) {
-		case RESERVED_0:
-		case RESERVED_1:
-		case RESERVED_2:
-		case RESERVED_3:
-		case RESERVED_4:
-			return Names.Reserved;
-		case IF_MATCH:
-			return Names.If_Match;
-		case URI_HOST:
-			return Names.Uri_Host;
-		case ETAG:
-			return Names.ETag;
-		case IF_NONE_MATCH:
-			return Names.If_None_Match;
-		case URI_PORT:
-			return Names.Uri_Port;
-		case LOCATION_PATH:
-			return Names.Location_Path;
-		case URI_PATH:
-			return Names.Uri_Path;
-		case CONTENT_FORMAT:
-			return Names.Content_Format;
-		case MAX_AGE:
-			return Names.Max_Age;
-		case URI_QUERY:
-			return Names.Uri_Query;
-		case ACCEPT:
-			return Names.Accept;
-		case LOCATION_QUERY:
-			return Names.Location_Query;
-		case PROXY_URI:
-			return Names.Proxy_Uri;
-		case PROXY_SCHEME:
-			return Names.Proxy_Scheme;
-		case OBSERVE:
-			return Names.Observe;
-		case BLOCK2:
-			return Names.Block2;
-		case BLOCK1:
-			return Names.Block1;
-		case SIZE2:
-			return Names.Size2;
-		case SIZE1:
-			return Names.Size1;
-		case OSCORE:
-			return Names.Object_Security;
-	
-		// EDHOC
-		case EDHOC:
-			return Names.Edhoc;
-
-		default:
+		OptionDefinition definition = StandardOptionRegistry.getDefaultOptionRegistry().getDefinitionByNumber(optionNumber);
+		if (definition != null) {
+			return definition.getName();
+		} else {
 			return String.format("Unknown (%d)", optionNumber);
 		}
 	}
-	
+
+	/**
+	 * Returns the option number of a string representation.
+	 * 
+	 * @param name string representation of the option number
+	 * @return the option number. {@link #UNKNOWN}, if string representation
+	 *         doesn't match a known option number.
+	 * @deprecated please use
+	 *             {@link StandardOptionRegistry#getDefaultOptionRegistry()}.
+	 */
+	@Deprecated
 	public static int toNumber(String name) {
-		if (Names.If_Match.equals(name))			return IF_MATCH;
-		else if (Names.Uri_Host.equals(name))		return URI_HOST;
-		else if (Names.ETag.equals(name))			return ETAG;
-		else if (Names.If_None_Match.equals(name))	return IF_NONE_MATCH;
-		else if (Names.Uri_Port.equals(name))		return URI_PORT;
-		else if (Names.Location_Path.equals(name))	return LOCATION_PATH;
-		else if (Names.Uri_Path.equals(name))		return URI_PATH;
-		else if (Names.Content_Format.equals(name))	return CONTENT_FORMAT;
-		else if (Names.Max_Age.equals(name))		return MAX_AGE;
-		else if (Names.Uri_Query.equals(name))		return URI_QUERY;
-		else if (Names.Accept.equals(name))			return ACCEPT;
-		else if (Names.Location_Query.equals(name))	return LOCATION_QUERY;
-		else if (Names.Proxy_Uri.equals(name))		return PROXY_URI;
-		else if (Names.Proxy_Scheme.equals(name))	return PROXY_SCHEME;
-		else if (Names.Observe.equals(name))		return OBSERVE;
-		else if (Names.Block2.equals(name))			return BLOCK2;
-		else if (Names.Block1.equals(name))			return BLOCK1;
-		else if (Names.Size2.equals(name))			return SIZE2;
-		else if (Names.Size1.equals(name))			return SIZE1;
-		else if (Names.Object_Security.equals(name)) return OSCORE;
-		else if (Names.Edhoc.equals(name))          return EDHOC; // EDHOC
-		else return UNKNOWN;
+		OptionDefinition definition = StandardOptionRegistry.getDefaultOptionRegistry().getDefinitionByName(name);
+		if (definition != null) {
+			return definition.getNumber();
+		} else {
+			return UNKNOWN;
+		}
+	}
+
+	/**
+	 * Get critical custom options.
+	 * 
+	 * @return Array of critical custom options. {@code null}, to not check for
+	 *         critical custom options (default), empty to fail on custom
+	 *         critical options.
+	 * @see CustomOptionNumberRegistry#getCriticalCustomOptions()
+	 * @see UdpDataParser#UdpDataParser(boolean, int[])
+	 * @see TcpDataParser#TcpDataParser(int[])
+	 * @since 3.7
+	 * @deprecated please use
+	 *             {@link StandardOptionRegistry#getDefaultOptionRegistry()}.
+	 */
+	@Deprecated
+	public static int[] getCriticalCustomOptions() {
+		CustomOptionNumberRegistry custom = customRegistry;
+		if (custom != null) {
+			return custom.getCriticalCustomOptions();
+		} else {
+			return null;
+		}
+	}
+
+	/**
+	 * Set custom option number registry.
+	 * 
+	 * Note: it is not intended to use a mixture of custom
+	 * {@link OptionDefinition}s and a {@link CustomOptionNumberRegistry}
+	 * simultaneously! Please migrate your custom option to
+	 * {@link OptionDefinition}s.
+	 * 
+	 * Setting a custom option number registry resets also the
+	 * {@link StandardOptionRegistry#setDefaultOptionRegistry(OptionRegistry)}.
+	 * 
+	 * @param custom custom option number registry. {@code null} to remove it.
+	 * @return previous custom option number registry, or {@code null}, if not
+	 *         available.
+	 * @since 3.7
+	 * @deprecated please use
+	 *             {@link StandardOptionRegistry#getDefaultOptionRegistry()}.
+	 */
+	@Deprecated
+	public static CustomOptionNumberRegistry setCustomOptionNumberRegistry(CustomOptionNumberRegistry custom) {
+		CustomOptionNumberRegistry previous = customRegistry;
+		if (previous != custom) {
+			customRegistry = custom;
+			StandardOptionRegistry.setDefaultOptionRegistry(null);
+		}
+		return previous;
+	}
+
+	/**
+	 * Get custom option number registry.
+	 * 
+	 * @return custom option number registry, or {@code null}, if not available.
+	 * @since 3.8
+	 * @deprecated please use
+	 *             {@link StandardOptionRegistry#getDefaultOptionRegistry()}.
+	 */
+	@Deprecated
+	public static CustomOptionNumberRegistry getCustomOptionNumberRegistry() {
+		return customRegistry;
 	}
 
 	private OptionNumberRegistry() {
 	}
+
+	/**
+	 * API to support custom options.
+	 * 
+	 * @since 3.7
+	 * @deprecated please use
+	 *             {@link StandardOptionRegistry#getDefaultOptionRegistry()}.
+	 */
+	@Deprecated
+	public interface CustomOptionNumberRegistry {
+
+		/**
+		 * Get option format by option number.
+		 * 
+		 * @param optionNumber option number
+		 * @return option format, or {@code null}, to use the default.
+		 * @see OptionNumberRegistry#getFormatByNr(int)
+		 */
+		OptionFormat getFormatByNr(int optionNumber);
+
+		/**
+		 * Checks whether an custom option has a single value.
+		 * 
+		 * @param optionNumber option number
+		 * @return {@code true}, if the option has a single value,
+		 *         {@code false}, if the option is repeatable.
+		 * @see OptionNumberRegistry#isSingleValue(int)
+		 */
+		boolean isSingleValue(int optionNumber);
+
+		/**
+		 * Assert, that the value matches the custom options's definition.
+		 * 
+		 * If no {@link IllegalArgumentException} is thrown, the default checks
+		 * in {@link OptionNumberRegistry#assertValue(int, long)} are applied.
+		 * 
+		 * @param optionNumber option's number
+		 * @param value value to check
+		 * @throws IllegalArgumentException if value doesn't match the
+		 *             definition
+		 * @see OptionNumberRegistry#assertValue(int, long)
+		 */
+		void assertValue(int optionNumber, long value);
+
+		/**
+		 * Get value length of custom option.
+		 * 
+		 * @param optionNumber option's number
+		 * @return array with minimum and maximum length of values. If both are
+		 *         equal, the array may contain only one length. If {@code null}
+		 *         is returned, the default lengths of values is used.
+		 * @see OptionNumberRegistry#assertValueLength(int, int)
+		 */
+		int[] getValueLengths(int optionNumber);
+
+		/**
+		 * Returns a string representation of the custom option number.
+		 * 
+		 * @param optionNumber
+		 *            the option number to describe
+		 * @return a string describing the option number
+		 * @see OptionNumberRegistry#toString(int)
+		 */
+		String toString(int optionNumber);
+
+		/**
+		 * Returns the option number of a string representation.
+		 * 
+		 * @param name string representation of the option number
+		 * @return the option number. {@link #UNKNOWN}, if string representation
+		 *         doesn't match a known custom option number.
+		 * @see OptionNumberRegistry#toNumber(String)
+		 */
+		int toNumber(String name);
+
+		/**
+		 * Get critical custom options.
+		 * 
+		 * @return Array of critical custom options. {@code null}, to not check
+		 *         for critical custom options (default), empty to fail on
+		 *         custom critical options.
+		 * @see OptionNumberRegistry#getCriticalCustomOptions()
+		 */
+		int[] getCriticalCustomOptions();
+	}
+
+
 }

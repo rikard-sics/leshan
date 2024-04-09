@@ -45,7 +45,7 @@ public class CbcBlockCipher {
 	/**
 	 * Converts a given TLSCiphertext.fragment to a TLSCompressed.fragment
 	 * structure as defined by
-	 * <a href="http://tools.ietf.org/html/rfc5246#section-6.2.3.2"> RFC 5246,
+	 * <a href="https://tools.ietf.org/html/rfc5246#section-6.2.3.2" target="_blank"> RFC 5246,
 	 * section 6.2.3.2</a>:
 	 * 
 	 * <pre>
@@ -151,7 +151,7 @@ public class CbcBlockCipher {
 	/**
 	 * Converts a given TLSCompressed.fragment to a TLSCiphertext.fragment
 	 * structure as defined by
-	 * <a href="http://tools.ietf.org/html/rfc5246#section-6.2.3.2"> RFC 5246,
+	 * <a href="https://tools.ietf.org/html/rfc5246#section-6.2.3.2" target="_blank"> RFC 5246,
 	 * section 6.2.3.2</a>
 	 * 
 	 * <pre>
@@ -183,7 +183,7 @@ public class CbcBlockCipher {
 		 * See http://tools.ietf.org/html/rfc5246#section-6.2.3.2 for
 		 * explanation
 		 */
-		DatagramWriter plainMessage = new DatagramWriter(true);
+		DatagramWriter plainMessage = new DatagramWriter(payload.length + suite.getMacLength() + suite.getRecordIvLength(), true);
 		plainMessage.writeBytes(payload);
 
 		// add MAC
@@ -209,14 +209,14 @@ public class CbcBlockCipher {
 		byte[] plaintext = plainMessage.toByteArray();
 		plainMessage.close();
 
-		byte[] message = Arrays.copyOf(iv,  iv.length+  plaintext.length);
-		blockCipher.doFinal(plaintext, 0,  plaintext.length, message, iv.length);
+		byte[] message = Arrays.copyOf(iv, iv.length + plaintext.length);
+		blockCipher.doFinal(plaintext, 0, plaintext.length, message, iv.length);
 		return message;
 	}
 
 	/**
 	 * Calculates a MAC for use with CBC block ciphers as specified by
-	 * <a href="http://tools.ietf.org/html/rfc5246#section-6.2.3.2"> RFC 5246,
+	 * <a href="https://tools.ietf.org/html/rfc5246#section-6.2.3.2" target="_blank"> RFC 5246,
 	 * section 6.2.3.2</a>.
 	 * 
 	 * @param hmac mac function

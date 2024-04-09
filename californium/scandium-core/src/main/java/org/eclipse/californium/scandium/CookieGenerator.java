@@ -33,7 +33,6 @@ import javax.crypto.SecretKey;
 
 import org.eclipse.californium.elements.util.ClockUtil;
 import org.eclipse.californium.scandium.dtls.ClientHello;
-import org.eclipse.californium.scandium.dtls.CompressionMethod;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
 import org.eclipse.californium.scandium.dtls.cipher.ThreadLocalMac;
 import org.eclipse.californium.scandium.util.SecretUtil;
@@ -47,7 +46,7 @@ import org.eclipse.californium.scandium.util.SecretUtil;
  * </pre>
  *
  * as suggested
- * <a href="http://tools.ietf.org/html/rfc6347#section-4.2.1">here</a>.
+ * <a href="https://tools.ietf.org/html/rfc6347#section-4.2.1" target="_blank">here</a>.
  *
  * Note: redesigned in 2.3 to use {@link ThreadLocalMac} instead of
  * {@link Mac#clone()}.
@@ -55,9 +54,17 @@ import org.eclipse.californium.scandium.util.SecretUtil;
 public class CookieGenerator {
 
 	/**
-	 * Key lifetime in nanos.
+	 * Cookie's key lifetime in nanos.
+	 * 
+	 * Considering the current and the past cookie enables the client to execute
+	 * handshakes also when the cookie key has changed. That usually requires a
+	 * new challenge with a HELLO_VERIFY_REQUEST, but supporting also the past
+	 * cookie eliminates the need of that extra exchange. The lifetime of a
+	 * CLIENT_HELLO therefore spans also twice this value.
+	 * 
+	 * @since 3.0 (renamed COOKIE_LIFE_TIME)
 	 */
-	public static final long COOKIE_LIFE_TIME = TimeUnit.MINUTES.toNanos(5);
+	public static final long COOKIE_LIFETIME_NANOS = TimeUnit.SECONDS.toNanos(60);
 
 	/**
 	 * Nanos of next key generation.
@@ -72,7 +79,8 @@ public class CookieGenerator {
 	 */
 	private SecretKey pastSecretKey;
 	/**
-	 * Lock to protect access to {@link #secretKeys}, {@link #randomBytes} and
+	 * Lock to protect access to {@link #currentSecretKey},
+	 * {@link #pastSecretKey}, {@link #randomBytes} and
 	 * {@link #randomGenerator}.
 	 */
 	private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
@@ -84,7 +92,7 @@ public class CookieGenerator {
 	/**
 	 * Return the secret key for cookie generation.
 	 * 
-	 * Secret key is refreshed every {@link #KEY_LIFE_TIME} nanoseconds.
+	 * Secret key is refreshed every {@link #COOKIE_LIFETIME_NANOS} nanoseconds.
 	 * 
 	 * @return secret key
 	 * @since 2.3
@@ -110,7 +118,7 @@ public class CookieGenerator {
 				return currentSecretKey;
 			}
 			randomGenerator.nextBytes(randomBytes);
-			nextKeyGenerationNanos = now + COOKIE_LIFE_TIME;
+			nextKeyGenerationNanos = now + COOKIE_LIFETIME_NANOS;
 			// shift secret keys
 			pastSecretKey = currentSecretKey;
 			currentSecretKey = SecretUtil.create(randomBytes, "MAC");
@@ -145,31 +153,26 @@ public class CookieGenerator {
 	 * </pre>
 	 *
 	 * as suggested
-	 * <a href="http://tools.ietf.org/html/rfc6347#section-4.2.1">here</a>.
+	 * <a href="https://tools.ietf.org/html/rfc6347#section-4.2.1" target="_blank">here</a>.
 	 *
+	 * @param peer address of the peer
 	 * @param clientHello received client hello to generate a cookie for
 	 * @param secretKey to generate a cookie for
 	 * @return the cookie generated from the client's parameters
 	 * @throws GeneralSecurityException if the cookie cannot be computed
 	 * @since 2.3
 	 */
-	private byte[] generateCookie(final ClientHello clientHello, SecretKey secretKey) throws GeneralSecurityException {
+	private byte[] generateCookie(InetSocketAddress peer, ClientHello clientHello, SecretKey secretKey) throws GeneralSecurityException {
 		// Cookie = HMAC(Secret, Client-IP, Client-Parameters)
 		final Mac hmac = CipherSuite.TLS_PSK_WITH_AES_128_CBC_SHA256.getThreadLocalMac();
 		hmac.init(secretKey);
 		// Client-IP
-		InetSocketAddress peer = clientHello.getPeer();
 		hmac.update(peer.getAddress().getAddress());
 		int port = peer.getPort();
 		hmac.update((byte) (port >>> 8));
 		hmac.update((byte) port);
 		// Client-Parameters
-		hmac.update((byte) clientHello.getClientVersion().getMajor());
-		hmac.update((byte) clientHello.getClientVersion().getMinor());
-		hmac.update(clientHello.getRandom().getBytes());
-		hmac.update(clientHello.getSessionId().getBytes());
-		hmac.update(CipherSuite.listToByteArray(clientHello.getCipherSuites()));
-		hmac.update(CompressionMethod.listToByteArray(clientHello.getCompressionMethods()));
+		clientHello.updateForCookie(hmac);
 		return hmac.doFinal();
 	}
 
@@ -182,29 +185,31 @@ public class CookieGenerator {
 	 * </pre>
 	 *
 	 * as suggested
-	 * <a href="http://tools.ietf.org/html/rfc6347#section-4.2.1">here</a>.
+	 * <a href="https://tools.ietf.org/html/rfc6347#section-4.2.1" target="_blank">here</a>.
 	 *
+	 * @param peer address of the peer
 	 * @param clientHello received client hello to generate a cookie for
 	 * @return the cookie generated from the client's parameters
 	 * @throws GeneralSecurityException if the cookie cannot be computed
 	 */
-	public byte[] generateCookie(final ClientHello clientHello) throws GeneralSecurityException {
-		return generateCookie(clientHello, getSecretKey());
+	public byte[] generateCookie(InetSocketAddress peer, ClientHello clientHello) throws GeneralSecurityException {
+		return generateCookie(peer, clientHello, getSecretKey());
 	}
 
 	/**
 	 * Generates the cookie using the secret key of the past period.
 	 * 
+	 * @param peer address of the peer
 	 * @param clientHello received client hello to generate a cookie for
 	 * @return the cookie generated from the client's parameters. {@code null},
 	 *         if no secret key of the past period is available.
 	 * @throws GeneralSecurityException if the cookie cannot be computed
 	 * @since 2.3
 	 */
-	public byte[] generatePastCookie(final ClientHello clientHello) throws GeneralSecurityException {
+	public byte[] generatePastCookie(InetSocketAddress peer, ClientHello clientHello) throws GeneralSecurityException {
 		SecretKey secretKey = getPastSecretKey();
 		if (secretKey != null) {
-			return generateCookie(clientHello, secretKey);
+			return generateCookie(peer, clientHello, secretKey);
 		} else {
 			return null;
 		}

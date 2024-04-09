@@ -16,8 +16,8 @@
 package org.eclipse.californium.scandium.dtls.cipher;
 
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertThat;
 
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
@@ -57,7 +57,7 @@ public class PseudoRandomFunctionTest {
 
 	/**
 	 * Verifies TLS1.2PRF-SHA256
-	 * <a href="http://www.ietf.org/mail-archive/web/tls/current/msg03416.html">
+	 * <a href="https://www.ietf.org/mail-archive/web/tls/current/msg03416.html" target="_blank">
 	 * test vector</a>.
 	 */
 	@Test

@@ -35,10 +35,14 @@ package org.eclipse.californium.scandium;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -64,33 +68,45 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.californium.elements.AddressEndpointContext;
 import org.eclipse.californium.elements.EndpointContext;
+import org.eclipse.californium.elements.PersistentComponent;
 import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.RawDataChannel;
 import org.eclipse.californium.elements.auth.ExtensiblePrincipal;
+import org.eclipse.californium.elements.config.CertificateAuthenticationMode;
+import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.util.ClockUtil;
 import org.eclipse.californium.elements.util.TestThreadFactory;
+import org.eclipse.californium.scandium.config.DtlsConfig;
+import org.eclipse.californium.scandium.config.DtlsConfig.DtlsRole;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
+import org.eclipse.californium.scandium.dtls.AlertMessage;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.Connection;
 import org.eclipse.californium.scandium.dtls.ConnectionIdGenerator;
+import org.eclipse.californium.scandium.dtls.DTLSConnectionState;
+import org.eclipse.californium.scandium.dtls.DTLSContext;
 import org.eclipse.californium.scandium.dtls.DTLSSession;
 import org.eclipse.californium.scandium.dtls.DebugConnectionStore;
+import org.eclipse.californium.scandium.dtls.DebugReadWriteLockConnectionStore;
+import org.eclipse.californium.scandium.dtls.DebugSynchronizedConnectionStore;
 import org.eclipse.californium.scandium.dtls.DtlsTestTools;
 import org.eclipse.californium.scandium.dtls.HandshakeException;
 import org.eclipse.californium.scandium.dtls.Handshaker;
-import org.eclipse.californium.scandium.dtls.InMemorySessionCache;
+import org.eclipse.californium.scandium.dtls.TestInMemorySessionStore;
 import org.eclipse.californium.scandium.dtls.Record;
 import org.eclipse.californium.scandium.dtls.ResumptionSupportingConnectionStore;
 import org.eclipse.californium.scandium.dtls.SessionAdapter;
+import org.eclipse.californium.scandium.dtls.SessionId;
+import org.eclipse.californium.scandium.dtls.SessionStore;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
+import org.eclipse.californium.scandium.dtls.cipher.CipherSuite.CertificateKeyAlgorithm;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite.KeyExchangeAlgorithm;
 import org.eclipse.californium.scandium.dtls.pskstore.AdvancedMultiPskStore;
-import org.eclipse.californium.scandium.dtls.pskstore.AdvancedPskStore;
-import org.eclipse.californium.scandium.dtls.rpkstore.TrustedRpkStore;
-import org.eclipse.californium.scandium.dtls.x509.BridgeCertificateVerifier;
-import org.eclipse.californium.scandium.dtls.x509.BridgeCertificateVerifier.Builder;
 import org.eclipse.californium.scandium.dtls.x509.NewAdvancedCertificateVerifier;
+import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
 import org.eclipse.californium.scandium.dtls.x509.StaticNewAdvancedCertificateVerifier;
+import org.eclipse.californium.scandium.dtls.x509.StaticNewAdvancedCertificateVerifier.Builder;
+import org.eclipse.californium.scandium.rule.DtlsNetworkRule;
 
 /**
  * A utility class for implementing DTLS integration tests.
@@ -99,147 +115,117 @@ import org.eclipse.californium.scandium.dtls.x509.StaticNewAdvancedCertificateVe
  */
 public class ConnectorHelper {
 
-	static final String	SERVERNAME							= "my.test.server";
-	static final String	SCOPED_CLIENT_IDENTITY				= "My_client_identity";
-	static final String	SCOPED_CLIENT_IDENTITY_SECRET		= "mySecretPSK";
-	static final String	CLIENT_IDENTITY						= "Client_identity";
-	static final String	CLIENT_IDENTITY_SECRET				= "secretPSK";
-	static final int	MAX_TIME_TO_WAIT_SECS				= 2;
-	static final int	SERVER_CONNECTION_STORE_CAPACITY	= 3;
+	public static final InetSocketAddress LOCAL = new InetSocketAddress(InetAddress.getLoopbackAddress(), 0);
+
+	static final String SERVERNAME = "my.test.server";
+	static final String SERVERNAME2 = "my.test.server2";
+	static final String SERVERNAME_WRONG = "other.bad.server";
+	static final String SCOPED_CLIENT_IDENTITY = "My_client_identity";
+	static final String SCOPED_CLIENT_IDENTITY_SECRET = "mySecretPSK";
+	static final String CLIENT_IDENTITY = "Client_identity";
+	static final String CLIENT_IDENTITY_SECRET = "secretPSK";
+	static final int MAX_TIME_TO_WAIT_SECS = 2;
+	static final int SERVER_CONNECTION_STORE_CAPACITY = 3;
 
 	static final ThreadFactory TEST_UDP_THREAD_FACTORY = new TestThreadFactory("TEST-UDP-");
 
+	boolean useSessionStore;
 	DTLSConnector server;
 	InetSocketAddress serverEndpoint;
 	DebugConnectionStore serverConnectionStore;
-	InMemorySessionCache serverSessionCache;
+	SessionStore serverSessionStore;
+	TestInMemorySessionStore serverTestSessionStore;
 	SimpleRawDataChannel serverRawDataChannel;
 	RawDataProcessor serverRawDataProcessor;
 	Map<InetSocketAddress, LatchSessionListener> sessionListenerMap = new ConcurrentHashMap<>();
-	DTLSSession establishedServerSession;
+	AlertCatcher serverAlertCatcher;
+	DropCatcher serverDropCatcher;
+	AdvancedMultiPskStore serverPskStore;
 
 	DtlsConnectorConfig serverConfig;
+	DtlsConnectorConfig.Builder serverBuilder;
 
-	/**
-	 * Configures and starts a connector representing the <em>server side</em> of a DTLS connection.
-	 * <p>
-	 * The connector is configured as follows:
-	 * <ul>
-	 * <li>binds to an ephemeral port on loopback address, the address can be read from the
-	 * <em>serverEndpoint</em> property</li>
-	 * <li>supports ECDHE_ECDSA and PSK based ciphers using both CCM and CBC</li>
-	 * <li>uses a PSK store containing the {@link #CLIENT_IDENTITY} and matching secret</li>
-	 * <li>uses the private key returned by {@link DtlsTestTools#getPrivateKey()}</li>
-	 * <li>uses {@link DtlsTestTools#getTrustedCertificates()} as the trust anchor</li>
-	 * <li>requires clients to be authenticated</li>
-	 * </ul>
-	 * 
-	 * @throws IOException if the server cannot be started.
-	 * @throws GeneralSecurityException if the keys cannot be read.
-	 */
-	public void startServer() throws IOException, GeneralSecurityException {
-		DtlsConnectorConfig.Builder builder = DtlsConnectorConfig.builder();
-		startServer(builder);
+	public ConnectorHelper(DtlsNetworkRule network) {
+		List<CipherSuite> list = new ArrayList<>(CipherSuite.getCertificateCipherSuites(false, CertificateKeyAlgorithm.EC));
+		list.addAll(CipherSuite.getCipherSuitesByKeyExchangeAlgorithm(false, KeyExchangeAlgorithm.ECDHE_PSK,
+				KeyExchangeAlgorithm.PSK));
+		serverPskStore = new AdvancedMultiPskStore();
+		serverPskStore.setKey(CLIENT_IDENTITY, CLIENT_IDENTITY_SECRET.getBytes());
+		serverPskStore.setKey(SCOPED_CLIENT_IDENTITY, SCOPED_CLIENT_IDENTITY_SECRET.getBytes(), SERVERNAME);
+
+		serverBuilder = DtlsConnectorConfig.builder(network.createTestConfig())
+				.set(DtlsConfig.DTLS_ROLE, DtlsRole.SERVER_ONLY)
+				.set(DtlsConfig.DTLS_RECEIVER_THREAD_COUNT, 1)
+				.set(DtlsConfig.DTLS_CONNECTOR_THREAD_COUNT, 2)
+				.set(DtlsConfig.DTLS_MAX_CONNECTIONS, SERVER_CONNECTION_STORE_CAPACITY)
+				.set(DtlsConfig.DTLS_STALE_CONNECTION_THRESHOLD, 5, TimeUnit.MINUTES)
+				.setAddress(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0))
+				.setAdvancedPskStore(serverPskStore)
+				.setCertificateIdentityProvider(new SingleCertificateProvider(DtlsTestTools.getPrivateKey(),
+						DtlsTestTools.getServerCertificateChain(), CertificateType.RAW_PUBLIC_KEY, CertificateType.X_509))
+				.set(DtlsConfig.DTLS_RECOMMENDED_CIPHER_SUITES_ONLY, false)
+				.set(DtlsConfig.DTLS_CIPHER_SUITES, list)
+				.setLoggingTag("server");
 	}
 
 	/**
-	 * Configures and starts a connector representing the <em>server side</em> of a DTLS connection.
+	 * Configures and starts a connector representing the <em>server side</em>
+	 * of a DTLS connection.
 	 * <p>
 	 * The connector is configured as follows:
 	 * <ul>
-	 * <li>binds to an ephemeral port on loopback address, the address can be read from the
-	 * <em>serverEndpoint</em> property</li>
-	 * <li>supports ECDHE_ECDSA and PSK based ciphers using both CCM and CBC</li>
-	 * <li>uses a PSK store containing the {@link #CLIENT_IDENTITY} and matching secret</li>
-	 * <li>uses the private key returned by {@link DtlsTestTools#getPrivateKey()}</li>
-	 * <li>uses {@link DtlsTestTools#getTrustedCertificates()} as the trust anchor</li>
+	 * <li>binds to an ephemeral port on loopback address, the address can be
+	 * read from the <em>serverEndpoint</em> property</li>
+	 * <li>supports ECDHE_ECDSA and PSK based ciphers using both CCM and
+	 * CBC</li>
+	 * <li>uses a PSK store containing the {@link #CLIENT_IDENTITY} and matching
+	 * secret</li>
+	 * <li>uses the private key returned by
+	 * {@link DtlsTestTools#getPrivateKey()}</li>
+	 * <li>uses {@link DtlsTestTools#getTrustedCertificates()} as the trust
+	 * anchor</li>
 	 * </ul>
 	 * 
 	 * @param builder pre-configuration
 	 * @throws IOException if the server cannot be started.
 	 * @throws GeneralSecurityException if the keys cannot be read.
 	 */
-	public void startServer(DtlsConnectorConfig.Builder builder) throws IOException, GeneralSecurityException {
-		builder.setAddress(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0))
-				.setMaxConnections(SERVER_CONNECTION_STORE_CAPACITY)
-				.setReceiverThreadCount(1)
-				.setConnectionThreadCount(2)
-				.setLoggingTag("server")
-				.setServerOnly(true);
+	public void startServer() throws IOException, GeneralSecurityException {
 
-		DtlsConnectorConfig incompleteConfig = builder.getIncompleteConfig();
-		if (incompleteConfig.getMaxTransmissionUnitLimit() == null) {
-			builder.setMaxTransmissionUnit(1024);
+		ensureTrusts(serverBuilder);
+
+		if (serverBuilder.getIncompleteConfig().getDatagramFilter() == null) {
+			serverDropCatcher = new DropCatcher();
+			serverBuilder.setDatagramFilter(serverDropCatcher);
 		}
-
-		ensurePskStore(builder);
-
-		if (incompleteConfig.getPrivateKey() == null) {
-			builder.setIdentity(DtlsTestTools.getPrivateKey(), DtlsTestTools.getServerCertificateChain(),
-					CertificateType.RAW_PUBLIC_KEY, CertificateType.X_509);
+		serverConfig = serverBuilder.build();
+		serverSessionStore = serverConfig.getSessionStore();
+		if (serverSessionStore instanceof TestInMemorySessionStore) {
+			serverTestSessionStore = (TestInMemorySessionStore) serverSessionStore;
+		} else {
+			serverTestSessionStore = null;
 		}
+		serverConnectionStore = createDebugConnectionStore(serverConfig);
 
-		if (incompleteConfig.getSupportedCipherSuites() == null) {
-			List<CipherSuite> list = new ArrayList<>(CipherSuite.getEcdsaCipherSuites(false));
-			list.addAll(CipherSuite.getCipherSuitesByKeyExchangeAlgorithm(false, KeyExchangeAlgorithm.ECDHE_PSK,
-					KeyExchangeAlgorithm.PSK));
-			builder.setRecommendedCipherSuitesOnly(false);
-			builder.setSupportedCipherSuites(list);
-		}
-
-		ensureTrusts(builder);
-
-		serverConfig = builder.build();
-
-		serverSessionCache = new InMemorySessionCache();
-		serverConnectionStore = new DebugConnectionStore(SERVER_CONNECTION_STORE_CAPACITY, 5 * 60, serverSessionCache); // connection timeout 5mins
-		serverConnectionStore.setTag("server");
-
+		serverAlertCatcher = new AlertCatcher();
 		server = new DtlsTestConnector(serverConfig, serverConnectionStore);
 		serverRawDataProcessor = new MessageCapturingProcessor();
 		serverRawDataChannel = new SimpleRawDataChannel(server, serverRawDataProcessor);
 		server.setRawDataReceiver(serverRawDataChannel);
+		server.setAlertHandler(serverAlertCatcher);
 		server.start();
 		serverEndpoint = server.getAddress();
 	}
 
-	public AdvancedPskStore ensurePskStore(DtlsConnectorConfig.Builder builder) {
-		AdvancedPskStore result = null;
-		DtlsConnectorConfig incompleteConfig = builder.getIncompleteConfig();
-		if (incompleteConfig.getAdvancedPskStore() == null) {
-			AdvancedMultiPskStore pskStore = new AdvancedMultiPskStore();
-			pskStore.setKey(CLIENT_IDENTITY, CLIENT_IDENTITY_SECRET.getBytes());
-			pskStore.setKey(SCOPED_CLIENT_IDENTITY, SCOPED_CLIENT_IDENTITY_SECRET.getBytes(), SERVERNAME);
-			result = pskStore;
-			builder.setAdvancedPskStore(result);
-		}
-		return result;
-	}
-
-	@SuppressWarnings("deprecation")
 	public NewAdvancedCertificateVerifier ensureTrusts(DtlsConnectorConfig.Builder builder) {
 		NewAdvancedCertificateVerifier result = null;
 		DtlsConnectorConfig incompleteConfig = builder.getIncompleteConfig();
-		if (!Boolean.FALSE.equals(incompleteConfig.isClientAuthenticationRequired())
-				|| Boolean.TRUE.equals(incompleteConfig.isClientAuthenticationWanted())) {
+		if (incompleteConfig.get(DtlsConfig.DTLS_CLIENT_AUTHENTICATION_MODE) != CertificateAuthenticationMode.NONE) {
 			if (incompleteConfig.getAdvancedCertificateVerifier() == null) {
-				Builder verifierBuilder = BridgeCertificateVerifier.builder();
-				X509Certificate[] trustedCertificates = incompleteConfig.getTrustStore();
-				if (trustedCertificates == null) {
-					trustedCertificates = DtlsTestTools.getTrustedCertificates();
-				} else {
-					// reset trust store to use NewAdvancedCertificateVerifier
-					builder.setTrustStore(null);
-				}
+				Builder verifierBuilder = StaticNewAdvancedCertificateVerifier.builder();
+				X509Certificate[] trustedCertificates = DtlsTestTools.getTrustedCertificates();
 				verifierBuilder.setTrustedCertificates(trustedCertificates);
-				TrustedRpkStore rpks = incompleteConfig.getRpkTrustStore();
-				if (rpks == null) {
-					verifierBuilder.setTrustAllRPKs();
-				} else {
-					// reset trust store to use NewAdvancedCertificateVerifier
-					builder.setRpkTrustStore(null);
-					verifierBuilder.setTrustedRPKs(rpks);
-				}
+				verifierBuilder.setTrustAllRPKs();
 				result = verifierBuilder.build();
 				builder.setAdvancedCertificateVerifier(result);
 			}
@@ -258,18 +244,23 @@ public class ConnectorHelper {
 	}
 
 	/**
-	 * Resets the encapsulated server side connector's state to its initial configuration.
+	 * Resets the encapsulated server side connector's state to its initial
+	 * configuration.
 	 * <p>
 	 * This entails:
 	 * <ul>
 	 * <li>clear server's connection store</li>
-	 * <li>re-set server's {@code RawDataChannel}'s processor to <em>serverRawDataProcessor</em></li>
+	 * <li>re-set server's {@code RawDataChannel}'s processor to
+	 * <em>serverRawDataProcessor</em></li>
 	 * <li>clear server's error handler</li>
 	 * </ul>
 	 */
 	public void cleanUpServer() {
 		if (serverConnectionStore != null) {
 			serverConnectionStore.clear();
+		}
+		if (serverTestSessionStore != null) {
+			serverTestSessionStore.clear();
 		}
 		if (serverRawDataProcessor != null) {
 			serverRawDataProcessor.clear();
@@ -278,6 +269,17 @@ public class ConnectorHelper {
 			serverRawDataChannel.setProcessor(serverRawDataProcessor);
 		}
 		if (server != null) {
+			server.clearRecentHandshakes();
+		}
+		if (serverDropCatcher != null) {
+			serverDropCatcher.resetEvent();
+		}
+		if (serverAlertCatcher != null) {
+			serverAlertCatcher.resetEvent();
+			if (server != null) {
+				server.setAlertHandler(serverAlertCatcher);
+			}
+		} else if (server != null) {
 			server.setAlertHandler(null);
 		}
 		sessionListenerMap.clear();
@@ -306,54 +308,69 @@ public class ConnectorHelper {
 		return new DtlsTestConnector(configuration, connectionStore);
 	}
 
-	public DtlsConnectorConfig newStandardClientConfig(final InetSocketAddress bindAddress) throws IOException, GeneralSecurityException {
-		return newStandardClientConfigBuilder(bindAddress).build();
-	}
-
-	public DtlsConnectorConfig.Builder newStandardClientConfigBuilder(final InetSocketAddress bindAddress) throws IOException, GeneralSecurityException {
+	public static DtlsConnectorConfig.Builder newClientConfigBuilder(DtlsNetworkRule network) throws IOException, GeneralSecurityException {
+		InetSocketAddress clientEndpoint = new InetSocketAddress(InetAddress.getLoopbackAddress(), 0);
 		NewAdvancedCertificateVerifier clientCertificateVerifier = StaticNewAdvancedCertificateVerifier.builder()
-				.setTrustedCertificates(DtlsTestTools.getTrustedCertificates())
-				.setTrustAllRPKs()
-				.build();
-		return DtlsConnectorConfig.builder()
+				.setTrustedCertificates(DtlsTestTools.getTrustedCertificates()).setTrustAllRPKs().build();
+		return DtlsConnectorConfig.builder(network.createTestConfig())
+				.set(DtlsConfig.DTLS_ROLE, DtlsRole.CLIENT_ONLY)
 				.setLoggingTag("client")
-				.setAddress(bindAddress)
-				.setReceiverThreadCount(1)
-				.setConnectionThreadCount(2)
-				.setIdentity(DtlsTestTools.getClientPrivateKey(), DtlsTestTools.getClientCertificateChain(), CertificateType.RAW_PUBLIC_KEY, CertificateType.X_509)
+				.setAddress(clientEndpoint)
+				.set(DtlsConfig.DTLS_RECEIVER_THREAD_COUNT, 1)
+				.set(DtlsConfig.DTLS_CONNECTOR_THREAD_COUNT, 2)
+				.setCertificateIdentityProvider(new SingleCertificateProvider(DtlsTestTools.getClientPrivateKey(),
+						DtlsTestTools.getClientCertificateChain(), CertificateType.RAW_PUBLIC_KEY,
+						CertificateType.X_509))
 				.setAdvancedCertificateVerifier(clientCertificateVerifier);
 	}
 
-	LatchDecrementingRawDataChannel givenAnEstablishedSession(DTLSConnector client) throws Exception {
-		return givenAnEstablishedSession(client, true);
+	public DTLSSession getEstablishedServerDtlsSession(InetSocketAddress address) {
+		DTLSSession establishedServerSession = getEstablishedServerDtlsContext(address).getSession();
+		assertNotNull(establishedServerSession);
+		return establishedServerSession;
 	}
 
-	LatchDecrementingRawDataChannel givenAnEstablishedSession(DTLSConnector client, boolean releaseSocket) throws Exception {
-		RawData raw = RawData.outbound("Hello World".getBytes(), new AddressEndpointContext(serverEndpoint), null, false);
+	public DTLSContext getEstablishedServerDtlsContext(InetSocketAddress address) {
+		Connection con = serverConnectionStore.get(address);
+		assertNotNull(con);
+		DTLSContext establishedServerContext = con.getEstablishedDtlsContext();
+		assertNotNull(establishedServerContext);
+		return establishedServerContext;
+	}
+
+	public TestContext givenAnEstablishedSession(DTLSConnector client, boolean releaseSocket)
+			throws Exception {
+		RawData raw = RawData.outbound("Hello World".getBytes(), new AddressEndpointContext(serverEndpoint), null,
+				false);
 		return givenAnEstablishedSession(client, raw, releaseSocket);
 	}
 
-	LatchDecrementingRawDataChannel givenAnEstablishedSession(DTLSConnector client, RawData msgToSend, boolean releaseSocket) throws Exception {
+	public TestContext givenAnEstablishedSession(DTLSConnector client, RawData msgToSend,
+			boolean releaseSocket) throws Exception {
 
 		LatchDecrementingRawDataChannel clientChannel = new LatchDecrementingRawDataChannel(1);
 		client.setRawDataReceiver(clientChannel);
 		client.start();
-		clientChannel.setAddress(client.getAddress());
+		InetSocketAddress clientAddress = client.getAddress();
 		client.send(msgToSend);
-		assertTrue("DTLS handshake timed out after " + MAX_TIME_TO_WAIT_SECS + " seconds", clientChannel.await(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS));
+		assertTrue("DTLS handshake timed out after " + MAX_TIME_TO_WAIT_SECS + " seconds",
+				clientChannel.await(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS));
 		Connection con = serverConnectionStore.get(client.getAddress());
 		assertNotNull(con);
-		establishedServerSession = con.getEstablishedSession();
+		DTLSContext establishedServerContext = con.getDtlsContext();
+		assertNotNull(establishedServerContext);
+		DTLSSession establishedServerSession = con.getEstablishedSession();
 		assertNotNull(establishedServerSession);
 		if (releaseSocket) {
 			synchronized (client) {
 				client.stop();
-				// in order to prevent sporadic BindExceptions during test execution
-				// give OS some time before allowing test cases to re-bind to same port
+				// in order to prevent sporadic BindExceptions during test
+				// execution, give OS some time before allowing test cases
+				// to re-bind to same port
 				client.wait(200);
 			}
 		}
-		return clientChannel;
+		return new TestContext(clientChannel, clientAddress, establishedServerContext);
 	}
 
 	static void assertPrincipalHasAdditionalInfo(Principal peerIdentity, String key, String expectedValue) {
@@ -363,8 +380,113 @@ public class ConnectorHelper {
 		assertThat(p.getExtendedInfo().get(key, String.class), is(expectedValue));
 	}
 
-	static class LatchDecrementingRawDataChannel implements RawDataChannel {
-		private InetSocketAddress address;
+	public static void assertReloadConnections(String tag, PersistentComponent component) {
+		try {
+			ByteArrayOutputStream out = new ByteArrayOutputStream();
+			int saveCount = component.save(out, 1000);
+			byte[] data1 = out.toByteArray();
+			int readCount = component.load(new ByteArrayInputStream(data1), 0);
+			assertEquals(tag + " read mismatch", saveCount, readCount);
+			out = new ByteArrayOutputStream();
+			int saveCount2 = component.save(out, 1000);
+			byte[] data2 = out.toByteArray();
+			assertEquals(tag + " 2. save mismatch", saveCount, saveCount2);
+			assertTrue(tag + " data mismatch", Arrays.equals(data1, data2));
+		} catch (IllegalStateException e) {
+			e.printStackTrace();
+			fail(tag + ": " + e.getMessage());
+		} catch (IOException e) {
+			e.printStackTrace();
+			fail(tag + " io-error: " + e.getMessage());
+		}
+	}
+
+	public static void reloadConnections(String tag, PersistentComponent component) {
+		try {
+			ByteArrayOutputStream out = new ByteArrayOutputStream();
+			int saveCount = component.save(out, 1000);
+			byte[] data1 = out.toByteArray();
+			int readCount = component.load(new ByteArrayInputStream(data1), 0);
+			assertEquals(tag + " read mismatch", saveCount, readCount);
+		} catch (IllegalStateException e) {
+			e.printStackTrace();
+			fail(tag + ": " + e.getMessage());
+		} catch (IOException e) {
+			e.printStackTrace();
+			fail(tag + " io-error: " + e.getMessage());
+		}
+	}
+
+	public static DebugConnectionStore createDebugConnectionStore(DtlsConnectorConfig configuration) {
+		DebugConnectionStore store = createDebugConnectionStore(configuration.getConfiguration(),
+				configuration.getSessionStore());
+		store.setTag(configuration.getLoggingTag());
+		return store;
+	}
+
+	@SuppressWarnings("deprecation")
+	public static DebugConnectionStore createDebugConnectionStore(Configuration configuration,
+			SessionStore sessionStore) {
+		DebugConnectionStore store;
+		if (configuration.get(DtlsConfig.DTLS_READ_WRITE_LOCK_CONNECTION_STORE)) {
+			store = new DebugReadWriteLockConnectionStore(configuration.get(DtlsConfig.DTLS_MAX_CONNECTIONS),
+					configuration.get(DtlsConfig.DTLS_STALE_CONNECTION_THRESHOLD, TimeUnit.SECONDS), sessionStore,
+					configuration.get(DtlsConfig.DTLS_REMOVE_STALE_DOUBLE_PRINCIPALS));
+		} else {
+			store = new DebugSynchronizedConnectionStore(configuration.get(DtlsConfig.DTLS_MAX_CONNECTIONS),
+					configuration.get(DtlsConfig.DTLS_STALE_CONNECTION_THRESHOLD, TimeUnit.SECONDS), sessionStore);
+		}
+		return store;
+	}
+
+	public static class TestContext {
+
+		private LatchDecrementingRawDataChannel channel;
+		private InetSocketAddress clientAddress;
+		private DTLSContext establishedServerContext;
+
+		public TestContext(LatchDecrementingRawDataChannel channel, InetSocketAddress clientAddress,
+				DTLSContext establishedServerContext) {
+			this.channel = channel;
+			this.clientAddress = clientAddress;
+			this.establishedServerContext = establishedServerContext;
+		}
+
+		public void setLatchCount(int count) {
+			channel.setLatchCount(count);
+		}
+
+		public boolean await(long timeout, TimeUnit unit) throws InterruptedException {
+			return channel.await(timeout, unit);
+		}
+
+		public LatchDecrementingRawDataChannel getChannel() {
+			return channel;
+		}
+
+		public InetSocketAddress getClientAddress() {
+			return clientAddress;
+		}
+
+		public DTLSContext getEstablishedServerContext() {
+			return establishedServerContext;
+		}
+
+		public DTLSSession getEstablishedServerSession() {
+			return establishedServerContext.getSession();
+		}
+
+		public CipherSuite getCipherSuite() {
+			return establishedServerContext.getSession().getCipherSuite();
+		}
+
+		public SessionId getSessionIdentifier() {
+			return establishedServerContext.getSession().getSessionIdentifier();
+		}
+	}
+
+	public static class LatchDecrementingRawDataChannel implements RawDataChannel {
+
 		private CountDownLatch latch;
 
 		public LatchDecrementingRawDataChannel() {
@@ -372,14 +494,6 @@ public class ConnectorHelper {
 
 		public LatchDecrementingRawDataChannel(int count) {
 			setLatchCount(count);
-		}
-
-		public synchronized InetSocketAddress getAddress() {
-			return address;
-		}
-
-		public synchronized void setAddress(InetSocketAddress address) {
-			this.address = address;
 		}
 
 		public synchronized void setLatchCount(int count) {
@@ -442,8 +556,6 @@ public class ConnectorHelper {
 			if (processor != null) {
 				RawData response = processor.process(raw);
 				if (response != null && connector != null) {
-					InetSocketAddress socketAddress = connector.getAddress();
-					setAddress(socketAddress);
 					connector.send(response);
 				}
 			}
@@ -464,6 +576,7 @@ public class ConnectorHelper {
 	}
 
 	static class MessageCapturingProcessor implements RawDataProcessor {
+
 		private volatile boolean quiet;
 		private AtomicLong time = new AtomicLong(System.nanoTime());
 		private AtomicReference<RawData> inboundMessage = new AtomicReference<RawData>();
@@ -539,7 +652,7 @@ public class ConnectorHelper {
 	static class RecordCollectorDataHandler implements DataHandler {
 
 		private BlockingQueue<List<Record>> records = new LinkedBlockingQueue<>();
-		private Map<Integer, DTLSSession> apply = new HashMap<Integer, DTLSSession>(8);
+		private Map<Integer, DTLSConnectionState> apply = new HashMap<>(8);
 		private final ConnectionIdGenerator cidGenerator;
 
 		RecordCollectorDataHandler() {
@@ -556,18 +669,22 @@ public class ConnectorHelper {
 		 * @param session session to be applied. {@code null} is applied to
 		 *            epoch 0.
 		 */
-		void applySession(DTLSSession session) {
-			if (session == null) {
-				apply.put(0, null);
+		void applyDtlsContext(DTLSContext context) {
+			if (context == null) {
+				apply.put(0, DTLSConnectionState.NULL);
 			} else {
-				apply.put(session.getReadEpoch(), session);
+				apply.put(context.getReadEpoch(), context.getReadState());
 			}
 		}
 
 		@Override
 		public void handleData(InetSocketAddress endpoint, byte[] data) {
 			try {
-				records.put(DtlsTestTools.fromByteArray(data, endpoint, cidGenerator, ClockUtil.nanoRealtime()));
+				List<Record> messages = DtlsTestTools.fromByteArray(data, cidGenerator, ClockUtil.nanoRealtime());
+				for (Record record : messages) {
+					record.setAddress(endpoint, null);
+				}
+				records.put(messages);
 			} catch (InterruptedException e) {
 			}
 		}
@@ -578,7 +695,7 @@ public class ConnectorHelper {
 				for (Record record : result) {
 					if (apply.containsKey(record.getEpoch())) {
 						try {
-							record.applySession(apply.get(record.getEpoch()));
+							record.decodeFragment(apply.get(record.getEpoch()));
 						} catch (GeneralSecurityException e) {
 							throw new IllegalStateException(e);
 						} catch (HandshakeException e) {
@@ -624,14 +741,14 @@ public class ConnectorHelper {
 	}
 
 	public static class LatchSessionListener extends SessionAdapter {
-		
+
 		private CountDownLatch finished = new CountDownLatch(1);
 		private AtomicBoolean established = new AtomicBoolean();
 		private CountDownLatch completed = new CountDownLatch(1);
 		private AtomicReference<Throwable> error = new AtomicReference<Throwable>();
 
 		@Override
-		public void sessionEstablished(Handshaker handshaker, DTLSSession establishedSession)
+		public void contextEstablished(Handshaker handshaker, DTLSContext establishedContext)
 				throws HandshakeException {
 			established.set(true);
 			finished.countDown();
@@ -675,8 +792,8 @@ public class ConnectorHelper {
 		final Thread receiver;
 		volatile DatagramSocket socket;
 
-		public UdpConnector(final int port, final DataHandler dataHandler) {
-			this.address = new InetSocketAddress(InetAddress.getLoopbackAddress(), port);
+		public UdpConnector(InetSocketAddress address, DataHandler dataHandler) {
+			this.address = address;
 			this.handler = dataHandler;
 			Runnable rec = new Runnable() {
 
@@ -690,7 +807,8 @@ public class ConnectorHelper {
 							socket.receive(packet);
 							if (packet.getLength() > 0) {
 								// handle data
-								handler.handleData((InetSocketAddress)packet.getSocketAddress(), Arrays.copyOfRange(packet.getData(), packet.getOffset(), packet.getLength()));
+								handler.handleData((InetSocketAddress) packet.getSocketAddress(),
+										Arrays.copyOfRange(packet.getData(), packet.getOffset(), packet.getLength()));
 								packet.setLength(buf.length);
 							}
 						} catch (IOException e) {
@@ -728,7 +846,8 @@ public class ConnectorHelper {
 		}
 
 		public void sendRecord(InetSocketAddress peerAddress, byte[] record) throws IOException {
-			DatagramPacket datagram = new DatagramPacket(record, record.length, peerAddress.getAddress(), peerAddress.getPort());
+			DatagramPacket datagram = new DatagramPacket(record, record.length, peerAddress.getAddress(),
+					peerAddress.getPort());
 			send(datagram);
 		}
 
@@ -747,6 +866,7 @@ public class ConnectorHelper {
 	}
 
 	class DtlsTestConnector extends DTLSConnector {
+
 		DtlsTestConnector(DtlsConnectorConfig configuration) {
 			super(configuration);
 		}
@@ -764,6 +884,7 @@ public class ConnectorHelper {
 	}
 
 	public static interface BuilderSetup {
+
 		void setup(DtlsConnectorConfig.Builder builder);
 	}
 
@@ -832,6 +953,92 @@ public class ConnectorHelper {
 			}
 		}
 		return expand.toArray(new BuilderSetups[expand.size()]);
+	}
+
+	/**
+	 * Events catcher.
+	 *
+	 * @param <T> events type
+	 * @since 3.10
+	 */
+	public static class Catcher<T> {
+
+		private T event;
+
+		public synchronized void onEvent(T event) {
+			if (this.event == null) {
+				this.event = event;
+				notify();
+			}
+		}
+
+		/**
+		 * Reset current event.
+		 */
+		public synchronized void resetEvent() {
+			this.event = null;
+		}
+
+		/**
+		 * Get event.
+		 * 
+		 * @return event, or {@code null}, if no event was received.
+		 */
+		public synchronized T getEvent() {
+			return event;
+		}
+
+		/**
+		 * Wait for event.
+		 * 
+		 * @return event if reported, {@code null}, otherwise.
+		 */
+		public synchronized T waitForEvent(long timeout, TimeUnit unit) throws InterruptedException {
+			if (event == null && timeout > 0) {
+				long millis = unit.toMillis(timeout);
+				if (millis <= 0) {
+					millis = 1;
+				}
+				wait(millis);
+			}
+			return event;
+		}
+	}
+
+	public static class AlertCatcher extends Catcher<AlertMessage> implements AlertHandler {
+
+		@Override
+		public void onAlert(InetSocketAddress peer, AlertMessage alert) {
+			onEvent(alert);
+		}
+	}
+
+	public static class DropCatcher extends Catcher<Record> implements DatagramFilterExtended, DatagramFilter {
+
+		@Override
+		public void onDrop(DatagramPacket packet) {
+
+		}
+
+		@Override
+		public void onDrop(Record record) {
+			onEvent(record);
+		}
+
+		@Override
+		public boolean onReceiving(DatagramPacket packet) {
+			return true;
+		}
+
+		@Override
+		public boolean onReceiving(Record record, Connection connection) {
+			return true;
+		}
+
+		@Override
+		public boolean onMacError(Record record, Connection connection) {
+			return true;
+		}
 	}
 
 }

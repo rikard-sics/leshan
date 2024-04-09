@@ -18,6 +18,9 @@ title = "Californium (Cf) Core"
   image = "logos/Cf_256.png"
 
 [[buttons]]
+  text = "Introduction"
+  url = "https://github.com/eclipse/californium/tree/main/californium-core#californium-cf---coap-core"
+[[buttons]]
   text = "Repository"
   url = "https://github.com/eclipse/californium"
 +++
@@ -27,3 +30,5 @@ The project is divided into five sub-projects. The Californium (Cf) Core provide
 Californium (Cf) is dual-licensed under EPL and EDL. The latter is a BSD-like license, which means the Cf CoAP framework can be used together with proprietary code to implement your IoT product!
 
 Cf is available from Maven Central and very easy to consume in your Java project. We have got your back covered from OSGi wrapper to HTTP-CoAP cross-proxy to advanced test suites that have been used at the ETSI Plugtests.
+
+[RFC 7252](https://www.rfc-editor.org/rfc/rfc7252.html), [RFC 7641](https://www.rfc-editor.org/rfc/rfc7641.html), [RFC 7959](https://www.rfc-editor.org/rfc/rfc7959.html).

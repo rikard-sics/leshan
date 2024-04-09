@@ -14,29 +14,26 @@
  *    Joakim Brorsson
  *    Ludwig Seitz (RISE SICS)
  *    Tobias Andersson (RISE SICS)
+ *    Rikard Höglund (RISE)
  *    
  ******************************************************************************/
 package org.eclipse.californium.oscore;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
-import org.eclipse.californium.core.coap.MessageObserver;
 import org.eclipse.californium.core.coap.Option;
 import org.eclipse.californium.core.coap.OptionNumberRegistry;
 import org.eclipse.californium.core.coap.OptionSet;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
-import org.eclipse.californium.core.coap.Token;
-import org.eclipse.californium.elements.EndpointContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.eclipse.californium.core.coap.CoAP.Code;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
-import org.eclipse.californium.core.coap.CoAP.Type;
+import org.eclipse.californium.core.coap.Message;
 
 /**
  * 
@@ -86,6 +83,7 @@ public class OptionJuggle {
 		boolean hasProxyScheme = options.hasProxyScheme();
 		boolean hasMaxAge = options.hasMaxAge();
 		boolean hasObserve = options.hasObserve();
+		boolean hasEdhoc = options.hasEdhoc(); // EDHOC
 
 		OptionSet ret = new OptionSet();
 
@@ -126,6 +124,11 @@ public class OptionJuggle {
 			ret.setOscore(oscore);
 		}
 
+		// EDHOC
+		if (hasEdhoc) {
+			ret.setEdhoc(true);
+		}
+		
 		return ret;
 	}
 
@@ -146,6 +149,7 @@ public class OptionJuggle {
 			case OptionNumberRegistry.URI_PORT:
 			case OptionNumberRegistry.PROXY_SCHEME:
 			case OptionNumberRegistry.OSCORE:
+			case OptionNumberRegistry.EDHOC: // EDHOC
 				// do not encrypt
 				break;
 			case OptionNumberRegistry.PROXY_URI:
@@ -192,7 +196,7 @@ public class OptionJuggle {
 	 * @return a new optionSet which have had the non-special e options removed
 	 */
 	public static OptionSet discardEOptions(OptionSet optionSet) {
-		LOGGER.info("Removing inner only E options from the outer options");
+		LOGGER.trace("Removing inner only E options from the outer options");
 		OptionSet result = new OptionSet();
 		
 		for (Option opt : optionSet.asSortedList()) {
@@ -207,7 +211,7 @@ public class OptionJuggle {
 	 * Sets the fake code in the coap header and returns the real code.
 	 * 
 	 * @param request the request that receives its fake code.
-	 * @return realCode the real code.
+	 * @return request with fake code.
 	 */
 	public static Request setFakeCodeRequest(Request request) {
 		Code fakeCode = request.getOptions().hasObserve() ? Code.FETCH : Code.POST;
@@ -229,7 +233,7 @@ public class OptionJuggle {
 	 * Sets the fake code in the coap header and returns the real code.
 	 * 
 	 * @param response the response that receives its fake code.
-	 * @return realCode the real code.
+	 * @return response with fake code.
 	 */
 	public static Response setFakeCodeResponse(Response response) {
 		return responseWithNewCode(response, ResponseCode.CHANGED);
@@ -251,29 +255,13 @@ public class OptionJuggle {
 	 * 
 	 * @param request the Request having its CoAP Code changed
 	 * @param code the new CoAP Code
+	 * @return request with new code.
 	 */
 	private static Request requestWithNewCode(Request request, Code code) {
-		OptionSet options = request.getOptions();
-		byte[] payload = request.getPayload();
-		Token token = request.getToken();
-		EndpointContext destinationContext = request.getDestinationContext();
-		EndpointContext sourceContext = request.getSourceContext();
-		List<MessageObserver> messageObservers = request.getMessageObservers();
-		int mid = request.getMID();
-		Type type = request.getType();
-		Map<String, String> userContext = request.getUserContext();
 
 		Request newRequest = new Request(code);
-
-		newRequest.setOptions(options);
-		newRequest.setPayload(payload);
-		newRequest.setToken(token);
-		newRequest.setDestinationContext(destinationContext);
-		newRequest.setSourceContext(sourceContext);
-		newRequest.addMessageObservers(messageObservers);
-		newRequest.setMID(mid);
-		newRequest.setType(type);
-		newRequest.setUserContext(userContext);
+		copy(newRequest, request);
+		newRequest.setUserContext(request.getUserContext());
 
 		return newRequest;
 	}
@@ -283,35 +271,33 @@ public class OptionJuggle {
 	 * 
 	 * @param response the Response having its ResponseCode changed
 	 * @param code the new ResponseCode
+	 * @return response with new code.
 	 */
 	private static Response responseWithNewCode(Response response, ResponseCode code) {
-		OptionSet options = response.getOptions();
-		byte[] payload = response.getPayload();
-		Token token = response.getToken();
-		EndpointContext destinationContext = response.getDestinationContext();
-		EndpointContext sourceContext = response.getSourceContext();
-		List<MessageObserver> messageObservers = response.getMessageObservers();
-		int mid = response.getMID();
-		Type type = response.getType();
-		Long rtt = response.getRTT();
+		Long rtt = response.getApplicationRttNanos();
 
 		Response newResponse = new Response(code);
-
-		newResponse.setOptions(options);
-		newResponse.setPayload(payload);
-		newResponse.setToken(token);
-		newResponse.setDestinationContext(destinationContext);
-		newResponse.setSourceContext(sourceContext);
-		newResponse.addMessageObservers(messageObservers);
-		newResponse.setMID(mid);
-		newResponse.setType(type);
+		copy(newResponse, response);
 		if (rtt != null) {
-			newResponse.setRTT(rtt);
+			newResponse.setApplicationRttNanos(rtt);
 		}
 
 		return newResponse;
 	}
 
+	private static void copy(Message newMessage, Message oldMessage) {
+		newMessage.setOptions(oldMessage.getOptions());
+		newMessage.setPayload(oldMessage.getPayload());
+		newMessage.setToken(oldMessage.getToken());
+		newMessage.setDestinationContext(oldMessage.getDestinationContext());
+		newMessage.setSourceContext(oldMessage.getSourceContext());
+		newMessage.addMessageObservers(oldMessage.getMessageObservers());
+		newMessage.setMID(oldMessage.getMID());
+		newMessage.setType(oldMessage.getType());
+		newMessage.setDuplicate(oldMessage.isDuplicate());
+		newMessage.setNanoTimestamp(oldMessage.getNanoTimestamp());
+	}
+	
 	/**
 	 * Merges two optionSets and returns the merge. Priority is eOptions
 	 * 
@@ -321,83 +307,13 @@ public class OptionJuggle {
 	 */
 	public static OptionSet merge(OptionSet eOptions, OptionSet uOptions) {
 
-		List<Option> u = uOptions.asSortedList();
+		List<Option> e = eOptions.asSortedList();
 
-		for (Option tmp : u) {
-			if (!eOptions.hasOption(tmp.getNumber())) {
+		for (Option tmp : uOptions.asSortedList()) {
+			if (Collections.binarySearch(e, tmp) < 0) {
 				eOptions.addOption(tmp);
 			}
 		}
 		return eOptions;
 	}
-
-	/**
-	 * Retrieve RID value from an OSCORE option.
-	 * 
-	 * @param oscoreOption the OSCORE option
-	 * @return the RID value
-	 */
-	static byte[] getRid(byte[] oscoreOption) {
-		if (oscoreOption.length == 0) {
-			return null;
-		}
-	
-		// Parse the flag byte
-		byte flagByte = oscoreOption[0];
-		int n = flagByte & 0x07;
-		int k = flagByte & 0x08;
-		int h = flagByte & 0x10;
-	
-		byte[] kid = null;
-		int index = 1;
-	
-		// Partial IV
-		index += n;
-	
-		// KID Context
-		if (h != 0) {
-			int s = oscoreOption[index];
-			index += s + 1;
-		}
-	
-		// KID
-		if (k != 0) {
-			kid = Arrays.copyOfRange(oscoreOption, index, oscoreOption.length);
-		}
-	
-		return kid;
-	}
-
-	/**
-	 * Retrieve ID Context value from an OSCORE option.
-	 * 
-	 * @param oscoreOption the OSCORE option
-	 * @return the ID Context value
-	 */
-	static byte[] getIDContext(byte[] oscoreOption) {
-		if (oscoreOption.length == 0) {
-			return null;
-		}
-
-		// Parse the flag byte
-		byte flagByte = oscoreOption[0];
-		int n = flagByte & 0x07;
-		int h = flagByte & 0x10;
-
-		byte[] kidContext = null;
-		int index = 1;
-
-		// Partial IV
-		index += n;
-
-		// KID Context
-		if (h != 0) {
-			int s = oscoreOption[index];
-			kidContext = Arrays.copyOfRange(oscoreOption, index + 1, index + 1 + s);
-			index += s + 1;
-		}
-
-		return kidContext;
-	}
-
 }

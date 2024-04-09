@@ -34,6 +34,7 @@ import org.eclipse.californium.core.server.MessageDeliverer;
 import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.elements.AddressEndpointContext;
 import org.eclipse.californium.elements.util.Bytes;
+import org.eclipse.californium.elements.util.ExpectedExceptionWrapper;
 import org.eclipse.californium.rule.CoapNetworkRule;
 import org.eclipse.californium.rule.CoapThreadsRule;
 import org.junit.After;
@@ -72,6 +73,7 @@ public class OSCoreAlgorithmsTest {
 	private final static byte[] master_salt = { (byte) 0x9e, (byte) 0x7c, (byte) 0xa9, (byte) 0x22, (byte) 0x23,
 			(byte) 0x78, (byte) 0x63, (byte) 0x40 };
 	private final static byte[] context_id = { 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74 };
+	private final static int MAX_UNFRAGMENTED_SIZE = 4096;
 
 	@Before
 	public void initLogger() {
@@ -114,7 +116,7 @@ public class OSCoreAlgorithmsTest {
 	}
 
 	@Rule
-	public ExpectedException exceptionRule = ExpectedException.none();
+	public ExpectedException exceptionRule = ExpectedExceptionWrapper.none();
 
 	@Test
 	public void testNotSupported() throws Exception {
@@ -138,8 +140,8 @@ public class OSCoreAlgorithmsTest {
 		// Set up OSCORE context information for request (client)
 		byte[] sid = new byte[] { 0x02 };
 		byte[] rid = new byte[] { 0x01 };
-		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, context_id);
-		dbClient.addContext("coap://" + serverEndpoint.getAddress().getAddress().getHostAddress(), ctx);
+		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, context_id, MAX_UNFRAGMENTED_SIZE);
+		dbClient.addContext(TestTools.getUri(serverEndpoint, ""), ctx);
 
 		// send request
 		Request request = new Request(CoAP.Code.POST);
@@ -159,7 +161,7 @@ public class OSCoreAlgorithmsTest {
 		// Set up OSCORE context information for response (server)
 		byte[] sid = new byte[] { 0x01 };
 		byte[] rid = new byte[] { 0x02 };
-		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, context_id);
+		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, context_id, MAX_UNFRAGMENTED_SIZE);
 		dbServer.addContext(ctx);
 
 		// Create server

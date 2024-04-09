@@ -27,14 +27,16 @@ import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
 import org.eclipse.californium.core.coap.EmptyMessage;
+import org.eclipse.californium.core.coap.Message;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.coap.Token;
-import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.network.interceptors.MessageInterceptor;
+import org.eclipse.californium.core.network.stack.CoapStack;
 import org.eclipse.californium.core.observe.NotificationListener;
 import org.eclipse.californium.core.server.MessageDeliverer;
 import org.eclipse.californium.elements.Connector;
+import org.eclipse.californium.elements.config.Configuration;
 
 /**
  * A communication endpoint multiplexing CoAP message exchanges between (potentially multiple) clients and servers.
@@ -88,7 +90,7 @@ public interface Endpoint {
 	 * Executors are not managed by the endpoint, it must be shutdown
 	 * externally, if the resource should be freed.
 	 * 
-	 * Executors must not be <code>null</code>.
+	 * Executors must not be {@code null}.
 	 *
 	 * @param mainExecutor executors used for main tasks
 	 * @param secondaryExecutor intended to be used for rare executing timers (e.g. cleanup tasks). 
@@ -98,10 +100,16 @@ public interface Endpoint {
 	void setExecutors(ScheduledExecutorService mainExecutor, ScheduledExecutorService secondaryExecutor);
 
 	/**
-	 * Adds the observer to the list of observers. This has nothing to do with
-	 * CoAP observe relations.
+	 * Adds the observer to the list of observers.
+	 * 
+	 * If the endpoint {@link #isStarted()}, calls
+	 * {@link EndpointObserver#started(Endpoint)}.
+	 * 
+	 * <b>Note:</b> This has nothing to do with CoAP observe relations.
 	 * 
 	 * @param obs the observer
+	 * @since 3.1 (calls {@link EndpointObserver#started(Endpoint)}, if already
+	 *        {@link #isStarted()})
 	 */
 	void addObserver(EndpointObserver obs);
 
@@ -164,9 +172,40 @@ public interface Endpoint {
 	List<MessageInterceptor> getInterceptors();
 
 	/**
+	 * Adds a message interceptor to this endpoint to be called, when messages
+	 * are fully processed. The send methods are called, when a {@link Message}
+	 * was successful sent by the {@link Connector}, or the sending failed. The
+	 * receive methods are called, when the message, received by the
+	 * {@link Connector}, was fully processed by the {@link Matcher} and the
+	 * {@link CoapStack}.
+	 * <p>
+	 * A {@code MessageInterceptor} registered here must not cancel the message.
+	 * </p>
+	 *
+	 * @param interceptor the interceptor
+	 */
+	void addPostProcessInterceptor(MessageInterceptor interceptor);
+
+	/**
+	 * Removes the interceptor.
+	 *
+	 * @param interceptor the interceptor
+	 */
+	void removePostProcessInterceptor(MessageInterceptor interceptor);
+
+	/**
+	 * Gets all registered message post process interceptor.
+	 *
+	 * @return an immutable list of the registered message post process interceptors.
+	 */
+	List<MessageInterceptor> getPostProcessInterceptors();
+
+	/**
 	 * Send the specified request.
 	 * 
-	 * Failures are reported with {@link Request#setSendError(Throwable)}
+	 * Failures are reported with {@link Request#setSendError(Throwable)}.
+	 * 
+	 * Note: since 3.5 sending a request instance twice causes a send error.
 	 *
 	 * @param request the request
 	 */
@@ -175,6 +214,8 @@ public interface Endpoint {
 	/**
 	 * Send the specified response.
 	 *
+	 * Note: since 3.5 sending a response instance twice causes a send error.
+	 * 
 	 * @param exchange the exchange
 	 * @param response the response
 	 */
@@ -183,6 +224,8 @@ public interface Endpoint {
 	/**
 	 * Send the specified empty message.
 	 *
+	 * Note: since 3.5 sending a empty message instance twice causes a send error.
+	 * 
 	 * @param exchange the exchange
 	 * @param message the message
 	 */
@@ -216,8 +259,9 @@ public interface Endpoint {
 	 * Gets this endpoint's configuration.
 	 *
 	 * @return the configuration
+	 * @since 3.0 (changed return type to Configuration)
 	 */
-	NetworkConfig getConfig();
+	Configuration getConfig();
 
 	/**
 	 * Cancel observation for this request.

@@ -13,8 +13,6 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
-import java.net.InetSocketAddress;
-
 /**
  * Raised when an handshake flight timed-out.
  * 
@@ -26,13 +24,13 @@ public class DtlsHandshakeTimeoutException extends DtlsException {
 
 	private final int flightNumber;
 
-	public DtlsHandshakeTimeoutException(String message, InetSocketAddress peer, int flightNumber) {
-		super(message, peer);
+	public DtlsHandshakeTimeoutException(String message, int flightNumber) {
+		super(message);
 		this.flightNumber = flightNumber;
 	}
 
 	/**
-	 * For more details on flight numbers, see <a href="https://tools.ietf.org/html/rfc6347#section-4.2.4">RFC 6347 §4.2.4.  Timeout and Retransmission</a>.
+	 * For more details on flight numbers, see <a href="https://tools.ietf.org/html/rfc6347#section-4.2.4" target="_blank">RFC 6347 §4.2.4. Timeout and Retransmission</a>.
 	 * 
 	 * @return Number of the flight which timed-out.
 	 */

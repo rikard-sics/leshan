@@ -20,7 +20,6 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
-import java.net.InetSocketAddress;
 import java.security.MessageDigest;
 
 import javax.crypto.Mac;
@@ -44,83 +43,68 @@ import org.slf4j.LoggerFactory;
  * protected with the just negotiated algorithms, keys, and secrets. The value
  * handshake_messages includes all handshake messages starting at
  * {@link ClientHello} up to, but not including, this {@link Finished} message.
- * See <a href="http://tools.ietf.org/html/rfc5246#section-7.4.9">RFC 5246</a>.
+ * See <a href="https://tools.ietf.org/html/rfc5246#section-7.4.9" target=
+ * "_blank">RFC 5246</a>.
  */
 public final class Finished extends HandshakeMessage {
 
 	private static final Logger LOG = LoggerFactory.getLogger(Finished.class);
 
-	// Members ////////////////////////////////////////////////////////
-
 	private final byte[] verifyData;
 
-	// Constructors ///////////////////////////////////////////////////
-
 	/**
-	 * Generates the verify data according to <a
-	 * href="http://tools.ietf.org/html/rfc5246#section-7.4.9">RFC 5246</a>:<br>
+	 * Generates the verify data according to
+	 * <a href="https://tools.ietf.org/html/rfc5246#section-7.4.9" target=
+	 * "_blank">RFC 5246</a>:<br>
 	 * <code>PRF(master_secret, finished_label, Hash(handshake_messages))</code>.
 	 * 
-	 * @param hmac
-	 *            the mac. e.g. HmacSHA256
-	 * @param masterSecret
-	 *            the master_secret
-	 * @param isClient
-	 *            to determine the finished_label
-	 * @param handshakeHash
-	 *            the hash
-	 * @param peerAddress the IP address and port of the peer this
-	 *            message has been received from or should be sent to
+	 * @param hmac the mac. e.g. HmacSHA256
+	 * @param masterSecret the master_secret
+	 * @param isClient to determine the finished_label
+	 * @param handshakeHash the hash
 	 */
-	public Finished(Mac hmac, SecretKey masterSecret, boolean isClient, byte[] handshakeHash, InetSocketAddress peerAddress) {
-		super(peerAddress);
+	public Finished(Mac hmac, SecretKey masterSecret, boolean isClient, byte[] handshakeHash) {
 		verifyData = generateVerifyData(hmac, masterSecret, isClient, handshakeHash);
 	}
 
 	/**
 	 * Called when reconstructing byteArray.
 	 * 
-	 * @param verifyData the raw verify data
-	 * @param peerAddress the IP address and port of the peer this
-	 *            message has been received from or should be sent to
+	 * @param reader reader with the raw verify data
 	 */
-	private Finished(DatagramReader reader, InetSocketAddress peerAddress) {
-		super(peerAddress);
+	private Finished(DatagramReader reader) {
 		this.verifyData = reader.readBytesLeft();
 	}
 
-	// Methods ////////////////////////////////////////////////////////
-	
 	/**
-	 * See <a href="http://tools.ietf.org/html/rfc5246#section-7.4.9">RFC
-	 * 5246</a>: All of the data from all messages in this handshake (not
-	 * including any HelloRequest messages) up to, but not including, this
-	 * message. This is only data visible at the handshake layer and does not
-	 * include record layer headers.
+	 * See <a href="https://tools.ietf.org/html/rfc5246#section-7.4.9" target=
+	 * "_blank">RFC 5246</a>: All of the data from all messages in this
+	 * handshake (not including any HelloRequest messages) up to, but not
+	 * including, this message. This is only data visible at the handshake layer
+	 * and does not include record layer headers.
 	 * 
-	 * @param hmac
-	 *            the mac. e.g. HmacSHA256
-	 * @param masterSecret
-	 *            the master secret.
-	 * @param isClient
-	 *            whether the verify data comes from the client or the server.
-	 * @param handshakeHash
-	 *            the handshake hash.
+	 * @param hmac the mac. e.g. HmacSHA256
+	 * @param masterSecret the master secret.
+	 * @param isClient whether the verify data comes from the client or the
+	 *            server.
+	 * @param handshakeHash the handshake hash.
 	 * @throws HandshakeException if the data can not be verified.
 	 */
-	public void verifyData(Mac hmac, SecretKey masterSecret, boolean isClient, byte[] handshakeHash) throws HandshakeException {
+	public void verifyData(Mac hmac, SecretKey masterSecret, boolean isClient, byte[] handshakeHash)
+			throws HandshakeException {
 
 		byte[] myVerifyData = generateVerifyData(hmac, masterSecret, isClient, handshakeHash);
 
 		if (!MessageDigest.isEqual(myVerifyData, verifyData)) {
-			StringBuilder msg = new StringBuilder("Verification of peer's [").append(getPeer())
-					.append("] FINISHED message failed");
+			StringBuilder msg = new StringBuilder("Verification of FINISHED message failed");
 			if (LOG.isTraceEnabled()) {
-				msg.append(StringUtil.lineSeparator()).append("Expected: ").append(StringUtil.byteArray2HexString(myVerifyData));
-				msg.append(StringUtil.lineSeparator()).append("Received: ").append(StringUtil.byteArray2HexString(verifyData));
+				msg.append(StringUtil.lineSeparator()).append("Expected: ")
+						.append(StringUtil.byteArray2HexString(myVerifyData));
+				msg.append(StringUtil.lineSeparator()).append("Received: ")
+						.append(StringUtil.byteArray2HexString(verifyData));
 			}
 			LOG.debug(msg.toString());
-			AlertMessage alert = new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE, getPeer());
+			AlertMessage alert = new AlertMessage(AlertLevel.FATAL, AlertDescription.DECRYPT_ERROR);
 			throw new HandshakeException("Verification of FINISHED message failed", alert);
 		}
 	}
@@ -128,7 +112,8 @@ public final class Finished extends HandshakeMessage {
 	private byte[] generateVerifyData(Mac hmac, SecretKey masterSecret, boolean isClient, byte[] handshakeHash) {
 
 		// See http://tools.ietf.org/html/rfc5246#section-7.4.9:
-		// verify_data = PRF(master_secret, finished_label, Hash(handshake_messages)) [0..verify_data_length-1]
+		// verify_data = PRF(master_secret, finished_label,
+		// Hash(handshake_messages)) [0..verify_data_length-1]
 		if (isClient) {
 			return PseudoRandomFunction.doPRF(hmac, masterSecret, Label.CLIENT_FINISHED_LABEL, handshakeHash);
 		} else {
@@ -147,20 +132,18 @@ public final class Finished extends HandshakeMessage {
 	}
 
 	@Override
-	public String toString() {
-		return new StringBuilder(super.toString())
-				.append("\t\tVerify Data: ").append(StringUtil.byteArray2HexString(verifyData)).append(StringUtil.lineSeparator())
-				.toString();
+	public String toString(int indent) {
+		String indentation = StringUtil.indentation(indent + 1);
+		return new StringBuilder(super.toString(indent)).append(indentation).append("Verify Data: ")
+				.append(StringUtil.byteArray2HexString(verifyData)).append(StringUtil.lineSeparator()).toString();
 	}
-
-	// Serialization //////////////////////////////////////////////////
 
 	@Override
 	public byte[] fragmentToByteArray() {
 		return verifyData;
 	}
 
-	public static HandshakeMessage fromReader(DatagramReader reader, InetSocketAddress peerAddress) {
-		return new Finished(reader, peerAddress);
+	public static HandshakeMessage fromReader(DatagramReader reader) {
+		return new Finished(reader);
 	}
 }

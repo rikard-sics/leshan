@@ -34,11 +34,11 @@ public class EmptyMessage extends Message {
 	/**
 	 * Instantiates a new empty message.
 	 *
-	 * @param type the message type (ACK or RST)
+	 * @param type the message type (ACK or RST). A received ping uses CON.
 	 */
 	public EmptyMessage(Type type) {
 		super(type);
-		// empty message are not considered to hav payload nor options
+		// empty message are not considered to have payload nor options
 		// offloading is therefore not useful for well-formed empty messages.
 		setProtectFromOffload();
 	}
@@ -84,6 +84,18 @@ public class EmptyMessage extends Message {
 	 */
 	@Override
 	public boolean isIntendedPayload() {
+		return false;
+	}
+
+	@Override
+	public void assertPayloadMatchsBlocksize() {
+		if (getPayloadSize() > 0) {
+			throw new IllegalStateException("Empty message contains " + getPayloadSize() + " bytes payload!");
+		}
+	}
+
+	@Override
+	public boolean hasBlock(final BlockOption block) {
 		return false;
 	}
 

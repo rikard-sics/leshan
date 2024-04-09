@@ -21,6 +21,7 @@
 package org.eclipse.californium.elements;
 
 import java.io.IOException;
+import java.net.DatagramPacket;
 import java.net.InetSocketAddress;
 
 /**
@@ -37,7 +38,7 @@ import java.net.InetSocketAddress;
  * Implementations of the {@link #send(RawData)} method should be non-blocking
  * to allow the server application to continue working on other tasks. This could
  * be achieved by buffering outbound messages in a queue and off-loading the sending
- * of messages via the network to a separate <code>Thread</code>.
+ * of messages via the network to a separate {@code Thread}.
  */
 public interface Connector {
 
@@ -130,5 +131,21 @@ public interface Connector {
 	 * @return protocol e.g. {@code "UDP"}, {@code "DTLS"}, {@code "TCP"}, or {@code "TLS"}
 	 */
 	String getProtocol();
+
+	/**
+	 * Connector is running.
+	 * 
+	 * @return {@code true}, if running, {@code false}, otherwise.
+	 * @since 3.0
+	 */
+	boolean isRunning();
+
+	/**
+	 * Process datagram.
+	 * 
+	 * @param datagram datagram to process
+	 * @since 3.0
+	 */
+	void processDatagram(DatagramPacket datagram);
 
 }

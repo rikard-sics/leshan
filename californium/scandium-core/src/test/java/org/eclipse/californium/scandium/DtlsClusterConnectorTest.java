@@ -30,18 +30,20 @@ import org.eclipse.californium.elements.DtlsEndpointContext;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.category.Small;
+import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.rule.TestNameLoggerRule;
 import org.eclipse.californium.elements.rule.ThreadsRule;
-import org.eclipse.californium.elements.util.LeastRecentlyUsedCache.Predicate;
+import org.eclipse.californium.elements.util.Filter;
 import org.eclipse.californium.elements.util.SimpleMessageCallback;
 import org.eclipse.californium.scandium.ConnectorHelper.LatchDecrementingRawDataChannel;
 import org.eclipse.californium.scandium.ConnectorHelper.MessageCapturingProcessor;
 import org.eclipse.californium.scandium.ConnectorHelper.SimpleRawDataChannel;
 import org.eclipse.californium.scandium.config.DtlsClusterConnectorConfig;
+import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.Connection;
-import org.eclipse.californium.scandium.dtls.InMemoryConnectionStore;
 import org.eclipse.californium.scandium.dtls.MultiNodeConnectionIdGenerator;
+import org.eclipse.californium.scandium.dtls.ResumptionSupportingConnectionStore;
 import org.eclipse.californium.scandium.dtls.SingleNodeConnectionIdGenerator;
 import org.eclipse.californium.scandium.dtls.pskstore.AdvancedSinglePskStore;
 import org.eclipse.californium.scandium.rule.DtlsNetworkRule;
@@ -82,9 +84,10 @@ public class DtlsClusterConnectorTest {
 	private static DtlsClusterConnector connector2;
 	private static MessageCapturingProcessor messages1;
 	private static MessageCapturingProcessor messages2;
+	private static Configuration configuration;
 
 	private DTLSConnector clientConnector;
-	private InMemoryConnectionStore clientConnections;
+	private ResumptionSupportingConnectionStore clientConnections;
 	private LatchDecrementingRawDataChannel clientChannel;
 
 	@BeforeClass
@@ -94,19 +97,28 @@ public class DtlsClusterConnectorTest {
 		final int NODE_ID_2 = 2;
 		AdvancedSinglePskStore testPskStore1 = new AdvancedSinglePskStore(ConnectorHelper.CLIENT_IDENTITY,
 				ConnectorHelper.CLIENT_IDENTITY_SECRET.getBytes());
-		DtlsConnectorConfig config1 = DtlsConnectorConfig.builder().setAddress(dtlsAddress1)
-				.setAdvancedPskStore(testPskStore1).setMaxConnections(10).setReceiverThreadCount(2)
-				.setConnectionThreadCount(2)
+
+		configuration = network.createTestConfig()
+				.set(DtlsConfig.DTLS_MAX_CONNECTIONS, 10)
+				.set(DtlsConfig.DTLS_RECEIVER_THREAD_COUNT, 2)
+				.set(DtlsConfig.DTLS_CONNECTOR_THREAD_COUNT, 2);
+
+		DtlsConnectorConfig config1 = DtlsConnectorConfig.builder(configuration)
+				.setAddress(dtlsAddress1)
+				.setAdvancedPskStore(testPskStore1)
 				.setConnectionIdGenerator(new MultiNodeConnectionIdGenerator(NODE_ID_1, CID_LENGTH)).build();
-		DtlsClusterConnectorConfig clusterConfig1 = DtlsClusterConnectorConfig.builder().setAddress(mgmtAddress1)
+
+		DtlsClusterConnectorConfig clusterConfig1 = DtlsClusterConnectorConfig.builder()
+				.setAddress(mgmtAddress1)
 				.build();
 		AdvancedSinglePskStore testPskStore2 = new AdvancedSinglePskStore(ConnectorHelper.CLIENT_IDENTITY,
 				ConnectorHelper.CLIENT_IDENTITY_SECRET.getBytes());
-		DtlsConnectorConfig config2 = DtlsConnectorConfig.builder().setAddress(dtlsAddress2)
-				.setAdvancedPskStore(testPskStore2).setMaxConnections(10).setReceiverThreadCount(2)
-				.setConnectionThreadCount(2)
+		DtlsConnectorConfig config2 = DtlsConnectorConfig.builder(configuration)
+				.setAddress(dtlsAddress2)
+				.setAdvancedPskStore(testPskStore2)
 				.setConnectionIdGenerator(new MultiNodeConnectionIdGenerator(NODE_ID_2, CID_LENGTH)).build();
-		DtlsClusterConnectorConfig clusterConfig2 = DtlsClusterConnectorConfig.builder().setAddress(mgmtAddress2)
+		DtlsClusterConnectorConfig clusterConfig2 = DtlsClusterConnectorConfig.builder()
+				.setAddress(mgmtAddress2)
 				.build();
 		DtlsClusterConnector.ClusterNodesProvider nodesProvider = new DtlsClusterConnector.ClusterNodesProvider() {
 
@@ -157,10 +169,14 @@ public class DtlsClusterConnectorTest {
 	public void initClient() throws IOException {
 		AdvancedSinglePskStore testPskStore = new AdvancedSinglePskStore(ConnectorHelper.CLIENT_IDENTITY,
 				ConnectorHelper.CLIENT_IDENTITY_SECRET.getBytes());
-		DtlsConnectorConfig config = DtlsConnectorConfig.builder().setAdvancedPskStore(testPskStore)
-				.setMaxConnections(10).setReceiverThreadCount(2).setConnectionThreadCount(2)
+		DtlsConnectorConfig config = DtlsConnectorConfig.builder(configuration)
+				.set(DtlsConfig.DTLS_MAX_CONNECTIONS, 10)
+				.set(DtlsConfig.DTLS_STALE_CONNECTION_THRESHOLD, 6000, TimeUnit.SECONDS)
+				.setLoggingTag("client")
+				.setAdvancedPskStore(testPskStore)
 				.setConnectionIdGenerator(new SingleNodeConnectionIdGenerator(4)).build();
-		clientConnections = new InMemoryConnectionStore(10, 6000);
+
+		clientConnections = ConnectorHelper.createDebugConnectionStore(config);
 		clientConnector = new DTLSConnector(config, clientConnections);
 
 		clientChannel = new LatchDecrementingRawDataChannel();
@@ -200,7 +216,7 @@ public class DtlsClusterConnectorTest {
 		assertEquals(9, clientConnections.remainingCapacity());
 
 		// adapt the destination address to connector 2
-		Future<Void> result = clientConnector.startForEach(new Predicate<Connection>() {
+		Future<Void> result = clientConnector.startForEach(new Filter<Connection>() {
 
 			@Override
 			public boolean accept(Connection value) {
@@ -230,8 +246,8 @@ public class DtlsClusterConnectorTest {
 
 		EndpointContext endpointContext = callback.getEndpointContext();
 		EndpointContext endpointContext2 = callback2.getEndpointContext();
-		String cid1 = endpointContext.get(DtlsEndpointContext.KEY_WRITE_CONNECTION_ID);
-		String cid2 = endpointContext2.get(DtlsEndpointContext.KEY_WRITE_CONNECTION_ID);
+		String cid1 = endpointContext.getString(DtlsEndpointContext.KEY_WRITE_CONNECTION_ID);
+		String cid2 = endpointContext2.getString(DtlsEndpointContext.KEY_WRITE_CONNECTION_ID);
 		assertNotNull(cid1);
 		assertNotNull(cid2);
 		assertEquals(cid1, cid2);

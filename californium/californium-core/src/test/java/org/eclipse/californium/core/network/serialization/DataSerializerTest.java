@@ -23,9 +23,9 @@ package org.eclipse.californium.core.network.serialization;
 import static org.hamcrest.CoreMatchers.either;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThat;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -42,6 +42,7 @@ import org.eclipse.californium.elements.DtlsEndpointContext;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.category.Small;
+import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.rule.CoapThreadsRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -58,7 +59,7 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class DataSerializerTest {
 
-	private static final EndpointContext ENDPOINT_CONTEXT = new DtlsEndpointContext(new InetSocketAddress(0), null, "session", "1", "CIPHER", "100");
+	private static final EndpointContext ENDPOINT_CONTEXT = new DtlsEndpointContext(new InetSocketAddress(0), null, null, new Bytes("session".getBytes()), 1, "CIPHER", 100);
 
 	@Rule
 	public CoapThreadsRule cleanup = new CoapThreadsRule();
@@ -126,14 +127,12 @@ public class DataSerializerTest {
 	 */
 	@Test
 	public void testSerializeResponseWithEndpointContext() {
-		Request request = Request.newGet();
-		request.setSourceContext(ENDPOINT_CONTEXT);
-		request.setToken(new byte[] { 0x00 });
-		request.setMID(1);
-		Response response = Response.createResponse(request, ResponseCode.CONTENT);
+
+		Response response = new Response(ResponseCode.CONTENT);
+		response.setDestinationContext(ENDPOINT_CONTEXT);
 		response.setType(Type.ACK);
-		response.setMID(request.getMID());
-		response.setToken(request.getToken());
+		response.setMID(1);
+		response.setToken(new byte[] { 0x00 });
 		RawData data = serializer.serializeResponse(response, null);
 
 		assertThat(data.getEndpointContext(), is(equalTo(ENDPOINT_CONTEXT)));

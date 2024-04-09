@@ -17,7 +17,7 @@
 
 package org.eclipse.californium.elements.util;
 
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.concurrent.TimeUnit;
 
@@ -82,6 +82,7 @@ public final class TestConditionTools {
 	 * @param min inclusive minimum value
 	 * @param max exclusive maximum value
 	 * @return matcher.
+	 * @throws IllegalArgumentException if min is not less than max
 	 */
 	public static <T extends Number> org.hamcrest.Matcher<T> inRange(T min, T max) {
 		return new InRange<T>(min, max);
@@ -98,6 +99,15 @@ public final class TestConditionTools {
 		private final Number max;
 
 		private InRange(Number min, Number max) {
+			if (min instanceof Float || min instanceof Double) {
+				if (min.doubleValue() >= max.doubleValue()) {
+					throw new IllegalArgumentException("Min " + min + " must be less than max " + max + "!");
+				}
+			} else {
+				if (min.longValue() >= max.longValue()) {
+					throw new IllegalArgumentException("Min " + min + " must be less than max " + max + "!");
+				}
+			}
 			this.min = min;
 			this.max = max;
 		}
@@ -147,11 +157,11 @@ public final class TestConditionTools {
 
 				@Override
 				public boolean isFulFilled() throws IllegalStateException {
-					return matcher.matches(manager.getCounter(name));
+					return matcher.matches(manager.getCounterByKey(name));
 				}
 			});
 		}
-		assertThat(prepareMessaga(null, name, manager), manager.getCounter(name), matcher);
+		assertThat(prepareMessage(null, name, manager), manager.getCounterByKey(name), matcher);
 	}
 
 	/**
@@ -177,11 +187,11 @@ public final class TestConditionTools {
 
 				@Override
 				public boolean isFulFilled() throws IllegalStateException {
-					return matcher.matches(manager.getCounter(name));
+					return matcher.matches(manager.getCounterByKey(name));
 				}
 			});
 		}
-		assertThat(prepareMessaga(message, name, manager), manager.getCounter(name), matcher);
+		assertThat(prepareMessage(message, name, manager), manager.getCounterByKey(name), matcher);
 	}
 
 	/**
@@ -193,7 +203,7 @@ public final class TestConditionTools {
 	 */
 	public static void assertStatisticCounter(CounterStatisticManager manager, String name,
 			Matcher<? super Long> matcher) {
-		assertThat(prepareMessaga(null, name, manager), manager.getCounter(name), matcher);
+		assertThat(prepareMessage(null, name, manager), manager.getCounterByKey(name), matcher);
 	}
 
 	/**
@@ -207,7 +217,7 @@ public final class TestConditionTools {
 	 */
 	public static void assertStatisticCounter(String message, CounterStatisticManager manager, String name,
 			Matcher<? super Long> matcher) {
-		assertThat(prepareMessaga(message, name, manager), manager.getCounter(name), matcher);
+		assertThat(prepareMessage(message, name, manager), manager.getCounterByKey(name), matcher);
 	}
 
 	/**
@@ -219,7 +229,7 @@ public final class TestConditionTools {
 	 * @return prepared message with format "[message-][tag-]name".
 	 * @since 2.5
 	 */
-	private static String prepareMessaga(String message, String name, CounterStatisticManager manager) {
+	private static String prepareMessage(String message, String name, CounterStatisticManager manager) {
 		StringBuilder builder = new StringBuilder();
 		if (message != null && !message.isEmpty()) {
 			builder.append(message).append("-");

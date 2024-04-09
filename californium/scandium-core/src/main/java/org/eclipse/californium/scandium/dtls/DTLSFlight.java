@@ -46,6 +46,8 @@ import org.eclipse.californium.elements.MessageCallback;
 import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.DatagramWriter;
 import org.eclipse.californium.elements.util.NoPublicAPI;
+import org.eclipse.californium.elements.util.StringUtil;
+import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertDescription;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertLevel;
@@ -61,13 +63,13 @@ import org.slf4j.LoggerFactory;
  * peer's next flight has arrived in its total. A flight needs not only consist
  * of {@code HandshakeMessage}s but may also contain {@code AlertMessage}s and
  * {@code ChangeCipherSpecMessage}s. See
- * <a href="http://tools.ietf.org/html/rfc6347#section-4.2.4">RFC 6347</a> for
- * details.
+ * <a href="https://tools.ietf.org/html/rfc6347#section-4.2.4" target=
+ * "_blank">RFC 6347</a> for details.
  * 
  * Scandium offers also the possibility to stop the retransmission with
  * receiving the first response message instead of the complete flight. That is
  * currently configurable using
- * {@link DtlsConnectorConfig#isEarlyStopRetransmission()}. Only for the flight
+ * {@link DtlsConnectorConfig#useEarlyStopRetransmission()}. Only for the flight
  * before the very last flight of a handshake, it must be ensured, that the
  * retransmission is only stopped, after that very last flight is received
  * completely. Though the very last flight in DTLS 1.2 is always a flight with
@@ -83,8 +85,8 @@ import org.slf4j.LoggerFactory;
  * To support both variants, the flight provides the {@link #responseStarted}
  * and {@link #responseCompleted} flags and a general handle to a timeout task.
  * 
- * @see "e-mail discussion IETF TLS mailarchive, 
- *       2017, May 31. - June 1., Simone Bernard and Raja Ashok"
+ * @see "e-mail discussion IETF TLS mailarchive, 2017, May 31. - June 1., Simone
+ *      Bernard and Raja Ashok"
  */
 @NoPublicAPI
 public class DTLSFlight {
@@ -92,28 +94,26 @@ public class DTLSFlight {
 	private static final Logger LOGGER = LoggerFactory.getLogger(DTLSFlight.class);
 
 	/**
-	 * Maximum timeout according RFC 6347, Section 4.2.4.1, Timer Values.
-	 */
-	private static final int MAX_TIMEOUT_MILLIS = 60 * 1000; // 60s
-
-	/**
 	 * List of prepared records of flight.
 	 */
 	private final List<Record> records;
 
 	/**
-	 * The dtls messages together with their epoch that belong to this
-	 * flight.
+	 * The dtls messages together with their epoch that belong to this flight.
 	 * 
 	 * @since 2.4
 	 */
 	private final List<EpochMessage> dtlsMessages;
 
 	/**
-	 * The current DTLS session with the peer. Needed to set the record sequence
+	 * The current DTLS context with the peer. Needed to set the record sequence
 	 * number correctly when retransmitted.
 	 */
-	private final DTLSSession session;
+	private final DTLSContext context;
+
+	private final InetSocketAddress peer;
+
+	private final Object peerToLog;
 
 	/**
 	 * The number of the flight.
@@ -129,7 +129,7 @@ public class DTLSFlight {
 	private int tries;
 
 	/** The current timeout (in milliseconds). */
-	private int timeout = 0;
+	private int timeoutMillis;
 
 	/**
 	 * Maximum datagram size.
@@ -144,14 +144,23 @@ public class DTLSFlight {
 	 */
 	private int maxFragmentSize;
 	/**
-	 * Effective datagram size.
+	 * Effective maximum datagram size.
 	 * 
 	 * The smaller resulting datagram size of {@link #maxDatagramSize} and
 	 * {@link #maxFragmentSize}.
 	 * 
-	 * @since 2.4
+	 * @since 3.0 (renamed, was effectiveDatagramSize9
 	 */
-	private int effectiveDatagramSize;
+	private int effectiveMaxDatagramSize;
+	/**
+	 * Effective maximum message size.
+	 * 
+	 * The resulting message size of {@link #maxDatagramSize} and
+	 * {@link #maxFragmentSize} and cipher suite.
+	 * 
+	 * @since 3.0
+	 */
+	private int effectiveMaxMessageSize;
 
 	/**
 	 * Use dtls records with multiple handshake messages.
@@ -183,7 +192,16 @@ public class DTLSFlight {
 	 * Indicates, whether this flight needs retransmission. The very last flight
 	 * (not every flight needs retransmission, e.g. Alert).
 	 */
-	private boolean retransmissionNeeded = false;
+	private boolean retransmissionNeeded;
+
+	/**
+	 * Indicates, whether this flight includes a {@link Finished} message, or
+	 * not.
+	 * 
+	 * @see #addDtlsMessage(int, DTLSMessage)
+	 * @since 3.9
+	 */
+	private boolean finishedIncluded;
 
 	/**
 	 * Indicates, that the first handshake message of the response is received.
@@ -207,21 +225,20 @@ public class DTLSFlight {
 	 * Flights created using this constructor are by default eligible for
 	 * re-transmission.
 	 * 
-	 * @param session the session to get record sequence numbers from when
+	 * @param context the DTLS context to get record sequence numbers from when
 	 *            sending out the flight
 	 * @param flightNumber number of the flight. Used for logging and
 	 *            {@link MessageCallback#onDtlsRetransmission(int)}.
-	 * @throws NullPointerException if session or peer address of session is
-	 *             <code>null</code>
+	 * @param peer destination peer address
+	 * @throws NullPointerException if context is {@code null}
 	 */
-	public DTLSFlight(DTLSSession session, int flightNumber) {
-		if (session == null) {
+	public DTLSFlight(DTLSContext context, int flightNumber, InetSocketAddress peer) {
+		if (context == null) {
 			throw new NullPointerException("Session must not be null");
 		}
-		if (session.getPeer() == null) {
-			throw new NullPointerException("Peer address must not be null");
-		}
-		this.session = session;
+		this.context = context;
+		this.peer = peer;
+		this.peerToLog = StringUtil.toLog(peer);
 		this.records = new ArrayList<Record>();
 		this.dtlsMessages = new ArrayList<EpochMessage>();
 		this.retransmissionNeeded = true;
@@ -231,6 +248,9 @@ public class DTLSFlight {
 	/**
 	 * Adds a dtls message to this flight.
 	 * 
+	 * Sets {@link #finishedIncluded} to {@code true}, if provided message is a
+	 * {@link Finished} message.
+	 * 
 	 * @param epoch the epoch of the dtls message.
 	 * @param messageToAdd the dtls message to add.
 	 * @since 2.4
@@ -238,6 +258,9 @@ public class DTLSFlight {
 	public void addDtlsMessage(int epoch, DTLSMessage messageToAdd) {
 		if (messageToAdd == null) {
 			throw new NullPointerException("message must not be null!");
+		}
+		if (messageToAdd instanceof Finished) {
+			finishedIncluded = true;
 		}
 		dtlsMessages.add(new EpochMessage(epoch, messageToAdd));
 	}
@@ -291,18 +314,16 @@ public class DTLSFlight {
 			case CHANGE_CIPHER_SPEC:
 				flushMultiHandshakeMessages();
 				// CCS has only 1 byte payload and doesn't require fragmentation
-				records.add(new Record(message.getContentType(), epochMessage.epoch,
-						session.getSequenceNumber(epochMessage.epoch), message, session, false, 0));
-				LOGGER.debug("Add CCS message of {} bytes for [{}]",
-						message.size(), message.getPeer());
+				records.add(new Record(message.getContentType(), epochMessage.epoch, message, context, false, 0));
+				LOGGER.debug("Add CCS message of {} bytes for [{}]", message.size(), peerToLog);
 				break;
 			default:
 				throw new HandshakeException("Cannot create " + message.getContentType() + " record for flight",
-						new AlertMessage(AlertLevel.FATAL, AlertDescription.INTERNAL_ERROR, session.getPeer()));
+						new AlertMessage(AlertLevel.FATAL, AlertDescription.INTERNAL_ERROR));
 			}
 		} catch (GeneralSecurityException e) {
 			throw new HandshakeException("Cannot create record",
-					new AlertMessage(AlertLevel.FATAL, AlertDescription.INTERNAL_ERROR, session.getPeer()), e);
+					new AlertMessage(AlertLevel.FATAL, AlertDescription.INTERNAL_ERROR), e);
 		}
 	}
 
@@ -317,97 +338,103 @@ public class DTLSFlight {
 	 */
 	private void wrapHandshakeMessage(EpochMessage epochMessage) throws GeneralSecurityException {
 		HandshakeMessage handshakeMessage = (HandshakeMessage) epochMessage.message;
-		int messageLength = handshakeMessage.getMessageLength();
-		int maxPayloadLength = maxDatagramSize - DTLSSession.DTLS_HEADER_LENGTH;
-		int effectiveMaxFragmentSize = maxFragmentSize;
+		int maxPayloadLength = maxDatagramSize - Record.RECORD_HEADER_BYTES;
+		int effectiveMaxMessageSize;
 		boolean useCid = false;
 
 		if (epochMessage.epoch > 0) {
-			maxPayloadLength -= session.getMaxCiphertextExpansion();
-			ConnectionId connectionId = session.getWriteConnectionId();
+			ConnectionId connectionId = context.getWriteConnectionId();
 			if (connectionId != null && !connectionId.isEmpty()) {
 				useCid = true;
-				// connection id + inner record type
-				maxPayloadLength -= (connectionId.length() + 1);
+				// reduce fragment length by connection id
+				maxPayloadLength -= connectionId.length();
 			}
 		}
 
-		if (effectiveMaxFragmentSize > maxPayloadLength) {
-			effectiveMaxFragmentSize = maxPayloadLength;
+		if (maxFragmentSize >= maxPayloadLength) {
+			effectiveMaxMessageSize = maxPayloadLength;
+			effectiveMaxDatagramSize = maxDatagramSize;
 		} else {
-			effectiveDatagramSize = effectiveMaxFragmentSize + (maxDatagramSize - maxPayloadLength);
+			effectiveMaxMessageSize = maxFragmentSize;
+			effectiveMaxDatagramSize = maxFragmentSize + (maxDatagramSize - maxPayloadLength);
 		}
 
-		if (messageLength <= effectiveMaxFragmentSize) {
+		if (epochMessage.epoch > 0) {
+			effectiveMaxMessageSize -= context.getSession().getMaxCiphertextExpansion();
+			if (useCid) {
+				// reduce message length by  inner record type
+				--effectiveMaxMessageSize;
+			}
+		}
+
+		this.effectiveMaxMessageSize = effectiveMaxMessageSize;
+
+		int messageSize = handshakeMessage.size();
+
+		if (messageSize <= effectiveMaxMessageSize) {
 			if (useMultiHandshakeMessageRecords) {
 				if (multiHandshakeMessage != null) {
 					if (multiEpoch == epochMessage.epoch && multiUseCid == useCid
-							&& multiHandshakeMessage.getMessageLength()
-									+ handshakeMessage.size() < effectiveMaxFragmentSize) {
+							&& multiHandshakeMessage.size()
+									+ messageSize < effectiveMaxMessageSize) {
 						multiHandshakeMessage.add(handshakeMessage);
-						LOGGER.debug("Add multi-handshake-message {} message of {} bytes for [{}]",
-								handshakeMessage.getMessageType(), messageLength, handshakeMessage.getPeer());
+						LOGGER.debug("Add multi-handshake-message {} message of {} bytes, resulting in {} bytes for [{}]",
+								handshakeMessage.getMessageType(), messageSize, multiHandshakeMessage.getMessageLength(), peerToLog);
 						return;
 					}
 					flushMultiHandshakeMessages();
 				}
 				if (multiHandshakeMessage == null) {
-					if (messageLength + HandshakeMessage.MESSAGE_HEADER_LENGTH_BYTES < effectiveMaxFragmentSize) {
-						multiHandshakeMessage = new MultiHandshakeMessage(session.getPeer());
+					if (messageSize < effectiveMaxMessageSize) {
+						multiHandshakeMessage = new MultiHandshakeMessage();
 						multiHandshakeMessage.add(handshakeMessage);
 						multiEpoch = epochMessage.epoch;
 						multiUseCid = useCid;
 						LOGGER.debug("Start multi-handshake-message with {} message of {} bytes for [{}]",
-								handshakeMessage.getMessageType(), messageLength, handshakeMessage.getPeer());
+								handshakeMessage.getMessageType(), messageSize, peerToLog);
 						return;
 					}
 				}
 			}
-			records.add(new Record(ContentType.HANDSHAKE, epochMessage.epoch,
-					session.getSequenceNumber(epochMessage.epoch), handshakeMessage, session, useCid, 0));
-			LOGGER.debug("Add {} message of {} bytes for [{}]",
-					handshakeMessage.getMessageType(), messageLength, handshakeMessage.getPeer());
+			records.add(new Record(ContentType.HANDSHAKE, epochMessage.epoch, handshakeMessage, context, useCid, 0));
+			LOGGER.debug("Add {} message of {} bytes for [{}]", handshakeMessage.getMessageType(), messageSize,
+					peerToLog);
 			return;
 		}
 
 		flushMultiHandshakeMessages();
 
 		// message needs to be fragmented
-		LOGGER.debug("Splitting up {} message of {} bytes for [{}] into multiple fragments of max. {} bytes",
-				handshakeMessage.getMessageType(), messageLength, handshakeMessage.getPeer(), effectiveMaxFragmentSize);
+		LOGGER.debug("Splitting up {} message of {} bytes for [{}] into multiple handshake fragments of max. {} bytes",
+				handshakeMessage.getMessageType(), messageSize, peerToLog, effectiveMaxMessageSize);
 		// create N handshake messages, all with the
 		// same message_seq value as the original handshake message
 		byte[] messageBytes = handshakeMessage.fragmentToByteArray();
-		if (messageBytes.length != messageLength) {
+		int handshakeMessageLength = handshakeMessage.getMessageLength();
+		int maxHandshakeMessageLength = effectiveMaxMessageSize - HandshakeMessage.MESSAGE_HEADER_LENGTH_BYTES;
+		if (messageBytes.length != handshakeMessageLength) {
 			throw new IllegalStateException(
-					"message length " + messageLength + " differs from message " + messageBytes.length + "!");
+					"message length " + handshakeMessageLength + " differs from message " + messageBytes.length + "!");
 		}
 		int messageSeq = handshakeMessage.getMessageSeq();
 		int offset = 0;
-		while (offset < messageLength) {
-			int fragmentLength = effectiveMaxFragmentSize;
-			if (offset + fragmentLength > messageLength) {
+		while (offset < handshakeMessageLength) {
+			int fragmentLength = maxHandshakeMessageLength;
+			if (offset + fragmentLength > handshakeMessageLength) {
 				// the last fragment is normally shorter than the maximal size
-				fragmentLength = messageLength - offset;
+				fragmentLength = handshakeMessageLength - offset;
 			}
 			byte[] fragmentBytes = new byte[fragmentLength];
 			System.arraycopy(messageBytes, offset, fragmentBytes, 0, fragmentLength);
 
-			FragmentedHandshakeMessage fragmentedMessage =
-					new FragmentedHandshakeMessage(
-							handshakeMessage.getMessageType(),
-							messageLength,
-							messageSeq,
-							offset,
-							fragmentBytes,
-							session.getPeer());
+			FragmentedHandshakeMessage fragmentedMessage = new FragmentedHandshakeMessage(
+					handshakeMessage.getMessageType(), handshakeMessageLength, messageSeq, offset, fragmentBytes);
 
 			LOGGER.debug("fragment for offset {}, {} bytes", offset, fragmentedMessage.size());
 
 			offset += fragmentLength;
 
-			records.add(new Record(ContentType.HANDSHAKE, epochMessage.epoch, session.getSequenceNumber(epochMessage.epoch),
-					fragmentedMessage, session, false, 0));
+			records.add(new Record(ContentType.HANDSHAKE, epochMessage.epoch, fragmentedMessage, context, false, 0));
 		}
 	}
 
@@ -419,16 +446,10 @@ public class DTLSFlight {
 	 */
 	private void flushMultiHandshakeMessages() throws GeneralSecurityException {
 		if (multiHandshakeMessage != null) {
-			records.add(new Record(ContentType.HANDSHAKE, multiEpoch, session.getSequenceNumber(multiEpoch),
-					multiHandshakeMessage, session, multiUseCid, 0));
+			records.add(new Record(ContentType.HANDSHAKE, multiEpoch, multiHandshakeMessage, context, multiUseCid, 0));
 			int count = multiHandshakeMessage.getNumberOfHandshakeMessages();
-			if (count > 1) {
-				LOGGER.info("Add {} multi handshake message, epoch {} of {} bytes for [{}]", count, multiEpoch,
-						multiHandshakeMessage.getMessageLength(), multiHandshakeMessage.getPeer());
-			} else {
-				LOGGER.debug("Add {} multi handshake message, epoch {} of {} bytes for [{}]", count, multiEpoch,
-						multiHandshakeMessage.getMessageLength(), multiHandshakeMessage.getPeer());
-			}
+			LOGGER.debug("Add {} multi handshake message, epoch {} of {} bytes (max. {}) for [{}]", count, multiEpoch,
+					multiHandshakeMessage.getMessageLength(), effectiveMaxMessageSize, peerToLog);
 			multiHandshakeMessage = null;
 			multiEpoch = 0;
 			multiUseCid = false;
@@ -457,11 +478,10 @@ public class DTLSFlight {
 					int epoch = record.getEpoch();
 					DTLSMessage fragment = record.getFragment();
 					boolean useCid = record.useConnectionId();
-					records.set(index, new Record(record.getType(), epoch, session.getSequenceNumber(epoch), fragment,
-							session, useCid, 0));
+					records.set(index, new Record(record.getType(), epoch, fragment, context, useCid, 0));
 				}
 			} else {
-				this.effectiveDatagramSize = maxDatagramSize;
+				this.effectiveMaxDatagramSize = maxDatagramSize;
 				this.maxDatagramSize = maxDatagramSize;
 				this.maxFragmentSize = maxFragmentSize;
 				this.useMultiHandshakeMessageRecords = useMultiHandshakeMessageRecords;
@@ -474,7 +494,7 @@ public class DTLSFlight {
 		} catch (GeneralSecurityException e) {
 			records.clear();
 			throw new HandshakeException("Cannot create record",
-					new AlertMessage(AlertLevel.FATAL, AlertDescription.INTERNAL_ERROR, session.getPeer()), e);
+					new AlertMessage(AlertLevel.FATAL, AlertDescription.INTERNAL_ERROR), e);
 		}
 		return records;
 	}
@@ -494,7 +514,8 @@ public class DTLSFlight {
 	 * @since 2.4
 	 */
 	public List<DatagramPacket> getDatagrams(int maxDatagramSize, int maxFragmentSize,
-			Boolean useMultiHandshakeMessageRecords, Boolean useMultiRecordMessages, boolean backOff) throws HandshakeException {
+			Boolean useMultiHandshakeMessageRecords, Boolean useMultiRecordMessages, boolean backOff)
+			throws HandshakeException {
 
 		DatagramWriter writer = new DatagramWriter(maxDatagramSize);
 		List<DatagramPacket> datagrams = new ArrayList<DatagramPacket>();
@@ -506,25 +527,24 @@ public class DTLSFlight {
 			maxDatagramSize = Math.min(RecordLayer.DEFAULT_IPV4_MTU - RecordLayer.IPV4_HEADER_LENGTH, maxDatagramSize);
 		}
 
-		LOGGER.info("Prepare flight {}, using max. datagram size {}, max. fragment size {} [mhm={}, mr={}]",
-				flightNumber, maxDatagramSize, maxFragmentSize, multiHandshakeMessages,
-				multiRecords);
+		LOGGER.trace("Prepare flight {}, using max. datagram size {}, max. fragment size {} [mhm={}, mr={}]",
+				flightNumber, maxDatagramSize, maxFragmentSize, multiHandshakeMessages, multiRecords);
 
-		InetSocketAddress peer = session.getPeer();
 		List<Record> records = getRecords(maxDatagramSize, maxFragmentSize, multiHandshakeMessages);
 
-		LOGGER.info("Effective max. datagram size {}", effectiveDatagramSize);
+		LOGGER.trace("Effective max. datagram size {}, max. message size {}", effectiveMaxDatagramSize, effectiveMaxMessageSize);
 
 		for (int index = 0; index < records.size(); ++index) {
 			Record record = records.get(index);
 			byte[] recordBytes = record.toByteArray();
-			if (recordBytes.length > effectiveDatagramSize) {
+			if (recordBytes.length > effectiveMaxDatagramSize) {
 				LOGGER.error("{} record of {} bytes for peer [{}] exceeds max. datagram size [{}], discarding...",
-						record.getType(), recordBytes.length, peer, effectiveDatagramSize);
+						record.getType(), recordBytes.length, peerToLog, effectiveMaxDatagramSize);
+				LOGGER.debug("{}", record);
 				// TODO: inform application layer, e.g. using error handler
 				continue;
 			}
-			LOGGER.trace("Sending record of {} bytes to peer [{}]:\n{}", recordBytes.length, peer, record);
+			LOGGER.trace("Sending record of {} bytes to peer [{}]:\n{}", recordBytes.length, peerToLog, record);
 			if (multiRecords && record.getType() == ContentType.CHANGE_CIPHER_SPEC) {
 				++index;
 				if (index < records.size()) {
@@ -532,14 +552,17 @@ public class DTLSFlight {
 					recordBytes = Bytes.concatenate(recordBytes, finish.toByteArray());
 				}
 			}
-			int left = multiRecords && !(backOff && useMultiRecordMessages == null) ? effectiveDatagramSize - recordBytes.length : 0;
+			int left = multiRecords && !(backOff && useMultiRecordMessages == null)
+					? effectiveMaxDatagramSize - recordBytes.length
+					: 0;
 			if (writer.size() > left) {
 				// current record does not fit into datagram anymore
 				// thus, send out current datagram and put record into new one
 				byte[] payload = writer.toByteArray();
-				DatagramPacket datagram = new DatagramPacket(payload, payload.length, peer.getAddress(), peer.getPort());
+				DatagramPacket datagram = new DatagramPacket(payload, payload.length, peer.getAddress(),
+						peer.getPort());
 				datagrams.add(datagram);
-				LOGGER.debug("Sending datagram of {} bytes to peer [{}]", payload.length, peer);
+				LOGGER.debug("Sending datagram of {} bytes to peer [{}]", payload.length, peerToLog);
 			}
 
 			writer.writeBytes(recordBytes);
@@ -548,9 +571,20 @@ public class DTLSFlight {
 		byte[] payload = writer.toByteArray();
 		DatagramPacket datagram = new DatagramPacket(payload, payload.length, peer.getAddress(), peer.getPort());
 		datagrams.add(datagram);
-		LOGGER.debug("Sending datagram of {} bytes to peer [{}]", payload.length, peer);
+		LOGGER.debug("Sending datagram of {} bytes to peer [{}]", payload.length, peerToLog);
 		writer = null;
 		return datagrams;
+	}
+
+	/**
+	 * Gets the effective maximum message size of the last
+	 * {@link #getDatagrams(int, int, Boolean, Boolean, boolean)}.
+	 * 
+	 * @return the effective maximum message size
+	 * @since 3.0
+	 */
+	public int getEffectiveMaxMessageSize() {
+		return effectiveMaxMessageSize;
 	}
 
 	/**
@@ -584,26 +618,31 @@ public class DTLSFlight {
 	 * @return timeout in milliseconds.
 	 */
 	public int getTimeout() {
-		return timeout;
+		return timeoutMillis;
 	}
 
 	/**
-	 * Set timeout
+	 * Set timeout.
 	 * 
-	 * @param timeout timeout in milliseconds.
+	 * @param timeoutMillis timeout in milliseconds.
 	 */
-	public void setTimeout(int timeout) {
-		this.timeout = timeout;
+	public void setTimeout(int timeoutMillis) {
+		this.timeoutMillis = timeoutMillis;
 	}
 
 	/**
-	 * Called, when the flight needs to be retransmitted. Increment the timeout,
-	 * here we double it. Limit the timeout to {@link #MAX_TIMEOUT_MILLIS}.
+	 * Called, when the flight needs to be retransmitted.
 	 * 
-	 * @see #incrementTimeout(int)
+	 * Increment the timeout, scale it by the provided factor. Limit the timeout
+	 * to the maximum timeout.
+	 * 
+	 * @param scale timeout scale
+	 * @param maxTimeoutMillis maximum timeout
+	 * @see #incrementTimeout(int, float, int)
+	 * @since 3.0 (added scale and maxTimeoutMillis)
 	 */
-	public void incrementTimeout() {
-		this.timeout = incrementTimeout(this.timeout);
+	public void incrementTimeout(float scale, int maxTimeoutMillis) {
+		this.timeoutMillis = incrementTimeout(this.timeoutMillis, scale, maxTimeoutMillis);
 	}
 
 	/**
@@ -638,7 +677,7 @@ public class DTLSFlight {
 
 	/**
 	 * Signal, that the first handshake message of the response is received. If
-	 * {@link DtlsConnectorConfig#isEarlyStopRetransmission()} is configured,
+	 * {@link DtlsConfig#DTLS_USE_EARLY_STOP_RETRANSMISSION} is configured,
 	 * this stops sending retransmissions but keep a scheduled timeout task.
 	 */
 	public void setResponseStarted() {
@@ -681,6 +720,18 @@ public class DTLSFlight {
 	}
 
 	/**
+	 * Check, if this flight includes a {@link Finished} message.
+	 * 
+	 * @return {@code true}, if {@link Finished} message is included,
+	 *         {@code false}, otherwise.
+	 * @see #addDtlsMessage(int, DTLSMessage)
+	 * @since 3.9
+	 */
+	public boolean isFinishedIncluded() {
+		return finishedIncluded;
+	}
+
+	/**
 	 * Schedule timeout or retransmission task.
 	 * 
 	 * @param timer timer to schedule task.
@@ -693,32 +744,31 @@ public class DTLSFlight {
 				cancelTimeout();
 				// schedule retransmission task
 				try {
-					timeoutTask = timer.schedule(task, timeout, TimeUnit.MILLISECONDS);
-					LOGGER.trace("handshake flight to peer {}, retransmission {} ms.", session.getPeer(), timeout);
+					timeoutTask = timer.schedule(task, timeoutMillis, TimeUnit.MILLISECONDS);
+					LOGGER.trace("handshake flight to peer {}, retransmission {} ms.", peerToLog, timeoutMillis);
 				} catch (RejectedExecutionException ex) {
 					LOGGER.trace("handshake flight stopped by shutdown.");
 				}
 			} else {
-				LOGGER.trace("handshake flight to peer {}, no retransmission!", session.getPeer());
+				LOGGER.trace("handshake flight to peer {}, no retransmission!", peerToLog);
 			}
 		}
 	}
 
 	/**
-	 * Increment the timeout, here we double it. Limit the timeout to
-	 * {@link #MAX_TIMEOUT_MILLIS}.
+	 * Increment the timeout, here we scale it, limited by the provided maximum.
 	 * 
 	 * @param timeoutMillis timeout in milliseconds
-	 * @return doubled and limited timeout in milliseconds
-	 * @see #incrementTimeout()
-	 * @since 2.1
+	 * @param scale scale factor
+	 * @param maxTimeoutMillis maximum timeout in milliseconds
+	 * @return scaled and limited timeout in milliseconds
+	 * @see #incrementTimeout(float, int)
+	 * @since 3.0 (added scale and maxTimeoutMillis)
 	 */
-	public static int incrementTimeout(int timeoutMillis) {
-		if (timeoutMillis < MAX_TIMEOUT_MILLIS) {
-			timeoutMillis *= 2;
-			if (timeoutMillis > MAX_TIMEOUT_MILLIS) {
-				timeoutMillis = MAX_TIMEOUT_MILLIS;
-			}
+	public static int incrementTimeout(int timeoutMillis, float scale, int maxTimeoutMillis) {
+		if (timeoutMillis < maxTimeoutMillis) {
+			timeoutMillis = Math.round(timeoutMillis * scale);
+			timeoutMillis = Math.min(timeoutMillis, maxTimeoutMillis);
 		}
 		return timeoutMillis;
 	}

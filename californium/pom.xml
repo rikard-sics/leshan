@@ -1,18 +1,37 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <project
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
-	xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>org.eclipse.californium</groupId>
 	<artifactId>parent</artifactId>
-	<version>2.6.3</version>
+	<version>3.11.0-SNAPSHOT</version>
 	<packaging>pom</packaging>
+
+	<dependencies>
+		<dependency>
+			<groupId>javax.xml.bind</groupId>
+			<artifactId>jaxb-api</artifactId>
+			<version>2.3.0</version>
+		</dependency>
+		<dependency>
+			<groupId>com.sun.xml.bind</groupId>
+			<artifactId>jaxb-core</artifactId>
+			<version>2.3.0</version>
+		</dependency>
+		<dependency>
+			<groupId>com.sun.xml.bind</groupId>
+			<artifactId>jaxb-impl</artifactId>
+			<version>2.3.0</version>
+		</dependency>
+	</dependencies>
 
 	<name>Californium (Cf) Parent</name>
 	<description>Common definitions and configuration for all Californium (Cf) components</description>
-	<url>https://www.eclipse.org/californium/</url>
+	<url>https://eclipse.dev/californium/</url>
 	<organization>
 		<name>Eclipse Foundation</name>
 		<url>http://www.eclipse.org/</url>
@@ -28,13 +47,13 @@
 		</license>
 	</licenses>
 	<scm>
-		<developerConnection>scm:git:ssh://git@github.com/eclipse/californium.git</developerConnection>
-		<url>https://github.com/eclipse/californium</url>
+		<developerConnection>scm:git:ssh://git@github.com/eclipse-californium/californium.git</developerConnection>
+		<url>https://github.com/eclipse-californium/californium</url>
 		<tag>HEAD</tag>
 	</scm>
 	<issueManagement>
 		<system>GitHub</system>
-		<url>https://github.com/eclipse/californium/issues</url>
+		<url>https://github.com/eclipse-californium/californium/issues</url>
 	</issueManagement>
 	<ciManagement>
 		<system>Jenkins</system>
@@ -94,21 +113,23 @@
 		<developer>
 			<id>boaks</id>
 			<name>Achim Kraus</name>
-			<email>achim.kraus@bosch.io</email>
+			<email>achim.kraus@cloudcoap.net</email>
 			<url>https://github.com/boaks</url>
-			<organization>Bosch.IO GmbH</organization>
-			<organizationUrl>http://www.bosch.io</organizationUrl>
+			<organization>Private</organization>
+			<organizationUrl>https://cloudcoap.net/</organizationUrl>
 			<roles>
 				<role>Committer</role>
+				<role>Lead</role>
 			</roles>
 		</developer>
 	</developers>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<project.build.javaVersion>1.8</project.build.javaVersion>
+		<project.build.javaVersion>1.1</project.build.javaVersion>
 		<snapshotDependencyAllowed>true</snapshotDependencyAllowed>
 		<javadoc.doclint>none</javadoc.doclint>
+		<revapi.previous.version>RELEASE</revapi.previous.version>
 	</properties>
 
 	<distributionManagement>
@@ -126,6 +147,13 @@
 
 	<pluginRepositories>
 		<pluginRepository>
+			<id>dash-licenses-snapshots</id>
+			<url>https://repo.eclipse.org/content/repositories/dash-licenses-snapshots/</url>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+		</pluginRepository>
+		<pluginRepository>
 			<id>repo.eclipse.org</id>
 			<name>Californium Repository - Releases</name>
 			<url>https://repo.eclipse.org/content/repositories/californium-releases/</url>
@@ -140,6 +168,14 @@
 			<releases>
 				<enabled>false</enabled>
 			</releases>
+		</pluginRepository>
+		<pluginRepository>
+			<id>eclipse-maven-releases</id>
+			<url>https://repo.eclipse.org/content/repositories/releases</url>
+		</pluginRepository>
+		<pluginRepository>
+			<id>eclipse-cbi-releases</id>
+			<url>https://repo.eclipse.org/content/repositories/cbi-releases</url>
 		</pluginRepository>
 	</pluginRepositories>
 
@@ -156,14 +192,14 @@
 		<module>cf-utils/cf-cluster</module>
 		<module>cf-utils/cf-cli</module>
 		<module>cf-utils/cf-cli-tcp-netty</module>
+		<module>cf-utils/cf-encrypt</module>
 		<module>californium-tests</module>
-		<module>californium-proxy</module>
 		<module>californium-proxy2</module>
-		<module>californium-osgi</module>
-		<module>demo-apps</module>
-		<module>demo-certs</module>
 		<module>cf-oscore</module>
 		<module>cf-pubsub</module>
+		<module>californium-osgi</module>
+		<module>demo-certs</module>
+		<module>demo-apps</module>
 		<module>cf-edhoc</module>
 	</modules>
 
@@ -180,23 +216,24 @@
 				</plugin>
 				<plugin>
 					<artifactId>maven-install-plugin</artifactId>
-					<version>2.5.2</version>
-				</plugin>
-				<plugin>
-					<artifactId>maven-resources-plugin</artifactId>
-					<version>3.1.0</version>
-				</plugin>
-				<plugin>
-					<artifactId>maven-site-plugin</artifactId>
-					<version>3.7.1</version>
-				</plugin>
-				<plugin>
-					<artifactId>maven-dependency-plugin</artifactId>
 					<version>3.1.1</version>
 				</plugin>
 				<plugin>
+					<artifactId>maven-resources-plugin</artifactId>
+					<version>3.3.1</version>
+				</plugin>
+				<plugin>
+					<artifactId>maven-site-plugin</artifactId>
+					<version>3.9.1</version>
+				</plugin>
+				<plugin>
+					<artifactId>maven-dependency-plugin</artifactId>
+					<version>3.6.0</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-toolchains-plugin</artifactId>
-					<version>3.0.0</version>
+					<version>3.1.0</version>
 					<executions>
 						<execution>
 							<goals>
@@ -213,17 +250,20 @@
 					</configuration>
 				</plugin>
 				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-compiler-plugin</artifactId>
-					<version>3.8.0</version>
+					<version>3.11.0</version>
 					<configuration>
-						<source>${project.build.javaVersion}</source>
-						<target>${project.build.javaVersion}</target>
 						<encoding>${project.build.sourceEncoding}</encoding>
+						<compilerArgs>
+							<arg>-Xlint:deprecation</arg>
+						</compilerArgs>
+                                                <release>10</release>
 					</configuration>
 				</plugin>
 				<plugin>
 					<artifactId>maven-source-plugin</artifactId>
-					<version>3.0.1</version>
+					<version>3.3.0</version>
 					<executions>
 						<execution>
 							<id>attach-sources</id>
@@ -235,18 +275,156 @@
 					</executions>
 				</plugin>
 				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-surefire-plugin</artifactId>
-					<version>2.22.1</version>
+					<version>2.22.2</version>
+					<!-- version 3.1.2 requires java 8 -->
 					<configuration>
 						<useSystemClassLoader>false</useSystemClassLoader>
-						<systemPropertyVariables>
-							<org.eclipse.californium.junit.socketmode>DIRECT</org.eclipse.californium.junit.socketmode>
-						</systemPropertyVariables>
-						<excludes>
-							<exclude>**/*$*</exclude>
-						</excludes>
-						<excludedGroups>org.eclipse.californium.elements.category.Small,org.eclipse.californium.elements.category.Medium,org.eclipse.californium.elements.category.Large,org.eclipse.californium.elements.category.NativeDatagramSocketImplRequired</excludedGroups>
 					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.felix</groupId>
+					<artifactId>maven-bundle-plugin</artifactId>
+					<version>5.1.9</version>
+					<executions>
+						<execution>
+							<id>bundle-manifest</id>
+							<phase>process-classes</phase>
+							<goals>
+								<goal>manifest</goal>
+							</goals>
+						</execution>
+					</executions>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-javadoc-plugin</artifactId>
+					<version>3.6.0</version>
+					<executions>
+						<execution>
+							<id>attach-javadocs</id>
+							<goals>
+								<goal>jar</goal>
+							</goals>
+						</execution>
+					</executions>
+					<configuration>
+						<source>${project.build.javaVersion}</source>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-assembly-plugin</artifactId>
+					<version>3.6.0</version>
+					<inherited>true</inherited>
+					<dependencies>
+						<dependency>
+							<groupId>${project.groupId}</groupId>
+							<artifactId>californium-assembly</artifactId>
+							<version>${project.version}</version>
+						</dependency>
+					</dependencies>
+					<configuration>
+						<appendAssemblyId>false</appendAssemblyId>
+						<attach>false</attach>
+						<archive>
+							<manifest>
+								<mainClass>${assembly.mainClass}</mainClass>
+								<addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+							</manifest>
+						</archive>
+					</configuration>
+					<executions>
+						<execution>
+							<id>make-assembly</id>
+							<phase>package</phase>
+							<goals>
+								<goal>single</goal>
+							</goals>
+						</execution>
+					</executions>
+				</plugin>
+				<plugin>
+					<artifactId>maven-jar-plugin</artifactId>
+					<version>3.3.0</version>
+					<configuration>
+						<excludes>
+							<exclude>**/logback-test.xml</exclude>
+						</excludes>
+					</configuration>
+				</plugin>
+				<plugin>
+					<artifactId>maven-enforcer-plugin</artifactId>
+					<version>3.4.1</version>
+				</plugin>
+				<plugin>
+					<groupId>org.sonatype.plugins</groupId>
+					<artifactId>nexus-staging-maven-plugin</artifactId>
+					<version>1.6.13</version>
+				</plugin>
+				<plugin>
+					<artifactId>maven-gpg-plugin</artifactId>
+					<version>3.1.0</version>
+				</plugin>
+				<plugin>
+					<groupId>org.eclipse.cbi.maven.plugins</groupId>
+					<artifactId>eclipse-jarsigner-plugin</artifactId>
+					<version>1.3.5</version>
+					<!-- version 1.4.2 requires java 8 -->
+				</plugin>
+				<plugin>
+					<groupId>org.codehaus.mojo</groupId>
+					<artifactId>animal-sniffer-maven-plugin</artifactId>
+					<version>1.23</version>
+				</plugin>
+				<plugin>
+					<groupId>org.codehaus.mojo</groupId>
+					<artifactId>license-maven-plugin</artifactId>
+					<version>2.0.0</version>
+				</plugin>
+				<plugin>
+					<groupId>org.revapi</groupId>
+					<artifactId>revapi-maven-plugin</artifactId>
+					<version>0.15.0</version>
+					<dependencies>
+						<dependency>
+							<groupId>org.revapi</groupId>
+							<artifactId>revapi-java</artifactId>
+							<version>0.28.1</version>
+						</dependency>
+					</dependencies>
+				</plugin>
+				<plugin>
+					<groupId>org.eclipse.dash</groupId>
+					<artifactId>license-tool-plugin</artifactId>
+					<version>0.0.1-SNAPSHOT</version>
+					<executions>
+						<execution>
+							<id>license-check</id>
+							<phase>verify</phase>
+							<goals>
+								<goal>license-check</goal>
+							</goals>
+						</execution>
+					</executions>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<systemPropertyVariables>
+						<org.eclipse.californium.junit.socketmode>DIRECT</org.eclipse.californium.junit.socketmode>
+					</systemPropertyVariables>
+					<excludes>
+						<exclude>**/*$*</exclude>
+					</excludes>
+					<excludedGroups>org.eclipse.californium.elements.category.Small,org.eclipse.californium.elements.category.Medium,org.eclipse.californium.elements.category.Large,org.eclipse.californium.elements.category.NativeDatagramSocketImplRequired</excludedGroups>
+				</configuration>
 				<executions>
 					<execution>
 						<id>small-tests</id>
@@ -296,115 +474,7 @@
 						</configuration>
 					</execution>
 				</executions>
-				</plugin>
-				<plugin>
-					<groupId>org.apache.felix</groupId>
-					<artifactId>maven-bundle-plugin</artifactId>
-					<version>3.5.0</version>
-					<executions>
-						<execution>
-							<id>bundle-manifest</id>
-							<phase>process-classes</phase>
-							<goals>
-								<goal>manifest</goal>
-							</goals>
-						</execution>
-					</executions>
-				</plugin>
-				<plugin>
-					<artifactId>maven-javadoc-plugin</artifactId>
-					<version>3.2.0</version>
-					<executions>
-						<execution>
-							<id>attach-javadocs</id>
-							<goals>
-								<goal>jar</goal>
-							</goals>
-						</execution>
-					</executions>
-					<configuration>
-						<source>${project.build.javaVersion}</source>
-					</configuration>
-				</plugin>
-				<plugin>
-					<artifactId>maven-assembly-plugin</artifactId>
-					<version>3.2.0</version>
-					<inherited>true</inherited>
-					<dependencies>
-						<dependency>
-							<groupId>${project.groupId}</groupId>
-							<artifactId>californium-assembly</artifactId>
-							<version>${project.version}</version>
-						</dependency>
-					</dependencies>
-					<configuration>
-						<appendAssemblyId>false</appendAssemblyId>
-						<attach>false</attach>
-						<archive>
-							<manifest>
-								<mainClass>${assembly.mainClass}</mainClass>
-								<addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-							</manifest>
-						</archive>
-					</configuration>
-					<executions>
-						<execution>
-							<id>make-assembly</id>
-							<phase>package</phase>
-							<goals>
-								<goal>single</goal>
-							</goals>
-						</execution>
-					</executions>
-				</plugin>
-				<plugin>
-					<artifactId>maven-jar-plugin</artifactId>
-					<version>3.1.1</version>
-				</plugin>
-				<plugin>
-					<artifactId>maven-enforcer-plugin</artifactId>
-					<version>1.4.1</version>
-				</plugin>
-				<plugin>
-					<groupId>org.sonatype.plugins</groupId>
-					<artifactId>nexus-staging-maven-plugin</artifactId>
-					<version>1.6.8</version>
-				</plugin>
-				<plugin>
-					<artifactId>maven-gpg-plugin</artifactId>
-					<version>1.6</version>
-				</plugin>
-				<plugin>
-					<groupId>org.eclipse.cbi.maven.plugins</groupId>
-					<artifactId>eclipse-jarsigner-plugin</artifactId>
-					<version>1.1.5</version>
-				</plugin>
-				<plugin>
-					<groupId>org.codehaus.mojo</groupId>
-					<artifactId>animal-sniffer-maven-plugin</artifactId>
-					<version>1.18</version>
-				</plugin>
-				<plugin>
-					<groupId>org.codehaus.mojo</groupId>
-					<artifactId>license-maven-plugin</artifactId>
-					<version>1.16</version>
-				</plugin>
-				<plugin>
-					<groupId>org.revapi</groupId>
-					<artifactId>revapi-maven-plugin</artifactId>
-					<version>0.11.5</version>
-					<dependencies>
-						<dependency>
-							<groupId>org.revapi</groupId>
-							<artifactId>revapi-java</artifactId>
-							<version>0.22.0</version>
-						</dependency>
-					</dependencies>
-				</plugin>
-			</plugins>
-		</pluginManagement>
-
-		<plugins>
+			</plugin>
 			<plugin>
 				<artifactId>maven-enforcer-plugin</artifactId>
 				<executions>
@@ -415,9 +485,9 @@
 						</goals>
 						<configuration>
 							<rules>
-								<dependencyConvergence/>
+								<dependencyConvergence />
 								<requireMavenVersion>
-									<version>3.0.5</version>
+									<version>3.2.5</version>
 								</requireMavenVersion>
 							</rules>
 						</configuration>
@@ -451,19 +521,15 @@
 				<artifactId>license-maven-plugin</artifactId>
 			</plugin>
 			<plugin>
-				<!-- 
-					Use the Nexus Staging plugin as a full replacement for the standard
-					Maven Deploy plugin.
-					See https://github.com/sonatype/nexus-maven-plugins/tree/master/staging/maven-plugin
-					why this makes sense :-)
-					We can control whether we want to deploy to the Eclipse repo or Maven Central
-					by a combination of the version being a SNAPHOT or release version and property
-					skipStaging=true/false.
-					In any case we can take advantage of the plugin's "deferred deploy" feature which
-					makes sure that all artifacts of a multi-module project are deployed as a whole
-					at the end of the build process instead of deploying each module's artifacts
-					individually as part of building the module.
-				 -->
+				<!-- Use the Nexus Staging plugin as a full replacement for the standard 
+					Maven Deploy plugin. See https://github.com/sonatype/nexus-maven-plugins/tree/master/staging/maven-plugin 
+					why this makes sense :-) We can control whether we want to deploy to the 
+					Eclipse repo or Maven Central by a combination of the version being a SNAPHOT 
+					or release version and property skipStaging=true/false. In any case we can 
+					take advantage of the plugin's "deferred deploy" feature which makes sure 
+					that all artifacts of a multi-module project are deployed as a whole at the 
+					end of the build process instead of deploying each module's artifacts individually 
+					as part of building the module. -->
 				<groupId>org.sonatype.plugins</groupId>
 				<artifactId>nexus-staging-maven-plugin</artifactId>
 				<extensions>true</extensions>
@@ -476,7 +542,7 @@
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
 				<artifactId>build-helper-maven-plugin</artifactId>
-				<version>3.0.0</version>
+				<version>3.4.0</version>
 				<executions>
 					<execution>
 						<id>parse-version</id>
@@ -490,65 +556,59 @@
 				<groupId>org.revapi</groupId>
 				<artifactId>revapi-maven-plugin</artifactId>
 				<configuration>
-					<oldVersion>2.6.0</oldVersion>
+					<oldVersion>${revapi.previous.version}</oldVersion>
 					<analysisConfiguration>
-						<revapi.semver.ignore>
+						<revapi.versions>
 							<enabled>true</enabled>
-							<versionIncreaseAllows>
-								<major>breaking</major>
-								<minor>nonBreaking</minor>
-								<patch>equivalent</patch>
-							</versionIncreaseAllows>
-						</revapi.semver.ignore>
-						<revapi.java.filter.annotated>
-							<regex>false</regex>
-							<exclude>
-								<item>@org.eclipse.californium.elements.util.NoPublicAPI</item>
-								<item>@org.eclipse.californium.elements.util.WipAPI</item>
-								<item>@java.lang.Deprecated</item>
-							</exclude>
-						</revapi.java.filter.annotated>
-						<revapi.java>
-							<checks>
-								<nonPublicPartOfAPI>
-									<reportUnchanged>true</reportUnchanged>
-								</nonPublicPartOfAPI>
-							</checks>
-							<filter>
-								<!--packages>
+							<onAllowed>
+								<criticality>documented</criticality>
+							</onAllowed>
+						</revapi.versions>
+						<revapi.differences>
+							<ignore>true</ignore>
+							<differences>
+								<item>
 									<regex>true</regex>
-									<exclude>
-										<item>org\.eclipse\.californium\.scandium\.dtls.*</item>
-									</exclude>
-								</packages-->
-								<!--classes>
-									<regex>false</regex>
-									<exclude>
-										<item>org.eclipse.californium.scandium.dtls.Handshaker</item>
-									</exclude>
-								</classes-->
-							</filter>
-						</revapi.java>
-						<revapi.ignore>
-							<item>
-								<regex>true</regex>
-								<code>java\.class\.externalClassExposedInAPI</code>
-								<package>org\.eclipse\.californium\..*</package>
-								<justification>
-									Californium uses classes of other californium modules very
-									frequently in the APIs. It's considered, that always all
-									used californium modules must have the same version!
-								</justification>
-							</item>
-							<item>
-								<regex>true</regex>
-								<code>java\.class\.externalClassExposedInAPI</code>
-								<package>org\.slf4j</package>
-								<justification>
-									Californium uses classes of slf4j in some case with scope protected.
-								</justification>
-							</item>
-						</revapi.ignore>
+									<code>java.class.externalClassExposedInAPI</code>
+									<package>org\.eclipse\.californium\..*</package>
+									<justification>
+										Californium uses classes of other californium modules
+										very frequently in the APIs. It's considered, that
+										always all used californium modules must have the same
+										version!
+									</justification>
+								</item>
+								<item>
+									<code>java.class.externalClassExposedInAPI</code>
+									<package>org.slf4j</package>
+									<justification>
+										Californium uses classes of slf4j in some case with scope protected.
+									</justification>
+								</item>
+								<item>
+									<code>java.field.enumConstantOrderChanged</code>
+									<class>org.eclipse.californium.scandium.dtls.cipher.CipherSuite</class>
+									<justification>
+										Order in CipherSuite reflects the preference by intention.
+										ordinal() must not be used.
+									</justification>
+								</item>
+							</differences>
+						</revapi.differences>
+						<revapi.filter>
+							<elements>
+								<exclude>
+									<item>
+										<matcher>java</matcher>
+										<match>@org.eclipse.californium.elements.util.NoPublicAPI ^*;</match>
+									</item>
+									<item>
+										<matcher>java</matcher>
+										<match>@org.eclipse.californium.elements.util.WipAPI ^*;</match>
+									</item>
+								</exclude>
+							</elements>
+						</revapi.filter>
 					</analysisConfiguration>
 					<failOnMissingConfigurationFiles>false</failOnMissingConfigurationFiles>
 					<analysisConfigurationFiles>
@@ -560,15 +620,23 @@
 						</configurationFile>
 					</analysisConfigurationFiles>
 				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>check</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
+
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
 				<artifactId>animal-sniffer-maven-plugin</artifactId>
 				<configuration>
 					<signature>
 						<groupId>net.sf.androidscents.signature</groupId>
-						<artifactId>android-api-level-16</artifactId>
-						<version>4.1.2_r5</version>
+						<artifactId>android-api-level-19</artifactId>
+						<version>4.4.2_r4</version>
 					</signature>
 					<annotations>
 						<annotation>org.eclipse.californium.elements.util.NotForAndroid</annotation>
@@ -580,9 +648,7 @@
 
 	<profiles>
 		<profile>
-			<!--
-				this profile downloads licenses used by 3rd-party library
-			-->
+			<!-- this profile downloads licenses used by 3rd-party library -->
 			<id>download-licenses</id>
 			<activation>
 				<property>
@@ -641,8 +707,32 @@
 			<build>
 				<plugins>
 					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-javadoc-plugin</artifactId>
 						<configuration>
+							<doclint>${javadoc.doclint}</doclint>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+		<profile>
+			<id>java8-javadoc-warn</id>
+			<activation>
+				<!-- jdk executing maven, not the jdk of the toolchain -->
+				<jdk>[1.8,11)</jdk>
+				<property>
+					<name>warnJavadoc</name>
+				</property>
+			</activation>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-javadoc-plugin</artifactId>
+						<configuration>
+							<show>private</show>
+							<failOnWarnings>true</failOnWarnings>
 							<doclint>${javadoc.doclint}</doclint>
 						</configuration>
 					</plugin>
@@ -653,7 +743,7 @@
 			<id>java11-javadoc</id>
 			<activation>
 				<!-- jdk executing maven, not the jdk of the toolchain -->
-				<jdk>[11,)</jdk>
+				<jdk>[11,17)</jdk>
 				<property>
 					<name>createJavadoc</name>
 				</property>
@@ -661,25 +751,58 @@
 			<build>
 				<plugins>
 					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-javadoc-plugin</artifactId>
 						<configuration>
 							<doclint>${javadoc.doclint}</doclint>
-							<additionalparam>-X-html4</additionalparam>
+							<additionalOptions>-html4</additionalOptions>
 						</configuration>
 					</plugin>
 				</plugins>
 			</build>
 		</profile>
 		<profile>
-			<!-- This profile activate the usage of toolchain to compile using JDK 1.7-->
+			<id>java17-javadoc</id>
+			<activation>
+				<!-- jdk executing maven, not the jdk of the toolchain -->
+				<jdk>[17,)</jdk>
+				<property>
+					<name>createJavadoc</name>
+				</property>
+			</activation>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-javadoc-plugin</artifactId>
+						<configuration>
+							<doclint>${javadoc.doclint}</doclint>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+		<profile>
+			<!-- This profile activate the usage of toolchain to compile using JDK 
+				1.7 -->
 			<id>useToolchain</id>
 			<activation>
 				<property>
 					<name>useToolchain</name>
 				</property>
 			</activation>
+			<properties>
+				<maven.compiler.release></maven.compiler.release>
+			</properties>
 			<build>
 				<plugins>
+					<plugin>
+						<artifactId>maven-compiler-plugin</artifactId>
+						<configuration>
+							<source>${project.build.javaVersion}</source>
+							<target>${project.build.javaVersion}</target>
+						</configuration>
+					</plugin>
 					<plugin>
 						<artifactId>maven-toolchains-plugin</artifactId>
 					</plugin>
@@ -687,7 +810,8 @@
 			</build>
 		</profile>
 		<profile>
-			<!-- This profile activate the usage of toolchain to compile and javadoc using JDK 1.7-->
+			<!-- This profile activate the usage of toolchain to compile and javadoc 
+				using JDK 1.7 -->
 			<id>toolchain-javadoc</id>
 			<activation>
 				<property>
@@ -697,10 +821,17 @@
 			<build>
 				<plugins>
 					<plugin>
-						<artifactId>maven-toolchains-plugin</artifactId>
+						<artifactId>maven-compiler-plugin</artifactId>
+						<configuration>
+							<source>${project.build.javaVersion}</source>
+							<target>${project.build.javaVersion}</target>
+						</configuration>
 					</plugin>
 					<plugin>
 						<artifactId>maven-javadoc-plugin</artifactId>
+					</plugin>
+					<plugin>
+						<artifactId>maven-toolchains-plugin</artifactId>
 					</plugin>
 				</plugins>
 			</build>
@@ -721,6 +852,7 @@
 						<artifactId>animal-sniffer-maven-plugin</artifactId>
 						<executions>
 							<execution>
+								<phase>compile</phase>
 								<goals>
 									<goal>check</goal>
 								</goals>
@@ -742,15 +874,125 @@
 			<build>
 				<plugins>
 					<plugin>
-					<groupId>org.revapi</groupId>
-					<artifactId>revapi-maven-plugin</artifactId>
-					<executions>
-						<execution>
-							<goals>
-								<goal>check</goal>
-							</goals>
-						</execution>
-					</executions>
+						<groupId>org.revapi</groupId>
+						<artifactId>revapi-maven-plugin</artifactId>
+						<executions>
+							<execution>
+								<goals>
+									<goal>check</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+		<profile>
+			<id>bc-tests-1-7</id>
+			<activation>
+				<activeByDefault>false</activeByDefault>
+			</activation>
+			<properties>
+				<bc.version>1.77</bc.version>
+				<slf4j.version>1.7.36</slf4j.version>
+			</properties>
+			<dependencies>
+				<dependency>
+					<groupId>org.bouncycastle</groupId>
+					<artifactId>bcpkix-jdk15to18</artifactId>
+					<version>${bc.version}</version>
+					<scope>test</scope>
+				</dependency>
+				<dependency>
+					<groupId>org.bouncycastle</groupId>
+					<artifactId>bcprov-jdk15to18</artifactId>
+					<version>${bc.version}</version>
+					<scope>test</scope>
+				</dependency>
+				<dependency>
+					<groupId>org.bouncycastle</groupId>
+					<artifactId>bctls-jdk15to18</artifactId>
+					<version>${bc.version}</version>
+					<scope>test</scope>
+				</dependency>
+				<dependency>
+					<groupId>org.bouncycastle</groupId>
+					<artifactId>bcutil-jdk15to18</artifactId>
+					<version>${bc.version}</version>
+					<scope>test</scope>
+				</dependency>
+				<dependency>
+					<groupId>org.slf4j</groupId>
+					<artifactId>jul-to-slf4j</artifactId>
+					<version>${slf4j.version}</version>
+					<scope>test</scope>
+				</dependency>
+			</dependencies>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-surefire-plugin</artifactId>
+						<configuration>
+							<systemPropertyVariables>
+								<CALIFORNIUM_JCE_PROVIDER>BC_NON_BLOCKING_RANDOM</CALIFORNIUM_JCE_PROVIDER>
+							</systemPropertyVariables>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+		<profile>
+			<id>bc-tests</id>
+			<activation>
+				<activeByDefault>false</activeByDefault>
+			</activation>
+			<properties>
+				<bc.version>1.77</bc.version>
+				<slf4j.version>1.7.36</slf4j.version>
+			</properties>
+			<dependencies>
+				<dependency>
+					<groupId>org.bouncycastle</groupId>
+					<artifactId>bcpkix-jdk18on</artifactId>
+					<version>${bc.version}</version>
+					<scope>test</scope>
+				</dependency>
+				<dependency>
+					<groupId>org.bouncycastle</groupId>
+					<artifactId>bcprov-jdk18on</artifactId>
+					<version>${bc.version}</version>
+					<scope>test</scope>
+				</dependency>
+				<dependency>
+					<groupId>org.bouncycastle</groupId>
+					<artifactId>bctls-jdk18on</artifactId>
+					<version>${bc.version}</version>
+					<scope>test</scope>
+				</dependency>
+				<dependency>
+					<groupId>org.bouncycastle</groupId>
+					<artifactId>bcutil-jdk18on</artifactId>
+					<version>${bc.version}</version>
+					<scope>test</scope>
+				</dependency>
+				<dependency>
+					<groupId>org.slf4j</groupId>
+					<artifactId>jul-to-slf4j</artifactId>
+					<version>${slf4j.version}</version>
+					<scope>test</scope>
+				</dependency>
+			</dependencies>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-surefire-plugin</artifactId>
+						<configuration>
+							<systemPropertyVariables>
+								<CALIFORNIUM_JCE_PROVIDER>BC_NON_BLOCKING_RANDOM</CALIFORNIUM_JCE_PROVIDER>
+							</systemPropertyVariables>
+						</configuration>
 					</plugin>
 				</plugins>
 			</build>
@@ -774,7 +1016,7 @@
 					<snapshots>
 						<enabled>false</enabled>
 					</snapshots>
-					<url>https://repo.eclipse.org/content/repositories/releases/</url>
+					<url>https://repo.eclipse.org/content/repositories/cbi-releases/</url>
 				</pluginRepository>
 			</pluginRepositories>
 			<build>
@@ -807,6 +1049,7 @@
 			<build>
 				<plugins>
 					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-gpg-plugin</artifactId>
 						<executions>
 							<execution>

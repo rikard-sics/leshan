@@ -17,13 +17,10 @@
 package org.eclipse.californium.scandium.dtls;
 
 import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
-
-import java.net.InetSocketAddress;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import org.eclipse.californium.elements.category.Small;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -31,23 +28,19 @@ import org.junit.experimental.categories.Category;
 public class ServerHelloTest {
 
 	ServerHello serverHello;
-	InetSocketAddress peerAddress;
-	
-	@Before
-	public void setUp() throws Exception {
-		peerAddress = new InetSocketAddress("localhost", 5684);
-	}
 
 	@Test
 	public void testGetClientCertificateType() {
 		givenAServerHelloWith(null, CertificateType.RAW_PUBLIC_KEY);
-		assertThat(serverHello.getClientCertificateType(), is(CertificateType.RAW_PUBLIC_KEY));
+		assertThat(serverHello.getClientCertificateTypeExtension().getCertificateType(),
+				is(CertificateType.RAW_PUBLIC_KEY));
 	}
 
 	@Test
 	public void testGetServerCertificateType() {
 		givenAServerHelloWith(CertificateType.RAW_PUBLIC_KEY, null);
-		assertThat(serverHello.getServerCertificateType(), is(CertificateType.RAW_PUBLIC_KEY));
+		assertThat(serverHello.getServerCertificateTypeExtension().getCertificateType(),
+				is(CertificateType.RAW_PUBLIC_KEY));
 	}
 
 	@Test
@@ -60,22 +53,19 @@ public class ServerHelloTest {
 		assertThat("ServerHello's anticipated message length does not match its real length",
 				serverHello.getMessageLength(), is(serverHello.fragmentToByteArray().length));
 	}
-	
 
 	private void givenAServerHelloWith(CertificateType serverType, CertificateType clientType) {
-		HelloExtensions ext = new HelloExtensions();
+		givenAServerHelloWithEmptyExtensions();
 		if (serverType != null) {
-			ext.addExtension(new ServerCertificateTypeExtension(serverType));
+			serverHello.addExtension(new ServerCertificateTypeExtension(serverType));
 		}
 		if (clientType != null) {
-			ext.addExtension(new ClientCertificateTypeExtension(clientType));
+			serverHello.addExtension(new ClientCertificateTypeExtension(clientType));
 		}
-		serverHello = new ServerHello(ProtocolVersion.VERSION_DTLS_1_2, new Random(), new SessionId(),
-				CipherSuite.TLS_PSK_WITH_AES_128_CCM_8, CompressionMethod.NULL, ext, peerAddress);
 	}
-	
+
 	private void givenAServerHelloWithEmptyExtensions() {
-		serverHello = new ServerHello(ProtocolVersion.VERSION_DTLS_1_2, new Random(), new SessionId(),
-				CipherSuite.TLS_PSK_WITH_AES_128_CCM_8, CompressionMethod.NULL, new HelloExtensions(), peerAddress);
+		serverHello = new ServerHello(ProtocolVersion.VERSION_DTLS_1_2, new SessionId(),
+				CipherSuite.TLS_PSK_WITH_AES_128_CCM_8, CompressionMethod.NULL);
 	}
 }

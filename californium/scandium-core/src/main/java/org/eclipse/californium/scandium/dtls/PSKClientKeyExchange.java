@@ -17,8 +17,6 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
-import java.net.InetSocketAddress;
-
 import org.eclipse.californium.elements.util.DatagramReader;
 import org.eclipse.californium.elements.util.DatagramWriter;
 import org.eclipse.californium.elements.util.StringUtil;
@@ -29,32 +27,22 @@ import org.eclipse.californium.elements.util.StringUtil;
  * to use by including a "PSK identity" in this message. The server can
  * potentially provide a "PSK identity hint" to help the client in selecting
  * which identity to use. See <a
- * href="http://tools.ietf.org/html/rfc4279#section-2">RFC 4279</a> for details.
+ * href="https://tools.ietf.org/html/rfc4279#section-2" target="_blank">RFC 4279</a> for details.
  */
 public final class PSKClientKeyExchange extends ClientKeyExchange {
 
-	// DTLS-specific constants ////////////////////////////////////////
-
 	private static final int IDENTITY_LENGTH_BITS = 16;
-
-	// Members ////////////////////////////////////////////////////////
 
 	/** The identity in cleartext. */
 	private final PskPublicInformation identity;
 
-	// Constructors ///////////////////////////////////////////////////
-
-	public PSKClientKeyExchange(PskPublicInformation identity, InetSocketAddress peerAddress) {
-		super(peerAddress);
+	public PSKClientKeyExchange(PskPublicInformation identity) {
 		this.identity = identity;
 	}
 
-	private PSKClientKeyExchange(byte[] identityEncoded, InetSocketAddress peerAddress) {
-		super(peerAddress);
+	private PSKClientKeyExchange(byte[] identityEncoded) {
 		this.identity = PskPublicInformation.fromByteArray(identityEncoded);
 	}
-
-	// Methods ////////////////////////////////////////////////////////
 
 	@Override
 	public int getMessageLength() {
@@ -64,34 +52,29 @@ public final class PSKClientKeyExchange extends ClientKeyExchange {
 	}
 
 	@Override
-	public String toString() {
-		StringBuilder sb = new StringBuilder(super.toString());
-		sb.append("\t\tPSK Identity: ").append(identity).append(StringUtil.lineSeparator());
+	public String toString(int indent) {
+		StringBuilder sb = new StringBuilder(super.toString(indent));
+		String indentation = StringUtil.indentation(indent + 1);
+		sb.append(indentation).append("PSK Identity: ").append(identity).append(StringUtil.lineSeparator());
 
 		return sb.toString();
 	}
 
-	// Serialization //////////////////////////////////////////////////
-
 	@Override
 	public byte[] fragmentToByteArray() {
-		DatagramWriter writer = new DatagramWriter();
-		
-		writer.write(identity.length(), IDENTITY_LENGTH_BITS);
-		writer.writeBytes(identity.getBytes());
-		
+		DatagramWriter writer = new DatagramWriter(identity.length() + 2);
+
+		writer.writeVarBytes(identity, IDENTITY_LENGTH_BITS);
+
 		return writer.toByteArray();
 	}
 
-	public static HandshakeMessage fromReader(DatagramReader reader, InetSocketAddress peerAddress) {
-		
-		int length = reader.read(IDENTITY_LENGTH_BITS);
-		byte[] identityEncoded = reader.readBytes(length);
-		
-		return new PSKClientKeyExchange(identityEncoded, peerAddress);
-	}
+	public static HandshakeMessage fromReader(DatagramReader reader) {
 
-	// Getters and Setters ////////////////////////////////////////////
+		byte[] identityEncoded = reader.readVarBytes(IDENTITY_LENGTH_BITS);
+
+		return new PSKClientKeyExchange(identityEncoded);
+	}
 
 	public PskPublicInformation getIdentity() {
 		return identity;

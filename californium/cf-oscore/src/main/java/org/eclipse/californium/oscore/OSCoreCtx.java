@@ -22,24 +22,23 @@ package org.eclipse.californium.oscore;
 import java.security.GeneralSecurityException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.eclipse.californium.core.coap.CoAP.Code;
-import org.eclipse.californium.core.network.config.NetworkConfig;
-import org.eclipse.californium.core.network.config.NetworkConfig.Keys;
-
-import com.upokecenter.cbor.CBORObject;
-
+import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.cose.EncryptCommon;
+import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.config.UdpConfig;
 import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.scandium.dtls.cipher.CCMBlockCipher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.upokecenter.cbor.CBORObject;
 
 /**
  * 
@@ -48,6 +47,11 @@ import org.eclipse.californium.scandium.dtls.cipher.CCMBlockCipher;
  *
  */
 public class OSCoreCtx {
+
+	static {
+		CoapConfig.register();
+		UdpConfig.register();
+	}
 
 	/**
 	 * The logger
@@ -69,17 +73,12 @@ public class OSCoreCtx {
 
 	private byte[] recipient_id;
 	private byte[] recipient_key;
-	private int recipient_seq;
+	private int lowest_recipient_seq;
 	private int recipient_replay_window_size;
 	private int recipient_replay_window;
 
 	private AlgorithmID kdf;
 
-	private int rollback_recipient_seq = -1;
-	private int rollback_recipient_replay = -1;
-	private byte[] rollback_last_block_tag = null;
-
-	private byte[] last_block_tag = null;
 	private int seqMax = Integer.MAX_VALUE;
 
 	private int id_length;
@@ -175,7 +174,22 @@ public class OSCoreCtx {
 	 * @throws OSException if the default KDF is not supported
 	 */
 	public OSCoreCtx(byte[] master_secret, boolean client) throws OSException {
-		this(master_secret, client, null, null, null, null, null, null, null);
+		this(master_secret, client, Configuration.getStandard());
+	}
+
+	/**
+	 * Constructor. Generates the context from the base parameters with the
+	 * minimal input.
+	 * 
+	 * @param master_secret the master secret
+	 * @param client is this originally the client's context
+	 * @param configuration configuration to be used by this context
+	 * @throws OSException if the default KDF is not supported
+	 * @since 3.0
+	 */
+	public OSCoreCtx(byte[] master_secret, boolean client, Configuration configuration) throws OSException {
+		this(master_secret, client, null, null, null, null, null, null, null,
+				configuration.get(CoapConfig.MAX_RESOURCE_BODY_SIZE));
 	}
 
 	/**
@@ -191,11 +205,13 @@ public class OSCoreCtx {
 	 * @param replay_size the replay window size or null for the default
 	 * @param master_salt the optional master salt, can be null
 	 * @param contextId the context id, can be null
+	 * @param maxUnfragmentedSize maximum unfragmented size 
 	 *
 	 * @throws OSException if the KDF is not supported
+	 * @since 3.0 (added parameter maxUnfragmentedSize)
 	 */
 	public OSCoreCtx(byte[] master_secret, boolean client, AlgorithmID alg, byte[] sender_id, byte[] recipient_id,
-			AlgorithmID kdf, Integer replay_size, byte[] master_salt, byte[] contextId) throws OSException {
+			AlgorithmID kdf, Integer replay_size, byte[] master_salt, byte[] contextId, int maxUnfragmentedSize) throws OSException {
 
 		if (alg == null) {
 			this.common_alg = AlgorithmID.AES_CCM_16_64_128;
@@ -206,7 +222,7 @@ public class OSCoreCtx {
 		setLengths();
 
 		this.sender_seq = 0;
-		this.recipient_seq = -1;
+		this.lowest_recipient_seq = 0;
 
 		if (master_secret != null) {
 			this.common_master_secret = master_secret.clone();
@@ -233,6 +249,9 @@ public class OSCoreCtx {
 		}
 
 		if (replay_size == null) {
+			this.recipient_replay_window_size = 32;
+		} else if (replay_size > 32) {
+			LOGGER.warn("Maximum size of replay window is 32. Setting to 32.");
 			this.recipient_replay_window_size = 32;
 		} else {
 			this.recipient_replay_window_size = replay_size.intValue();
@@ -271,7 +290,7 @@ public class OSCoreCtx {
 		contextRederivationPhase = ContextRederivation.PHASE.INACTIVE;
 
 		// Set default value of MAX_UNFRAGMENTED_SIZE
-		maxUnfragmentedSize = NetworkConfig.getStandard().getInt(Keys.MAX_RESOURCE_BODY_SIZE);
+		this.maxUnfragmentedSize = maxUnfragmentedSize;
 
 		//Set digest value depending on HKDF
 		String digest = null;
@@ -285,7 +304,7 @@ public class OSCoreCtx {
 		case HKDF_HMAC_AES_128:
 		case HKDF_HMAC_AES_256:
 		default:
-			LOGGER.error("Requested HKDF algorithm is not supported: " + this.kdf.toString());
+			LOGGER.error("Requested HKDF algorithm is not supported: {}", this.kdf);
 			throw new OSException("HKDF algorithm not supported");
 		}
 
@@ -301,8 +320,9 @@ public class OSCoreCtx {
 			this.sender_key = deriveKey(this.common_master_secret, this.common_master_salt, this.key_length, digest,
 					info.EncodeToBytes());
 		} catch (CoseException e) {
-			LOGGER.error(e.getMessage());
-			throw new OSException(e.getMessage());
+			String details = e.getMessage();
+			LOGGER.error(details);
+			throw new OSException(details);
 		}
 
 		// Derive recipient_key
@@ -317,8 +337,9 @@ public class OSCoreCtx {
 			this.recipient_key = deriveKey(this.common_master_secret, this.common_master_salt, this.key_length, digest,
 					info.EncodeToBytes());
 		} catch (CoseException e) {
-			LOGGER.error(e.getMessage());
-			throw new OSException(e.getMessage());
+			String details = e.getMessage();
+			LOGGER.error(details);
+			throw new OSException(details);
 		}
 
 		// Derive common_iv
@@ -333,8 +354,9 @@ public class OSCoreCtx {
 			this.common_iv = deriveKey(this.common_master_secret, this.common_master_salt, this.iv_length, digest,
 					info.EncodeToBytes());
 		} catch (CoseException e) {
-			LOGGER.error(e.getMessage());
-			throw new OSException(e.getMessage());
+			String details = e.getMessage();
+			LOGGER.error(details);
+			throw new OSException(details);
 		}
 
 		// Initialize cipher object
@@ -392,17 +414,10 @@ public class OSCoreCtx {
 	}
 
 	/**
-	 * @return the receiver sequence number
+	 * @return the lowest recipient sequence number in current replay window
 	 */
-	public synchronized int getReceiverSeq() {
-		return recipient_seq;
-	}
-
-	/**
-	 * @return the tag of the last block processed with this context
-	 */
-	public byte[] getLastBlockTag() {
-		return last_block_tag;
+	public synchronized int getLowestRecipientSeq() {
+		return lowest_recipient_seq;
 	}
 
 	/**
@@ -621,14 +636,6 @@ public class OSCoreCtx {
 		return recipientIdString;
 	}
 
-    public int rollbackRecipientSeq() {
-		return rollback_recipient_seq;
-	}
-
-	public int rollbackRecipientReplay() {
-		return rollback_recipient_replay;
-	}
-
 	/**
 	 * @param seq the sender sequence number to set
 	 */
@@ -638,18 +645,18 @@ public class OSCoreCtx {
 
 	/**
 	 * @param seq the recipient sequence number to set
+	 * @since 3.11 (adjust visibility to public)
 	 */
-	public synchronized void setReceiverSeq(int seq) {
-		recipient_seq = seq;
+	public synchronized void setRecipientSeq(int seq) {
+		lowest_recipient_seq = seq;
 	}
 
 	/**
-	 * Save the tag of the last processed block
-	 * 
-	 * @param tag the tag
+	 * @param window the recipient replay window to set
+	 * @since 3.11
 	 */
-	public void setLastBlockTag(byte[] tag) {
-		last_block_tag = tag.clone();
+	public synchronized void setRecipientReplayWindow(int window) {
+		recipient_replay_window = window;
 	}
 
 	/**
@@ -773,60 +780,43 @@ public class OSCoreCtx {
 	}
 
 	/**
-	 * Checks and sets the sequence number for incoming messages.
+	 * Checks and validates the sequence number for incoming messages.
 	 * 
 	 * @param seq the incoming sequence number
 	 * 
-	 * @throws OSException if the sequence number wraps or if for a replay
+	 * @throws OSException if the sequence number wraps or if it is a replay
 	 */
 	public synchronized void checkIncomingSeq(int seq) throws OSException {
+
 		if (seq >= seqMax) {
 			LOGGER.error("Sequence number wrapped, get new OSCore context");
 			throw new OSException(ErrorDescriptions.REPLAY_DETECT);
 		}
-		rollback_recipient_seq = recipient_seq;
-		rollback_recipient_replay = recipient_replay_window;
-		if (seq > recipient_seq) {
-			// Update the replay window
-			int shift = seq - recipient_seq;
-			recipient_replay_window = recipient_replay_window << shift;
-			recipient_seq = seq;
-		} else if (seq == recipient_seq) {
-			LOGGER.error("Sequence number is replay");
-			throw new OSException(ErrorDescriptions.REPLAY_DETECT);
-		} else { // seq < recipient_seq
-			if (seq + recipient_replay_window_size < recipient_seq) {
-				LOGGER.error("Message too old");
-				throw new OSException(ErrorDescriptions.REPLAY_DETECT);
-			}
-			// seq+replay_window_size > recipient_seq
-			int shift = this.recipient_seq - seq;
-			int pattern = 1 << shift;
-			int verifier = recipient_replay_window & pattern;
-			verifier = verifier >> shift;
-			if (verifier == 1) {
-				throw new OSException(ErrorDescriptions.REPLAY_DETECT);
-			}
-			recipient_replay_window = recipient_replay_window | pattern;
-		}
-	}
 
-	/**
-	 * Rolls back the latest recipient sequence number update if any
-	 */
-	public synchronized void rollBack() {
-		if (rollback_recipient_replay != -1) {
-			recipient_replay_window = rollback_recipient_replay;
-			rollback_recipient_replay = -1;
+		if (seq < lowest_recipient_seq) {
+			LOGGER.error("Message too old");
+			throw new OSException(ErrorDescriptions.REPLAY_DETECT);
 		}
-		if (rollback_recipient_seq != -1) {
-			recipient_seq = rollback_recipient_seq;
-			rollback_recipient_seq = -1;
+
+		// Check validity
+		boolean valid = false;
+		if (seq >= lowest_recipient_seq + recipient_replay_window_size) {
+			valid = true;
+		} else {
+			valid = ((recipient_replay_window >> (seq - lowest_recipient_seq)) & 1) == 0;
 		}
-		if (this.rollback_last_block_tag != null) {
-			this.last_block_tag = this.rollback_last_block_tag;
-			this.rollback_last_block_tag = null;
+		if (!valid) {
+			LOGGER.error("Replayed message detected");
+			throw new OSException(ErrorDescriptions.REPLAY_DETECT);
 		}
+
+		// Update window
+		int shift = seq - (lowest_recipient_seq + recipient_replay_window_size - 1);
+		if (shift > 0) {
+			recipient_replay_window >>= shift;
+			lowest_recipient_seq += shift;
+		}
+		recipient_replay_window |= 1 << (seq - lowest_recipient_seq);
 	}
 
 	protected static byte[] deriveKey(byte[] secret, byte[] salt, int cbitKey, String digest, byte[] rgbContext)
@@ -880,7 +870,9 @@ public class OSCoreCtx {
 	}
 
 	/**
-	 * Returns this CoAPCode
+	 * Returns this CoAPCode.
+	 * 
+	 * @return the coap code
 	 */
 	public Code getCoAPCode() {
 		return CoAPCode;
@@ -940,4 +932,29 @@ public class OSCoreCtx {
 	private static byte[] createByteArray(byte... values) {
 		return values;
 	}
+
+	/**
+	 * Holds nonce to hand over between different Security Contexts during
+	 * execution of Appendix B.2
+	 */
+	private byte[] nonceHandover;
+
+	/**
+	 * Set nonce to hand over during execution of Appendix B.2
+	 * 
+	 * @param nonce the nonce value to hand over
+	 */
+	protected void setNonceHandover(byte[] nonce) {
+		this.nonceHandover = nonce;
+	}
+
+	/**
+	 * Get nonce for hand over during execution of Appendix B.2
+	 * 
+	 * @return the retrieved nonce value
+	 */
+	protected byte[] getNonceHandover() {
+		return nonceHandover;
+	}
+
 }

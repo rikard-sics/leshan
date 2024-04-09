@@ -36,18 +36,19 @@
  ******************************************************************************/
 package org.eclipse.californium.core.network.stack;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import org.eclipse.californium.core.coap.CoAP.ResponseCode;
 import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.core.coap.EmptyMessage;
 import org.eclipse.californium.core.coap.MessageObserverAdapter;
+import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.network.Exchange;
 import org.eclipse.californium.core.network.Exchange.Origin;
-import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.observe.ObserveRelation;
+import org.eclipse.californium.core.observe.ObserveRelation.State;
+import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.util.StringUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * UDP observe layer.
@@ -60,40 +61,50 @@ public class ObserveLayer extends AbstractLayer {
 	 * Creates a new observe layer for a configuration.
 	 * 
 	 * @param config The configuration values to use.
+	 * @since 3.0 (changed parameter to Configuration)
 	 */
-	public ObserveLayer(final NetworkConfig config) {
+	public ObserveLayer(final Configuration config) {
 		// so far no configuration values for this layer
 	}
 
 	@Override
 	public void sendResponse(final Exchange exchange, final Response response) {
-
 		final ObserveRelation relation = exchange.getRelation();
-		if (relation != null && relation.isEstablished()) {
-
-			if (exchange.getRequest().isAcknowledged() || exchange.getRequest().getType() == Type.NON) {
-				// Transmit errors as CON
-				if (!ResponseCode.isSuccess(response.getCode())) {
-					LOGGER.debug("response has error code {} and must be sent as CON", response.getCode());
-					response.setType(Type.CON);
-					relation.cancel();
-				} else {
-					// Make sure that every now and than a CON is mixed within
-					if (relation.check()) {
-						LOGGER.debug("observe relation check requires the notification to be sent as CON");
-						response.setType(Type.CON);
+		ObserveRelation.State state = ObserveRelation.onResponse(relation, response);
+		if (state == State.INIT || state == State.ESTABILSHED) {
+			Type type = response.getType();
+			if (type == null) {
+				if (state == State.INIT) {
+					// first response
+					Request currentRequest = exchange.getCurrentRequest();
+					if (currentRequest.acknowledge()) {
+						// send piggy-backed response
+						response.setType(Type.ACK);
+					} else if (currentRequest.isConfirmable()) {
+						// send separate CON or NON notify
+						// depending on the resource's observe-type
+						response.setType(relation.getObserveType());
 					} else {
-						// By default use NON, but do not override resource
-						// decision
-						if (response.getType() == null) {
-							response.setType(Type.NON);
-						}
+						// send separate NON notify
+						// depending on the request's type
+						response.setType(Type.NON);
 					}
+					LOGGER.trace("{} set initial notify type to {}", exchange, response.getType());
+				} else if (state == State.ESTABILSHED) {
+					Type observerType;
+					if (response.isSuccess()) {
+						// success either CON or NON
+						observerType = relation.getObserveType();
+					} else {
+						// error always CON
+						observerType = Type.CON;
+					}
+					response.setType(observerType);
+					LOGGER.trace("{} set notify type to {}", exchange, response.getType());
 				}
 			}
-
 			/*
-			 * Only one Confirmable message is allowed to be in transit. A CON
+			 * Only one confirmable message is allowed to be in transit. A CON
 			 * is in transit as long as it has not been acknowledged, rejected,
 			 * or timed out. All further notifications are postponed here. If a
 			 * former CON is acknowledged or timeouts, it starts the freshest
@@ -108,32 +119,25 @@ public class ObserveLayer extends AbstractLayer {
 			// The decision whether to postpone this notification or not and the
 			// decision which notification is the freshest to send next must be
 			// synchronized
-			Response current = relation.getCurrentControlNotification();
-			if (current != null && isInTransit(current)) {
+			if (relation.isPostponedNotification(response)) {
 				LOGGER.debug("a former notification is still in transit. Postponing {}", response);
-				relation.setNextControlNotification(response);
 				// do not send now
 				return;
-			} else {
-				relation.setCurrentControlNotification(response);
-				relation.setNextControlNotification(null);
 			}
-
-		} // else no observe was requested or the resource does not allow it
+		} else if (relation != null) {
+			if (exchange.isComplete()) {
+				LOGGER.debug("drop notification {}, relation was canceled!", response);
+				response.setCanceled(true);
+				return;
+			} else {
+				Type type = response.getType();
+				if (type == null || type == Type.CON) {
+					// if type is set later, add the cleanup preventive
+					response.addMessageObserver(new CleanupMessageObserver(exchange));
+				}
+			}
+		}
 		lower().sendResponse(exchange, response);
-	}
-
-	/**
-	 * Returns true if the specified response is still in transit. A response is
-	 * in transit if it has not yet been acknowledged, rejected or its current
-	 * transmission has not yet timed out.
-	 */
-	private static boolean isInTransit(final Response response) {
-		Type type = response.getType();
-		boolean acked = response.isAcknowledged();
-		boolean timeout = response.isTimedOut();
-		boolean result = type == Type.CON && !acked && !timeout;
-		return result;
 	}
 
 	@Override
@@ -153,15 +157,14 @@ public class ObserveLayer extends AbstractLayer {
 
 	@Override
 	public void receiveEmptyMessage(final Exchange exchange, final EmptyMessage message) {
-		// NOTE: We could also move this into the MessageObserverAdapter from
-		// sendResponse into the method rejected().
-		if (message.getType() == Type.RST && exchange.getOrigin() == Origin.REMOTE) {
-			// The response has been rejected
-			ObserveRelation relation = exchange.getRelation();
-			if (relation != null) {
-				relation.cancel();
-			} // else there was no observe relation ship and this layer ignores
-				// the rst
+		ObserveRelation relation = exchange.getRelation();
+		if (relation != null) {
+			if (message.getType() == Type.RST && exchange.getOrigin() == Origin.REMOTE) {
+				// The response has been rejected
+				if (exchange.getCurrentResponse().isNotification()) {
+					relation.reject();
+				}
+			}
 		}
 		upper().receiveEmptyMessage(exchange, message);
 	}
@@ -175,12 +178,17 @@ public class ObserveLayer extends AbstractLayer {
 	 */
 	private class NotificationController extends MessageObserverAdapter {
 
-		private Exchange exchange;
-		private Response response;
+		private final Exchange exchange;
+		private final Response response;
 
 		public NotificationController(Exchange exchange, Response response) {
 			this.exchange = exchange;
 			this.response = response;
+		}
+
+		@Override
+		public boolean isInternal() {
+			return true;
 		}
 
 		@Override
@@ -190,18 +198,14 @@ public class ObserveLayer extends AbstractLayer {
 				@Override
 				public void run() {
 					ObserveRelation relation = exchange.getRelation();
-					if (relation.getCurrentControlNotification() == response) {
-						final Response next = relation.getNextControlNotification();
-						// next may be null
-						relation.setCurrentControlNotification(next);
-						relation.setNextControlNotification(null);
-						if (next != null) {
-							if (relation.isCanceled()) {
-								next.cancel();
-							} else {
-								LOGGER.trace("notification has been acknowledged, send the next one");
-								ObserveLayer.super.sendResponse(exchange, next);
-							}
+					boolean canceled = relation.isCanceled();
+					Response next = relation.getNextNotification(response, true);
+					if (next != null) {
+						LOGGER.debug("notification has been acknowledged, send the next one");
+						if (canceled) {
+							next.cancel();
+						} else {
+							ObserveLayer.super.sendResponse(exchange, next);
 						}
 					}
 				}
@@ -212,32 +216,26 @@ public class ObserveLayer extends AbstractLayer {
 		public void onRetransmission() {
 			// called within the exchange executor context.
 			ObserveRelation relation = exchange.getRelation();
-			if (relation.getCurrentControlNotification() == response) {
-				Response next = relation.getNextControlNotification();
-				if (relation.isCanceled()) {
-					response.cancel();
-					if (next != null) {
-						next.cancel();
-						next = null;
-					}
-				}
+			boolean canceled = relation.isCanceled();
+			Response next = relation.getNextNotification(response, false);
+			if (canceled) {
+				response.cancel();
 				if (next != null) {
-					LOGGER.trace(
-							"notification has timed out and there is a fresher notification for the retransmission");
-					// Cancel the original retransmission and
-					// send the fresh notification here
-					response.cancel();
-					// Convert all notification retransmissions to CON
-					if (next.getType() != Type.CON) {
-						next.setType(Type.CON);
-						prepareSelfReplacement(exchange, next);
-					}
-					relation.setCurrentControlNotification(next);
-					relation.setNextControlNotification(null);
-					// Create a new task for sending next response so that we
-					// can leave the sync-block
-					ObserveLayer.super.sendResponse(exchange, next);
+					next.cancel();
+					next = null;
 				}
+			}
+			if (next != null) {
+				LOGGER.debug("notification has timed out and there is a fresher notification for the retransmission");
+				// Convert all notification retransmissions to CON
+				if (next.getType() != Type.CON) {
+					next.setType(Type.CON);
+					prepareSelfReplacement(exchange, next);
+				}
+				// Cancel the original retransmission and
+				// send the fresh notification here
+				response.cancel();
+				ObserveLayer.super.sendResponse(exchange, next);
 			}
 		}
 
@@ -245,8 +243,16 @@ public class ObserveLayer extends AbstractLayer {
 		public void onTimeout() {
 			ObserveRelation relation = exchange.getRelation();
 			LOGGER.info("notification for token [{}] timed out. Canceling all relations with source [{}]",
-					relation.getExchange().getRequest().getToken(), relation.getSource());
+					relation.getExchange().getRequest().getToken(), StringUtil.toLog(relation.getSource()));
 			relation.cancelAll();
+		}
+
+		@Override
+		protected void failed() {
+			ObserveRelation relation = exchange.getRelation();
+			LOGGER.info("notification for token [{}] failed. Source [{}].",
+					relation.getExchange().getRequest().getToken(), StringUtil.toLog(relation.getSource()));
+			relation.cancel();
 		}
 
 		// Cancellation on RST is done in receiveEmptyMessage()

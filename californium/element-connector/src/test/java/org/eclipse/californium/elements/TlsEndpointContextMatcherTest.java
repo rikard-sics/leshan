@@ -16,16 +16,21 @@
 package org.eclipse.californium.elements;
 
 import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.net.InetSocketAddress;
 
+import org.eclipse.californium.elements.rule.LoggingRule;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 
 public class TlsEndpointContextMatcherTest {
 
 	private static final InetSocketAddress ADDRESS = new InetSocketAddress(0);
+
+	@Rule 
+	public LoggingRule logging = new LoggingRule();
 
 	private EndpointContext connectorContext;
 	private EndpointContext messageContext;
@@ -34,20 +39,23 @@ public class TlsEndpointContextMatcherTest {
 
 	@Before
 	public void setup() {
-		connectorContext = new TlsEndpointContext(ADDRESS, null, "ID1", "S1", "C1");
-		messageContext = new TlsEndpointContext(ADDRESS, null, "ID1", "S1", "C1");
-		differentMessageContext = new TlsEndpointContext(ADDRESS, null, "ID2", "S2", "C1");
+		long time = System.currentTimeMillis();
+		connectorContext = new TlsEndpointContext(ADDRESS, null, "ID1", "S1", "C1", time);
+		messageContext = new TlsEndpointContext(ADDRESS, null, "ID1", "S1", "C1", time);
+		differentMessageContext = new TlsEndpointContext(ADDRESS, null, "ID2", "S2", "C1", System.currentTimeMillis());
 		matcher = new TlsEndpointContextMatcher();
 	}
 
 	@Test
 	public void testWithConnectorEndpointContext() {
+		logging.setLoggingLevel("ERROR", EndpointContextUtil.class);
 		assertThat(matcher.isToBeSent(messageContext, connectorContext), is(true));
 		assertThat(matcher.isToBeSent(differentMessageContext, connectorContext), is(false));
 	}
 
 	@Test
 	public void testWithoutConnectorEndpointContext() {
+		logging.setLoggingLevel("ERROR", EndpointContextUtil.class);
 		assertThat(matcher.isToBeSent(messageContext, null), is(false));
 		assertThat(matcher.isToBeSent(differentMessageContext, null), is(false));
 	}

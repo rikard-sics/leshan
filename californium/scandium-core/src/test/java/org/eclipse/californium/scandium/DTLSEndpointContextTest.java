@@ -22,14 +22,12 @@ import static org.eclipse.californium.scandium.ConnectorHelper.MAX_TIME_TO_WAIT_
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -42,12 +40,16 @@ import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.category.Medium;
 import org.eclipse.californium.elements.rule.TestNameLoggerRule;
 import org.eclipse.californium.elements.rule.ThreadsRule;
+import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.SimpleMessageCallback;
 import org.eclipse.californium.scandium.ConnectorHelper.LatchDecrementingRawDataChannel;
+import org.eclipse.californium.scandium.ConnectorHelper.TestContext;
+import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.Connection;
+import org.eclipse.californium.scandium.dtls.DTLSContext;
 import org.eclipse.californium.scandium.dtls.DTLSSession;
-import org.eclipse.californium.scandium.dtls.InMemoryConnectionStore;
+import org.eclipse.californium.scandium.dtls.ResumptionSupportingConnectionStore;
 import org.eclipse.californium.scandium.rule.DtlsNetworkRule;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -84,8 +86,9 @@ public class DTLSEndpointContextTest {
 
 	DTLSConnector client;
 	DtlsConnectorConfig clientConfig;
+	DTLSContext establishedClientContext;
 	DTLSSession establishedClientSession;
-	InMemoryConnectionStore clientConnectionStore;
+	ResumptionSupportingConnectionStore clientConnectionStore;
 
 	/**
 	 * Configures and starts a server side connector for running the tests
@@ -97,7 +100,7 @@ public class DTLSEndpointContextTest {
 	 */
 	@BeforeClass
 	public static void startServer() throws IOException, GeneralSecurityException {
-		serverHelper = new ConnectorHelper();
+		serverHelper = new ConnectorHelper(network);
 		serverHelper.startServer();
 	}
 
@@ -106,14 +109,18 @@ public class DTLSEndpointContextTest {
 	 */
 	@AfterClass
 	public static void tearDown() {
-		serverHelper.destroyServer();
+		if (serverHelper != null) {
+			serverHelper.destroyServer();
+			serverHelper = null;
+		}
 	}
 
 	@Before
 	public void setUp() throws Exception {
-		clientConnectionStore = new InMemoryConnectionStore(CLIENT_CONNECTION_STORE_CAPACITY, 60);
-		InetSocketAddress clientEndpoint = new InetSocketAddress(InetAddress.getLoopbackAddress(), 0);
-		clientConfig = serverHelper.newStandardClientConfig(clientEndpoint);
+		clientConfig = ConnectorHelper.newClientConfigBuilder(network)
+				.set(DtlsConfig.DTLS_MAX_CONNECTIONS, CLIENT_CONNECTION_STORE_CAPACITY)
+				.set(DtlsConfig.DTLS_STALE_CONNECTION_THRESHOLD, 60, TimeUnit.SECONDS).build();
+		clientConnectionStore = ConnectorHelper.createDebugConnectionStore(clientConfig);
 		client = new DTLSConnector(clientConfig, clientConnectionStore);
 	}
 
@@ -183,7 +190,7 @@ public class DTLSEndpointContextTest {
 		TestEndpointContextMatcher endpointMatcher = new TestEndpointContextMatcher(3);
 		client.setEndpointContextMatcher(endpointMatcher);
 		// GIVEN a established session
-		LatchDecrementingRawDataChannel channel = serverHelper.givenAnEstablishedSession(client, false);
+		TestContext clientTestContext = serverHelper.givenAnEstablishedSession(client, false);
 
 		EndpointContext endpointContext = endpointMatcher.getConnectionEndpointContext(1);
 
@@ -191,7 +198,7 @@ public class DTLSEndpointContextTest {
 		RawData outboundMessage = RawData.outbound(new byte[] { 0x01 }, endpointContext, null, false);
 
 		// prepare waiting for response
-		channel.setLatchCount(1);
+		clientTestContext.setLatchCount(1);
 
 		// WHEN sending a message
 		client.send(outboundMessage);
@@ -201,7 +208,7 @@ public class DTLSEndpointContextTest {
 
 		// THEN wait for response from server before shutdown client
 		assertTrue("DTLS client timed out after " + MAX_TIME_TO_WAIT_SECS + " seconds waiting for response!",
-				channel.await(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS));
+				clientTestContext.await(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS));
 	}
 
 	/**
@@ -215,7 +222,7 @@ public class DTLSEndpointContextTest {
 		TestEndpointContextMatcher endpointMatcher = new TestEndpointContextMatcher(3);
 		client.setEndpointContextMatcher(endpointMatcher);
 		// GIVEN a established session
-		LatchDecrementingRawDataChannel channel = serverHelper.givenAnEstablishedSession(client, false);
+		TestContext clientTestContext = serverHelper.givenAnEstablishedSession(client, false);
 
 		client.forceResumeAllSessions();
 
@@ -224,7 +231,7 @@ public class DTLSEndpointContextTest {
 				new AddressEndpointContext(serverHelper.serverEndpoint), null, false);
 
 		// prepare waiting for response
-		channel.setLatchCount(1);
+		clientTestContext.setLatchCount(1);
 
 		// WHEN sending a message
 		client.send(outboundMessage);
@@ -235,7 +242,7 @@ public class DTLSEndpointContextTest {
 
 		// THEN wait for response from server before shutdown client
 		assertTrue("DTLS client timed out after " + MAX_TIME_TO_WAIT_SECS + " seconds waiting for response!",
-				channel.await(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS));
+				clientTestContext.await(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS));
 	}
 
 	@Test
@@ -257,9 +264,9 @@ public class DTLSEndpointContextTest {
 		DtlsEndpointContext context = (DtlsEndpointContext) serverHelper.serverRawDataProcessor
 				.getLatestInboundMessage().getEndpointContext();
 		assertThat(context, is(notNullValue()));
-		assertThat(context.getSessionId(), is(establishedClientSession.getSessionIdentifier().toString()));
-		assertThat(context.getEpoch(), is(Integer.toString(establishedClientSession.getReadEpoch())));
-		assertThat(context.getCipher(), is(establishedClientSession.getReadStateCipher()));
+		assertThat(context.getSessionId(), is((Bytes)establishedClientSession.getSessionIdentifier()));
+		assertThat(context.getEpoch().intValue(), is(establishedClientContext.getReadEpoch()));
+		assertThat(context.getCipher(), is(establishedClientContext.getReadStateCipher()));
 	}
 
 	private LatchDecrementingRawDataChannel givenAStartedSession(RawData msgToSend) throws Exception {
@@ -274,6 +281,8 @@ public class DTLSEndpointContextTest {
 	private void assertEstablishedClientSession() {
 		Connection con = clientConnectionStore.get(serverHelper.serverEndpoint);
 		assertNotNull(con);
+		establishedClientContext = con.getEstablishedDtlsContext();
+		assertNotNull(establishedClientContext);
 		establishedClientSession = con.getEstablishedSession();
 		assertNotNull(establishedClientSession);
 	}

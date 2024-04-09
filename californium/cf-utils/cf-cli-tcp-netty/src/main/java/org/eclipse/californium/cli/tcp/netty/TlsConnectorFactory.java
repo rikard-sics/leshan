@@ -17,6 +17,7 @@ package org.eclipse.californium.cli.tcp.netty;
 
 import java.security.GeneralSecurityException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLContext;
@@ -25,9 +26,12 @@ import javax.net.ssl.TrustManager;
 
 import org.eclipse.californium.cli.CliConnectorFactory;
 import org.eclipse.californium.cli.ClientBaseConfig;
-import org.eclipse.californium.core.network.config.NetworkConfig;
-import org.eclipse.californium.core.network.config.NetworkConfig.Keys;
+import org.eclipse.californium.cli.ConnectorConfig.Authentication;
+import org.eclipse.californium.cli.ConnectorConfig.Trust;
+import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.elements.Connector;
+import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.config.TcpConfig;
 import org.eclipse.californium.elements.tcp.netty.TlsClientConnector;
 import org.eclipse.californium.elements.util.SslContextUtil;
 
@@ -42,17 +46,21 @@ public class TlsConnectorFactory implements CliConnectorFactory {
 
 	@Override
 	public Connector create(ClientBaseConfig clientConfig, ExecutorService executor) {
-		NetworkConfig config = clientConfig.networkConfig;
-		int tcpThreads = config.getInt(Keys.TCP_WORKER_THREADS);
-		int tcpConnectTimeout = config.getInt(Keys.TCP_CONNECT_TIMEOUT);
-		int tlsHandshakeTimeout = config.getInt(Keys.TLS_HANDSHAKE_TIMEOUT);
-		int tcpIdleTimeout = config.getInt(Keys.TCP_CONNECTION_IDLE_TIMEOUT);
-		int maxPeers = config.getInt(Keys.MAX_ACTIVE_PEERS);
-		int sessionTimeout = config.getInt(Keys.SECURE_SESSION_TIMEOUT);
+		Configuration config = clientConfig.configuration;
+		int maxPeers = config.get(CoapConfig.MAX_ACTIVE_PEERS);
+		int sessionTimeout = config.getTimeAsInt(TcpConfig.TLS_SESSION_TIMEOUT, TimeUnit.SECONDS);
+
+		if (clientConfig.noCertificatesSubjectVerification != null) {
+			config.set(TcpConfig.TLS_VERIFY_SERVER_CERTIFICATES_SUBJECT, !clientConfig.noCertificatesSubjectVerification);
+		}
 
 		SSLContext clientSslContext = null;
 		try {
 			KeyManager[] keyManager;
+			if (clientConfig.authentication == null) {
+				clientConfig.authentication = new Authentication();
+			}
+			clientConfig.authentication.defaults(clientConfig.defaultEcCredentials);
 			if (clientConfig.authentication.anonymous) {
 				keyManager = SslContextUtil.createAnonymousKeyManager();
 			} else {
@@ -61,6 +69,10 @@ public class TlsConnectorFactory implements CliConnectorFactory {
 						clientConfig.authentication.credentials.getCertificateChain());
 			}
 			TrustManager[] trustManager;
+			if (clientConfig.trust == null) {
+				clientConfig.trust = new Trust();
+			}
+			clientConfig.trust.defaults(clientConfig.defaultEcTrusts);
 			if (clientConfig.trust.trustall) {
 				trustManager = SslContextUtil.createTrustAllManager();
 			} else {
@@ -76,7 +88,6 @@ public class TlsConnectorFactory implements CliConnectorFactory {
 		} catch (GeneralSecurityException e) {
 			e.printStackTrace();
 		}
-		return new TlsClientConnector(clientSslContext, tcpThreads, tcpConnectTimeout, tlsHandshakeTimeout,
-				tcpIdleTimeout);
+		return new TlsClientConnector(clientSslContext, clientConfig.configuration);
 	}
 }

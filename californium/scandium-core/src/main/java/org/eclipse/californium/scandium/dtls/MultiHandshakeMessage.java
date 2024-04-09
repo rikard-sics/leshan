@@ -15,8 +15,6 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
-import java.net.InetSocketAddress;
-
 import org.eclipse.californium.elements.util.DatagramWriter;
 import org.eclipse.californium.elements.util.NoPublicAPI;
 
@@ -45,11 +43,8 @@ public class MultiHandshakeMessage extends HandshakeMessage {
 
 	/**
 	 * Create multi handshake message.
-	 * 
-	 * @param peerAddress address of peer
 	 */
-	protected MultiHandshakeMessage(InetSocketAddress peerAddress) {
-		super(peerAddress);
+	protected MultiHandshakeMessage() {
 	}
 
 	/**
@@ -98,6 +93,11 @@ public class MultiHandshakeMessage extends HandshakeMessage {
 			message = message.getNextHandshakeMessage();
 		}
 		return writer.toByteArray();
+	}
+
+	@Override
+	protected String getImplementationTypePrefix() {
+		return "Multi ";
 	}
 
 }

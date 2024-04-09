@@ -19,7 +19,6 @@
  ******************************************************************************/
 package org.eclipse.californium.core;
 
-import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.OptionSet;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
@@ -38,13 +37,17 @@ public class CoapResponse {
 
 	/** The insternal response. */
 	private Response response;
-	
+
 	/**
 	 * Instantiates a new coap response.
 	 *
 	 * @param response the response
+	 * @throws NullPointerException if response is {@code null}
 	 */
 	protected CoapResponse(Response response) {
+		if (response == null) {
+			throw new NullPointerException("Response must not be null!");
+		}
 		this.response = response;
 	}
 
@@ -56,16 +59,16 @@ public class CoapResponse {
 	public ResponseCode getCode() {
 		return response.getCode();
 	}
-	
+
 	/**
 	 * Checks if the response code is a successful code.
 	 *
 	 * @return true, if is success
 	 */
 	public boolean isSuccess() {
-		return CoAP.ResponseCode.isSuccess(response.getCode());
+		return response.isSuccess();
 	}
-	
+
 	/**
 	 * Gets the payload of this response as string.
 	 *
@@ -74,7 +77,7 @@ public class CoapResponse {
 	public String getResponseText() {
 		return response.getPayloadString();
 	}
-	
+
 	/**
 	 * Gets the payload of this response as byte array.
 	 *
@@ -83,7 +86,18 @@ public class CoapResponse {
 	public byte[] getPayload() {
 		return response.getPayload();
 	}
-	
+
+	/**
+	 * Gets the size (amount of bytes) of the payload. Be aware that this might
+	 * differ from the payload string length due to the UTF-8 encoding.
+	 *
+	 * @return the payload size
+	 * @since 3.0
+	 */
+	public int getPayloadSize() {
+		return response.getPayloadSize();
+	}
+
 	/**
 	 * Gets the set of options of this response.
 	 *
@@ -100,5 +114,10 @@ public class CoapResponse {
 	 */
 	public Response advanced() {
 		return response;
+	}
+
+	@Override
+	public String toString() {
+		return response.toString();
 	}
 }

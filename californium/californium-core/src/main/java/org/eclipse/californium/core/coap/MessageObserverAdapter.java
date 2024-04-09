@@ -37,17 +37,44 @@ import org.eclipse.californium.elements.EndpointContext;
  * An abstract adapter class for reacting to a message's lifecylce events.
  * <p>
  * The methods in this class are empty, except {@link #onReject()},
- *  {@link #onTimeout()}, and
- * {@link #onSendError(Throwable)}, which are calling {@link #failed()} as
- * default implementation. This class exists as convenience for creating message
- * observer objects.
+ * {@link #onTimeout()}, and {@link #onSendError(Throwable)}, which are calling
+ * {@link #failed()} as default implementation. This class exists as convenience
+ * for creating message observer objects.
  * <p>
  * Subclasses should override the methods for the events of interest.
  * <p>
  * An instance of the concrete message observer can then be registered with a
- * message using the message's <code>addMessageObserver</code> method.
+ * message using {@link Message#addMessageObserver(MessageObserver)} or
+ * {@link Message#addMessageObserver(int, MessageObserver)}.
  */
-public abstract class MessageObserverAdapter implements MessageObserver2 {
+public abstract class MessageObserverAdapter implements MessageObserver {
+
+	/**
+	 * Indicates, that the observer is used for internal purpose.
+	 * @since 3.0
+	 */
+	private final boolean isInternal;
+
+	/**
+	 * Create none-internal instance.
+	 */
+	protected MessageObserverAdapter() {
+		this(false);
+	}
+
+	/**
+	 * Create instance.
+	 * 
+	 * @param isInternal {@code true}, for internal instances, {@code false}, otherwise.
+	 */
+	protected MessageObserverAdapter(boolean isInternal) {
+		this.isInternal = isInternal;
+	}
+
+	@Override
+	public boolean isInternal() {
+		return isInternal;
+	}
 
 	@Override
 	public void onRetransmission() {
@@ -115,7 +142,7 @@ public abstract class MessageObserverAdapter implements MessageObserver2 {
 	}
 
 	@Override
-	public void onComplete() {
+	public void onTransferComplete() {
 		// empty default implementation
 	}
 

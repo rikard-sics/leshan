@@ -15,6 +15,7 @@
  *******************************************************************************/
 package org.eclipse.leshan.client.californium;
 
+import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
 import java.security.cert.CertPath;
 import java.security.cert.X509Certificate;
@@ -23,7 +24,6 @@ import org.eclipse.californium.scandium.dtls.AlertMessage;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertDescription;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertLevel;
 import org.eclipse.californium.scandium.dtls.CertificateMessage;
-import org.eclipse.californium.scandium.dtls.DTLSSession;
 import org.eclipse.californium.scandium.dtls.HandshakeException;
 import org.eclipse.leshan.core.util.Validate;
 
@@ -31,7 +31,7 @@ import org.eclipse.leshan.core.util.Validate;
  * This class implements Certificate Usage (2) - Trust Anchor Assertion
  *
  * From RFC 6698:
- * 
+ *
  * <pre>
  * 2 -- Certificate usage 2 is used to specify a certificate, or the
  *       public key of such a certificate, that MUST be used as the trust
@@ -45,41 +45,46 @@ import org.eclipse.leshan.core.util.Validate;
  *       certificate matching the TLSA record considered to be a trust
  *       anchor for this certification path validation.
  * </pre>
- * 
- * For details about Certificate Usage please see:
- * <a href="https://tools.ietf.org/html/rfc6698#section-2.1.1">rfc6698#section-2.1.1</a> - The Certificate Usage Field
+ *
+ * For details about Certificate Usage please see: <a href=
+ * "https://tools.ietf.org/html/rfc6698#section-2.1.1">rfc6698#section-2.1.1</a>
+ * - The Certificate Usage Field
  */
 public class TrustAnchorAssertionCertificateVerifier extends BaseCertificateVerifier {
 
     private final X509Certificate[] trustAnchor;
+	private final String expectedServerName; // for SNI
 
-    public TrustAnchorAssertionCertificateVerifier(X509Certificate trustAnchor) {
+	public TrustAnchorAssertionCertificateVerifier(X509Certificate trustAnchor, String expectedServerName) {
         Validate.notNull(trustAnchor);
         this.trustAnchor = new X509Certificate[] { trustAnchor };
+		this.expectedServerName = expectedServerName;
     }
 
     @Override
-    public CertPath verifyCertificate(Boolean clientUsage, CertificateMessage message, DTLSSession session)
+	public CertPath verifyCertificate(boolean clientUsage, CertificateMessage message, InetSocketAddress peerSocket)
             throws HandshakeException {
         CertPath messageChain = message.getCertificateChain();
 
-        validateCertificateChainNotEmpty(messageChain, session.getPeer());
-        X509Certificate receivedServerCertificate = validateReceivedCertificateIsSupported(messageChain,
-                session.getPeer());
+		validateCertificateChainNotEmpty(messageChain);
+		X509Certificate receivedServerCertificate = validateReceivedCertificateIsSupported(messageChain);
 
         // - must do PKIX validation with trustStore
         CertPath certPath;
         try {
             certPath = X509Util.applyPKIXValidation(messageChain, trustAnchor);
         } catch (GeneralSecurityException e) {
-            AlertMessage alert = new AlertMessage(AlertLevel.FATAL, AlertDescription.BAD_CERTIFICATE,
-                    session.getPeer());
+			AlertMessage alert = new AlertMessage(AlertLevel.FATAL, AlertDescription.BAD_CERTIFICATE);
             throw new HandshakeException("Certificate chain could not be validated : server cert chain is empty",
                     alert);
         }
 
         // - validate server name
-        validateSubject(session, receivedServerCertificate);
+		if (expectedServerName != null) {
+			validateSNI(expectedServerName, receivedServerCertificate);
+		} else {
+			validateSubject(peerSocket, receivedServerCertificate);
+		}
 
         return certPath;
     }

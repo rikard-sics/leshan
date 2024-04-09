@@ -17,7 +17,6 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
-import java.net.InetSocketAddress;
 import java.util.Arrays;
 
 import org.eclipse.californium.elements.util.DatagramReader;
@@ -28,11 +27,11 @@ import org.eclipse.californium.elements.util.StringUtil;
 /**
  * {@link ClientKeyExchange} message for all ECDH based key exchange methods.
  * Contains the client's ephemeral public key as encoded point. See
- * <a href="http://tools.ietf.org/html/rfc4492#section-5.7">RFC 4492</a> for
+ * <a href="https://tools.ietf.org/html/rfc4492#section-5.7" target="_blank">RFC 4492</a> for
  * further details. It is assumed, that the client's ECDH public key is not in
  * the client's certificate, so it must be provided here.
  * 
- * According <a href= "https://tools.ietf.org/html/rfc8422#section-5.1.1">RFC
+ * According <a href="https://tools.ietf.org/html/rfc8422#section-5.1.1" target="_blank">RFC
  * 8422, 5.1.1. Supported Elliptic Curves Extension</a> only "named curves" are
  * valid, the "prime" and "char2" curve descriptions are deprecated. Also only
  * "UNCOMPRESSED" as point format is valid, the other formats have been
@@ -41,36 +40,26 @@ import org.eclipse.californium.elements.util.StringUtil;
 @NoPublicAPI
 public class ECDHClientKeyExchange extends ClientKeyExchange {
 
-	// DTLS-specific constants ////////////////////////////////////////
-
 	private static final int LENGTH_BITS = 8; // opaque point <1..2^8-1>
-
-	// Members ////////////////////////////////////////////////////////
 
 	/**
 	 * Ephemeral public key of client as encoded point.
 	 */
 	private final byte[] encodedPoint;
 
-	// Constructors ///////////////////////////////////////////////////
-
 	/**
 	 * Create a {@link ClientKeyExchange} message.
 	 * 
 	 * @param encodedPoint
 	 *            the client's ephemeral public key (as encoded point).
-	 * @param peerAddress the IP address and port of the peer this
-	 *            message has been received from or should be sent to
 	 */
-	public ECDHClientKeyExchange(byte[] encodedPoint, InetSocketAddress peerAddress) {
-		super(peerAddress);
+	public ECDHClientKeyExchange(byte[] encodedPoint) {
+		super();
 		if (encodedPoint == null) {
 			throw new NullPointerException("encoded point cannot be null");
 		}
 		this.encodedPoint = encodedPoint;
 	}
-
-	// Serialization //////////////////////////////////////////////////
 
 	@Override
 	public byte[] fragmentToByteArray() {
@@ -87,8 +76,7 @@ public class ECDHClientKeyExchange extends ClientKeyExchange {
 	 * @param writer writer
 	 */
 	protected void writeFragment(DatagramWriter writer) {
-		writer.write(encodedPoint.length, LENGTH_BITS);
-		writer.writeBytes(encodedPoint);
+		writer.writeVarBytes(encodedPoint, LENGTH_BITS);
 	}
 
 	/**
@@ -98,16 +86,13 @@ public class ECDHClientKeyExchange extends ClientKeyExchange {
 	 * @return encoded point
 	 */
 	protected static byte[] readEncodedPoint(DatagramReader reader) {
-		int length = reader.read(LENGTH_BITS);
-		return reader.readBytes(length);
+		return reader.readVarBytes(LENGTH_BITS);
 	}
 
-	public static HandshakeMessage fromReader(DatagramReader reader, InetSocketAddress peerAddress) {
+	public static HandshakeMessage fromReader(DatagramReader reader) {
 		byte[] pointEncoded = readEncodedPoint(reader);
-		return new ECDHClientKeyExchange(pointEncoded, peerAddress);
+		return new ECDHClientKeyExchange(pointEncoded);
 	}
-
-	// Methods ////////////////////////////////////////////////////////
 
 	@Override
 	public int getMessageLength() {
@@ -124,11 +109,12 @@ public class ECDHClientKeyExchange extends ClientKeyExchange {
 	}
 
 	@Override
-	public String toString() {
+	public String toString(int indent) {
 		StringBuilder sb = new StringBuilder();
-		sb.append(super.toString());
-		sb.append("\t\tDiffie-Hellman public value: ");
-		sb.append(StringUtil.byteArray2HexString(encodedPoint));
+		sb.append(super.toString(indent));
+		String indentation = StringUtil.indentation(indent + 1);
+		sb.append(indentation).append("Diffie-Hellman public value: ");
+		sb.append(StringUtil.byteArray2HexString(encodedPoint, StringUtil.NO_SEPARATOR, 16));
 		sb.append(StringUtil.lineSeparator());
 
 		return sb.toString();

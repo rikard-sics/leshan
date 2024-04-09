@@ -50,10 +50,10 @@ package org.eclipse.californium.core.test.lockstep;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -79,10 +79,11 @@ import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.core.coap.EmptyMessage;
 import org.eclipse.californium.core.coap.Message;
 import org.eclipse.californium.core.coap.Option;
-import org.eclipse.californium.core.coap.OptionNumberRegistry;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.coap.Token;
+import org.eclipse.californium.core.coap.option.OptionDefinition;
+import org.eclipse.californium.core.coap.option.StandardOptionRegistry;
 import org.eclipse.californium.core.network.serialization.DataParser;
 import org.eclipse.californium.core.network.serialization.DataSerializer;
 import org.eclipse.californium.core.network.serialization.UdpDataParser;
@@ -93,9 +94,13 @@ import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.RawDataChannel;
 import org.eclipse.californium.elements.UDPConnector;
 import org.eclipse.californium.elements.assume.TimeAssume;
+import org.eclipse.californium.elements.config.Configuration;
 import org.junit.AssumptionViolatedException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class LockstepEndpoint {
+	private static final Logger LOGGER = LoggerFactory.getLogger(LockstepEndpoint.class);
 
 	private static boolean DEFAULT_VERBOSE = false;
 
@@ -115,19 +120,17 @@ public class LockstepEndpoint {
 
 	private final DataSerializer serializer;
 	private final DataParser parser;
+	private final Configuration configuration;
 	private boolean verbose = DEFAULT_VERBOSE;
 	private MultiMessageExpectation multi;
 
-	public LockstepEndpoint() {
-		this((InetSocketAddress)null);
-	}
-
-	public LockstepEndpoint(final InetSocketAddress destination) {
+	public LockstepEndpoint(final InetSocketAddress destination, Configuration configuration) {
 
 		this.destination = destination;
+		this.configuration = configuration;
 		this.storage = new HashMap<String, Object>();
 		this.incoming = new LinkedBlockingQueue<RawData>();
-		this.connector = new UDPConnector(TestTools.LOCALHOST_EPHEMERAL);
+		this.connector = new UDPConnector(TestTools.LOCALHOST_EPHEMERAL, configuration);
 		this.connector.setRawDataReceiver(new RawDataChannel() {
 
 			public void receiveData(RawData raw) {
@@ -144,12 +147,12 @@ public class LockstepEndpoint {
 			throw new RuntimeException(e);
 		}
 	}
-	
+
 	public LockstepEndpoint(final LockstepEndpoint previousEndpoint) {
-		this(previousEndpoint.destination);
+		this(previousEndpoint.destination, previousEndpoint.configuration);
 		storage.putAll(previousEndpoint.storage);
 	}
-	
+
 	public void destroy() {
 		if (connector != null) {
 			connector.destroy();
@@ -158,7 +161,7 @@ public class LockstepEndpoint {
 
 	public void print(String text) {
 		if (verbose) {
-			System.out.println(text);
+			LOGGER.info("{}", text);
 		}
 	}
 
@@ -209,6 +212,10 @@ public class LockstepEndpoint {
 				// saveBoth
 				Object[] items = (Object[]) item;
 				return (Integer) items[0];
+			}
+			if (item instanceof MidUsage) {
+				// newMID
+				return ((MidUsage) item).currentMID;
 			}
 			throw new NoSuchElementException("Variable '" + var + "' is no MID (" + item.getClass() + ")");
 		}
@@ -335,6 +342,7 @@ public class LockstepEndpoint {
 	 * MID, if the repeated MID is not expected. If no next message arrives,
 	 * reports an assert.
 	 * 
+	 * <pre>
 	 * <code>
 	 *    ... expectRequest.storeMID("A").type(CON) ...
 	 * 
@@ -347,6 +355,7 @@ public class LockstepEndpoint {
 	 *    ... expectRequest.type(CON)... 
 	 * 
 	 * </code>
+	 * </pre>
 	 * 
 	 * MID expectations are based on {@link MessageExpectation#mid(int)},
 	 * {@link MessageExpectation#sameMID(String)} or
@@ -360,7 +369,7 @@ public class LockstepEndpoint {
 		while (true) {
 			Message msg = receiveNextMessage(2, TimeUnit.SECONDS);
 			assertNotNull("did not receive message within expected time frame (2 secs)", msg);
-			
+
 			if (null != midExpectation && null != lastIncomingMessage && lastIncomingMessage.getMID() == msg.getMID()
 					&& lastIncomingMessage.getType() == msg.getType() && !midExpectation.expectMID(msg)) {
 				// received message with same MID but not expected
@@ -387,6 +396,17 @@ public class LockstepEndpoint {
 			return parser.parseMessage(raw);
 		}
 		return null;
+	}
+
+	private static class MidUsage {
+
+		Set<Integer> usedMIDs = new HashSet<Integer>();
+		int currentMID;
+
+		private void add(int mid) {
+			usedMIDs.add(mid);
+			currentMID = mid;
+		}
 	}
 
 	public abstract class MessageExpectation implements Action {
@@ -422,8 +442,8 @@ public class LockstepEndpoint {
 
 		/**
 		 * Check, if the MID stored under var is the same as the MID of the
-		 * message. The MID may be stored either by {@link #storeMID(String)} or
-		 * {@link #storeBoth(String)}.
+		 * message. The MID may be stored either by {@link #storeMID(String)},
+		 * {@link #storeBoth(String)}, or {@link #newMID(String)}.
 		 * 
 		 * Provides a fluent API to chain expectations.
 		 * 
@@ -472,16 +492,15 @@ public class LockstepEndpoint {
 				@Override
 				public void check(final Message response) {
 					final int mid = response.getMID();
-					@SuppressWarnings("unchecked")
-					Set<Integer> usedMIDs = (Set<Integer>) storage.get(var);
-					if (usedMIDs != null && !usedMIDs.isEmpty()) {
-						assertFalse("MID: " + mid + " is not new! " + usedMIDs, usedMIDs.contains(mid));
+					MidUsage usage = (MidUsage) storage.get(var);
+					if (usage == null) {
+						usage = new MidUsage();
 					}
-					if (usedMIDs == null) {
-						usedMIDs = new HashSet<Integer>();
+					if (!usage.usedMIDs.isEmpty()) {
+						assertFalse("MID: " + mid + " is not new! " + usage.usedMIDs, usage.usedMIDs.contains(mid));
 					}
-					usedMIDs.add(mid);
-					storage.put(var, usedMIDs);
+					usage.add(mid);
+					storage.put(var, usage);
 				}
 
 				@Override
@@ -577,16 +596,25 @@ public class LockstepEndpoint {
 			expectations.add(new Expectation<Message>() {
 
 				public void check(Message message) {
-					int expectedLength = payload.length();
-					int actualLength = message.getPayloadSize();
-					assertEquals("Wrong payload length: ", expectedLength, actualLength);
-					assertEquals("Wrong payload:", payload, message.getPayloadString());
-					print("Correct payload (" + actualLength + " bytes):" + System.lineSeparator()
-							+ message.getPayloadString());
+					if (payload.isEmpty()) {
+						assertEquals("Payload not expected, length: ", 0, message.getPayloadSize());
+						print("Correct empty payload");
+					} else {
+						int expectedLength = payload.length();
+						int actualLength = message.getPayloadSize();
+						assertEquals("Wrong payload length: ", expectedLength, actualLength);
+						assertEquals("Wrong payload:", payload, message.getPayloadString());
+						print("Correct payload (" + actualLength + " bytes):" + System.lineSeparator()
+								+ message.getPayloadString());
+					}
 				}
 
 				public String toString() {
-					return "Expected payload: '" + payload + "'";
+					if (payload.isEmpty()) {
+						return "Expected no payload";
+					} else {
+						return "Expected payload: '" + payload + "'";
+					}
 				}
 			});
 			return this;
@@ -686,6 +714,7 @@ public class LockstepEndpoint {
 			return this;
 		}
 
+		@Deprecated
 		public MessageExpectation noOption(final int... numbers) {
 			expectations.add(new Expectation<Message>() {
 
@@ -706,9 +735,49 @@ public class LockstepEndpoint {
 						final int end = numbers.length - 1;
 						int index = 0;
 						for (; index < end; ++index) {
-							result.append(OptionNumberRegistry.toString(numbers[index])).append(",");
+							result.append(getOption(numbers[index])).append(",");
 						}
-						result.append(OptionNumberRegistry.toString(numbers[index]));
+						result.append(getOption(numbers[index]));
+					}
+					result.append(']');
+					return result.toString();
+				}
+
+				private String getOption(int optionNumber) {
+					OptionDefinition definition = StandardOptionRegistry.getDefaultOptionRegistry().getDefinitionByNumber(optionNumber);
+					if (definition != null) {
+						return definition.toString();
+					} else {
+						return String.format("Unknown (%d)", optionNumber);
+					}
+				}
+			});
+			return this;
+		}
+
+		public MessageExpectation noOption(final OptionDefinition... definitions) {
+			expectations.add(new Expectation<Message>() {
+
+				public void check(Message message) {
+					List<Option> options = message.getOptions().asSortedList();
+					for (Option option : options) {
+						for (OptionDefinition definition : definitions) {
+							if (definition.equals(option.getDefinition())) {
+								fail("Must not have option " + definition + " but has " + option);
+							}
+						}
+					}
+				}
+
+				public String toString() {
+					StringBuilder result = new StringBuilder("Expected no options: [");
+					if (0 < definitions.length) {
+						final int end = definitions.length - 1;
+						int index = 0;
+						for (; index < end; ++index) {
+							result.append(definitions[index]).append(",");
+						}
+						result.append(definitions[index]);
 					}
 					result.append(']');
 					return result.toString();
@@ -929,9 +998,16 @@ public class LockstepEndpoint {
 			return this;
 		}
 
+		@Deprecated
 		@Override
 		public RequestExpectation noOption(final int... numbers) {
 			super.noOption(numbers);
+			return this;
+		}
+
+		@Override
+		public RequestExpectation noOption(final OptionDefinition... definitions) {
+			super.noOption(definitions);
 			return this;
 		}
 
@@ -1107,9 +1183,16 @@ public class LockstepEndpoint {
 			return this;
 		}
 
+		@Deprecated
 		@Override
 		public ResponseExpectation noOption(final int... numbers) {
 			super.noOption(numbers);
+			return this;
+		}
+
+		@Override
+		public ResponseExpectation noOption(final OptionDefinition... definitions) {
+			super.noOption(definitions);
 			return this;
 		}
 
@@ -1204,18 +1287,6 @@ public class LockstepEndpoint {
 				}
 			});
 			return this;
-		}
-
-		/**
-		 * Check, if received observe is newer than the previous stored one.
-		 * 
-		 * @param key key of previous stored one
-		 * @return expectation for
-		 * @deprecated use {@link #newerObserve(String)}
-		 */
-		@Deprecated
-		public ResponseExpectation largerObserve(final String key) {
-			return newerObserve(key);
 		}
 
 		public ResponseExpectation newerObserve(final String key) {

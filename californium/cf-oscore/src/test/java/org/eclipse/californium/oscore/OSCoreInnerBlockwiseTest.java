@@ -20,11 +20,11 @@ package org.eclipse.californium.oscore;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.eclipse.californium.TestTools;
@@ -34,19 +34,21 @@ import org.eclipse.californium.core.CoapResponse;
 import org.eclipse.californium.core.CoapServer;
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.coap.MediaTypeRegistry;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.network.CoapEndpoint;
-import org.eclipse.californium.core.network.EndpointContextMatcherFactory.MatcherMode;
 import org.eclipse.californium.core.network.EndpointManager;
-import org.eclipse.californium.core.network.config.NetworkConfig;
-import org.eclipse.californium.core.network.config.NetworkConfig.Keys;
+import org.eclipse.californium.core.network.stack.BaseCoapStack;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.elements.category.Medium;
+import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.rule.LoggingRule;
 import org.eclipse.californium.elements.rule.TestNameLoggerRule;
 import org.eclipse.californium.elements.util.Bytes;
+import org.eclipse.californium.elements.util.ExpectedExceptionWrapper;
 import org.eclipse.californium.rule.CoapNetworkRule;
 import org.eclipse.californium.rule.CoapThreadsRule;
 import org.junit.Before;
@@ -84,6 +86,12 @@ public class OSCoreInnerBlockwiseTest {
 	@Rule
 	public TestNameLoggerRule name = new TestNameLoggerRule();
 
+	@Rule
+	public ExpectedException exceptionRule = ExpectedExceptionWrapper.none();
+
+	@Rule 
+	public LoggingRule logging = new LoggingRule();
+
 	private static final int DEFAULT_BLOCK_SIZE = 64;
 
 	static final int TIMEOUT_IN_MILLIS = 5000;
@@ -100,6 +108,7 @@ public class OSCoreInnerBlockwiseTest {
 			0x0C, 0x0D, 0x0E, 0x0F, 0x10 };
 	private final static byte[] master_salt = { (byte) 0x9e, (byte) 0x7c, (byte) 0xa9, (byte) 0x22, (byte) 0x23,
 			(byte) 0x78, (byte) 0x63, (byte) 0x40 };
+	private final static int MAX_UNFRAGMENTED_SIZE = 4096;
 
 	private MyResource resource;
 
@@ -114,7 +123,7 @@ public class OSCoreInnerBlockwiseTest {
 	@Before
 	public void startupServer() {
 		payload = createRandomPayload(DEFAULT_BLOCK_SIZE * 4);
-		createOscoreServer(MatcherMode.STRICT);
+		createOscoreServer();
 		resource.setPayload(payload);
 	}
 
@@ -188,14 +197,11 @@ public class OSCoreInnerBlockwiseTest {
 		assertEquals(response.getCode(), CoAP.ResponseCode.CHANGED);
 		assertFalse(response.getOptions().hasSize2());
 		assertTrue(response.getOptions().hasBlock1());
-		assertNull(response.getPayload());
+		assertEquals(0, response.getPayloadSize());
 		assertEquals(payload, resource.currentPayload);
 		assertEquals(1, resource.getCounter());
 		client.shutdown();
 	}
-
-	@Rule
-	public ExpectedException exceptionRule = ExpectedException.none();
 
 	/**
 	 * Perform a PUT request that is not sent with (inner) block-wise even
@@ -210,6 +216,8 @@ public class OSCoreInnerBlockwiseTest {
 		exceptionRule.expect(IOException.class);
 		exceptionRule.expectMessage(
 				"java.lang.IllegalStateException: outgoing request is exceeding the MAX_UNFRAGMENTED_SIZE!");
+
+		logging.setLoggingLevel("ERROR", BaseCoapStack.class);
 
 		setClientContext(uri);
 		OSCoreCtx ctx = dbClient.getContext(uri);
@@ -233,7 +241,7 @@ public class OSCoreInnerBlockwiseTest {
 		byte[] rid = new byte[] { 0x01 };
 
 		try {
-			OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, null);
+			OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, null, MAX_UNFRAGMENTED_SIZE);
 			dbClient.addContext(serverUri, ctx);
 		} catch (OSException e) {
 			System.err.println("Failed to set client OSCORE Context information!");
@@ -246,25 +254,28 @@ public class OSCoreInnerBlockwiseTest {
 		byte[] rid = Bytes.EMPTY;
 
 		try {
-			OSCoreCtx ctx_B = new OSCoreCtx(master_secret, false, alg, sid, rid, kdf, 32, master_salt, null);
+			OSCoreCtx ctx_B = new OSCoreCtx(master_secret, false, alg, sid, rid, kdf, 32, master_salt, null, MAX_UNFRAGMENTED_SIZE);
 			dbServer.addContext(ctx_B);
 		} catch (OSException e) {
 			System.err.println("Failed to set server OSCORE Context information!");
 		}
 	}
 
-	private void createOscoreServer(MatcherMode mode) {
+	private void createOscoreServer() {
 
 		setServerContext();
 
 		// retransmit constantly all 200 milliseconds
-		NetworkConfig config = network.createTestConfig().setInt(Keys.ACK_TIMEOUT, 200)
-				.setFloat(Keys.ACK_RANDOM_FACTOR, 1f).setFloat(Keys.ACK_TIMEOUT_SCALE, 1f)
+		Configuration config = network.createTestConfig()
+				.set(CoapConfig.ACK_TIMEOUT, 200, TimeUnit.MILLISECONDS)
+				.set(CoapConfig.ACK_INIT_RANDOM, 1f)
+				.set(CoapConfig.ACK_TIMEOUT_SCALE, 1f)
 				// set response timeout (indirect) to 10s
-				.setLong(Keys.EXCHANGE_LIFETIME, 10 * 1000L).setInt(Keys.MAX_MESSAGE_SIZE, DEFAULT_BLOCK_SIZE)
-				.setInt(Keys.PREFERRED_BLOCK_SIZE, DEFAULT_BLOCK_SIZE).setString(Keys.RESPONSE_MATCHING, mode.name());
+				.set(CoapConfig.EXCHANGE_LIFETIME, 10, TimeUnit.SECONDS)
+				.set(CoapConfig.MAX_MESSAGE_SIZE, DEFAULT_BLOCK_SIZE)
+				.set(CoapConfig.PREFERRED_BLOCK_SIZE, DEFAULT_BLOCK_SIZE);
 		CoapEndpoint.Builder builder = new CoapEndpoint.Builder();
-		builder.setNetworkConfig(config);
+		builder.setConfiguration(config);
 		builder.setInetSocketAddress(TestTools.LOCALHOST_EPHEMERAL);
 		builder.setCustomCoapStackArgument(dbServer);
 		CoapEndpoint serverEndpoint = builder.build();
@@ -279,7 +290,7 @@ public class OSCoreInnerBlockwiseTest {
 		uri = TestTools.getUri(serverEndpoint, TARGET);
 
 		builder = new CoapEndpoint.Builder();
-		builder.setNetworkConfig(config);
+		builder.setConfiguration(config);
 		EndpointManager.getEndpointManager().setDefaultEndpoint(builder.build());
 	}
 

@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
  * {@link ScheduledThreadPoolExecutor#setRemoveOnCancelPolicy(boolean)} can be
  * used. The {@link ScheduledThreadPoolExecutor} will be configured using the
  * value of environment-variable or java-property
- * {@code "EXECUTER_REMOVE_ON_CANCEL"}.
+ * {@code "EXECUTER_REMOVE_ON_CANCEL"} or {@link #DEFAULT_REMOVE_ON_CANCEL}.
  * 
  * Test with java 11 didn't show such leaks, even if the task are removed
  * delayed, they are removed much earlier than their scheduled time.
@@ -75,26 +75,33 @@ public class ExecutorsUtil {
 	private static final int SPLIT_THRESHOLD = 1;
 
 	/**
+	 * Default value for {@link #REMOVE_ON_CANCEL}, if
+	 * {@code "EXECUTER_REMOVE_ON_CANCEL"} is not available.
+	 * 
+	 * @since 3.0
+	 */
+	private static final Boolean DEFAULT_REMOVE_ON_CANCEL = true;
+	/**
 	 * General "remove on cancel" policy. Only applies for java 7 or newer.
 	 * 
 	 * Set by the value of environment-variable or java-property
-	 * {@code "EXECUTER_REMOVE_ON_CANCEL"}. Default is not to enable the "remove
-	 * on cancel" policy.
-	 * 
-	 * Note: the default behavior differs from 3.0!
+	 * {@code "EXECUTER_REMOVE_ON_CANCEL"} or {@link #DEFAULT_REMOVE_ON_CANCEL}.
 	 * 
 	 * @see StringUtil#getConfigurationBoolean(String)
-	 * @since 2.6 (backported from 3.0)
+	 * @since 3.0
 	 */
 	private static final Boolean REMOVE_ON_CANCEL;
 
 	static {
-		boolean remove = StringUtil.getConfigurationBoolean("EXECUTER_REMOVE_ON_CANCEL");
-		if (remove) {
+		Boolean remove = StringUtil.getConfigurationBoolean("EXECUTER_REMOVE_ON_CANCEL");
+		if (remove == null) {
+			remove = DEFAULT_REMOVE_ON_CANCEL;
+		}
+		if (remove != null) {
 			try {
 				ScheduledThreadPoolExecutor.class.getMethod("setRemoveOnCancelPolicy", Boolean.TYPE);
 			} catch (NoSuchMethodException e) {
-				remove = false;
+				remove = null;
 			}
 		}
 		REMOVE_ON_CANCEL = remove;
@@ -228,12 +235,31 @@ public class ExecutorsUtil {
 	}
 
 	/**
+	 * Run all jobs.
+	 * 
+	 * On {@link Throwable} write only warning and continue to run the other
+	 * jobs.
+	 * 
+	 * @param jobs list of jobs to run.
+	 * @since 3.7
+	 */
+	public static void runAll(List<Runnable> jobs) {
+		for (Runnable job : jobs) {
+			try {
+				job.run();
+			} catch (Throwable e) {
+				LOGGER.warn("Ignoring error:", e);
+			}
+		}
+	}
+
+	/**
 	 * Set remove on cancel policy of provided executor.
 	 * 
 	 * Ignored, if not supported by java vm or executors implementation.
 	 * 
 	 * @param executor executor to set remove on cancel policy
-	 * @since 2.6 (backported from 3.0)
+	 * @since 3.0
 	 */
 	@NotForAndroid
 	private static void setRemoveOnCancelPolicy(ScheduledExecutorService executor) {
@@ -358,8 +384,10 @@ public class ExecutorsUtil {
 				if (!directExecutor.awaitTermination(timeout / 2, unit)) {
 					return false;
 				}
+				return super.awaitTermination(timeout / 2, unit);
+			} else {
+				return super.awaitTermination(timeout, unit);
 			}
-			return super.awaitTermination(timeout / 2, unit);
 		}
 	}
 }

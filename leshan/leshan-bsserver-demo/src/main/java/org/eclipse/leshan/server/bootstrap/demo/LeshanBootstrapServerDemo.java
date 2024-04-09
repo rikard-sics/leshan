@@ -35,10 +35,11 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.eclipse.californium.core.network.config.NetworkConfig;
-import org.eclipse.californium.core.network.config.NetworkConfig.Keys;
+import org.eclipse.californium.core.config.CoapConfig;
+import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.util.SslContextUtil;
 import org.eclipse.californium.oscore.OSCoreCoapStackFactory;
+import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.SingleNodeConnectionIdGenerator;
 import org.eclipse.jetty.server.Server;
@@ -388,10 +389,10 @@ public class LeshanBootstrapServerDemo {
         builder.setModel(new StaticModel(models));
 
         // Create DTLS Config
-        DtlsConnectorConfig.Builder dtlsConfig = new DtlsConnectorConfig.Builder();
-        dtlsConfig.setRecommendedCipherSuitesOnly(!supportDeprecatedCiphers);
+		Configuration dtlsConfig = Configuration.getStandard();
+		dtlsConfig.set(DtlsConfig.DTLS_RECOMMENDED_CIPHER_SUITES_ONLY, !supportDeprecatedCiphers);
         if (cid != null) {
-            dtlsConfig.setConnectionIdGenerator(new SingleNodeConnectionIdGenerator(cid));
+			dtlsConfig.set(DtlsConfig.DTLS_CONNECTION_ID_LENGTH, cid);
         }
 
         // Create credentials;
@@ -433,10 +434,10 @@ public class LeshanBootstrapServerDemo {
         builder.setDtlsConfig(dtlsConfig);
 
         // Create CoAP Config
-        NetworkConfig coapConfig;
-        File configFile = new File(NetworkConfig.DEFAULT_FILE_NAME);
+		Configuration coapConfig;
+		File configFile = new File(Configuration.DEFAULT_FILE_NAME);
         if (configFile.isFile()) {
-            coapConfig = new NetworkConfig();
+			coapConfig = new Configuration();
             coapConfig.load(configFile);
         } else {
             coapConfig = LeshanServerBuilder.createDefaultNetworkConfig();
@@ -445,11 +446,24 @@ public class LeshanBootstrapServerDemo {
         builder.setCoapConfig(coapConfig);
 
         // ports from CoAP Config if needed
-        builder.setLocalAddress(localAddress,
-                localPort == null ? coapConfig.getInt(Keys.COAP_PORT, LwM2m.DEFAULT_COAP_PORT) : localPort);
-        builder.setLocalSecureAddress(secureLocalAddress,
-                secureLocalPort == null ? coapConfig.getInt(Keys.COAP_SECURE_PORT, LwM2m.DEFAULT_COAP_SECURE_PORT)
-                        : secureLocalPort);
+		if (localPort == null) {
+			localPort = coapConfig.get(CoapConfig.COAP_PORT);
+
+			if (localPort == null) {
+				localPort = LwM2m.DEFAULT_COAP_PORT;
+			}
+		}
+
+		if (secureLocalPort == null) {
+			secureLocalPort = coapConfig.get(CoapConfig.COAP_SECURE_PORT);
+
+			if (secureLocalPort == null) {
+				secureLocalPort = LwM2m.DEFAULT_COAP_SECURE_PORT;
+			}
+		}
+
+		builder.setLocalAddress(localAddress, localPort);
+		builder.setLocalSecureAddress(secureLocalAddress, secureLocalPort);
 
         LeshanBootstrapServer bsServer = builder.build();
         bsServer.start();

@@ -60,6 +60,8 @@ public abstract class DataSerializer {
 		if (message == null) {
 			throw new NullPointerException("message must not be null!");
 		}
+		assertValidOptions(message.getOptions());
+		message.assertPayloadMatchsBlocksize();
 		if (message.getRawCode() == 0) {
 			// simple serialization for empty message.
 			// https://tools.ietf.org/html/rfc7252#section-4.1
@@ -74,6 +76,9 @@ public abstract class DataSerializer {
 			serializeEmpytMessage(messageWriter, message);
 			return messageWriter.toByteArray();
 		} else {
+			if (message.getType() == Type.RST) {
+				throw new IllegalArgumentException("RST must use code 0 (empty message)!");
+			}
 			DatagramWriter messageWriter = new DatagramWriter();
 			serializeMessage(messageWriter, message);
 			return messageWriter.toByteArray();
@@ -202,8 +207,7 @@ public abstract class DataSerializer {
 	 * @since 2.6
 	 */
 	protected void serializeEmpytMessage(DatagramWriter writer, Message message) {
-		MessageHeader header = new MessageHeader(CoAP.VERSION, message.getType(), message.getToken(), 0,
-				message.getMID(), 0);
+		MessageHeader header = new MessageHeader(CoAP.VERSION, message.getType(), Token.EMPTY, 0, message.getMID(), 0);
 		serializeHeader(writer, header);
 		writer.writeCurrentByte();
 	}
@@ -235,6 +239,18 @@ public abstract class DataSerializer {
 	}
 
 	/**
+	 * Assert, if options are supported for the specific protocol flavor.
+	 * 
+	 * @param options option set to validate.
+	 * @throws IllegalArgumentException if at least one option is not valid for
+	 *             the specific flavor.
+	 * @since 3.0
+	 */
+	protected void assertValidOptions(OptionSet options) {
+		// empty default implementation
+	}
+
+	/**
 	 * Serializes a message's <em>header</em> values to the wire format.
 	 * 
 	 * @param writer The writer to serialize the values to.
@@ -260,7 +276,7 @@ public abstract class DataSerializer {
 		if (optionSet == null) {
 			throw new NullPointerException("option-set must not be null!");
 		}
-		
+
 		int lastOptionNumber = 0;
 		for (Option option : optionSet.asSortedList()) {
 			byte[] value = option.getValue();

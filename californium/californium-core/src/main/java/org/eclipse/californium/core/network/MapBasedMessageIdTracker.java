@@ -28,15 +28,15 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import org.eclipse.californium.core.coap.Message;
-import org.eclipse.californium.core.network.config.NetworkConfig;
+import org.eclipse.californium.core.config.CoapConfig;
+import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.util.ClockUtil;
 
 /**
  * A helper for keeping track of message IDs using a map.
  * <p>
  * According to the
- * <a href="https://tools.ietf.org/html/rfc7252#section-4.4">CoAP spec</a>
+ * <a href="https://tools.ietf.org/html/rfc7252#section-4.4" target="_blank">CoAP spec</a>
  * 
  * <pre>
  * The same Message ID MUST NOT be reused (in communicating with the
@@ -56,7 +56,7 @@ public class MapBasedMessageIdTracker implements MessageIdTracker {
 	 * 
 	 * The following configuration value is used:
 	 * <ul>
-	 * <li>{@link org.eclipse.californium.core.network.config.NetworkConfig.Keys#EXCHANGE_LIFETIME}
+	 * <li>{@link CoapConfig#EXCHANGE_LIFETIME}
 	 * - each message ID returned by <em>getNextMessageId</em> is marked as
 	 * <em>in use</em> for this amount of time (ms).</li>
 	 * </ul>
@@ -67,8 +67,9 @@ public class MapBasedMessageIdTracker implements MessageIdTracker {
 	 * @param config configuration
 	 * @throws IllegalArgumentException if minMid is not smaller than maxMid or
 	 *             initialMid is not in the range of minMid and maxMid
+	 * @since 3.0 (changed parameter to Configuration)
 	 */
-	public MapBasedMessageIdTracker(int initialMid, int minMid, int maxMid, NetworkConfig config) {
+	public MapBasedMessageIdTracker(int initialMid, int minMid, int maxMid, Configuration config) {
 		if (minMid >= maxMid) {
 			throw new IllegalArgumentException("max. MID " + maxMid + " must be larger than min. MID " + minMid + "!");
 		}
@@ -76,39 +77,33 @@ public class MapBasedMessageIdTracker implements MessageIdTracker {
 			throw new IllegalArgumentException(
 					"initial MID " + initialMid + " must be in range [" + minMid + "-" + maxMid + ")!");
 		}
-		exchangeLifetimeNanos = TimeUnit.MILLISECONDS.toNanos(config.getLong(NetworkConfig.Keys.EXCHANGE_LIFETIME));
+		exchangeLifetimeNanos = config.get(CoapConfig.EXCHANGE_LIFETIME, TimeUnit.NANOSECONDS);
 		counter = initialMid - minMid;
 		min = minMid;
 		range = maxMid - minMid;
 		messageIds = new HashMap<>(range);
 	}
 
-	/**
-	 * Gets the next usable message ID.
-	 * 
-	 * @return a message ID or {@code Message.NONE} if all message IDs are in
-	 *         use currently.
-	 */
+	@Override
 	public int getNextMessageId() {
-		int result = Message.NONE;
-		boolean wrapped = false;
 		final long now = ClockUtil.nanoRealtime();
 		synchronized (messageIds) {
 			// mask mid to the range
 			counter = (counter & 0xffff) % range;
-			int startIdx = counter;
-			while (result < 0 && !wrapped) {
+			final int end = counter + range;
+			while (counter < end) {
 				// mask mid to the range
 				int idx = counter++ % range;
 				Long earliestUsage = messageIds.get(idx);
 				if (earliestUsage == null || (earliestUsage - now) <= 0) {
 					// message Id can be safely re-used
-					result = idx + min;
 					messageIds.put(idx, now + exchangeLifetimeNanos);
+					return idx + min;
 				}
-				wrapped = (counter % range) == startIdx;
-			}
+			};
 		}
-		return result;
+		String time = TimeUnit.NANOSECONDS.toSeconds(exchangeLifetimeNanos) + "s";
+		throw new IllegalStateException(
+				"No MID available, all [" + min + "-" + (min + range) + ") MIDs in use! (MID lifetime " + time + "!)");
 	}
 }

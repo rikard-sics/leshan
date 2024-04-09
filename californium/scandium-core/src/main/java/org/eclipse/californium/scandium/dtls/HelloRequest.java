@@ -17,8 +17,6 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
-import java.net.InetSocketAddress;
-
 import org.eclipse.californium.elements.util.Bytes;
 
 
@@ -28,13 +26,12 @@ import org.eclipse.californium.elements.util.Bytes;
  * {@link ClientHello} message when convenient. This message is not intended to
  * establish which side is the client or server but merely to initiate a new
  * negotiation. See <a
- * href="http://tools.ietf.org/html/rfc5246#section-7.4.1.1">RFC 5246</a> for
+ * href="https://tools.ietf.org/html/rfc5246#section-7.4.1.1" target="_blank">RFC 5246</a> for
  * details.
  */
 public final class HelloRequest extends HandshakeMessage {
 
-	public HelloRequest(InetSocketAddress peerAddress) {
-		super(peerAddress);
+	public HelloRequest() {
 	}
 
 	@Override

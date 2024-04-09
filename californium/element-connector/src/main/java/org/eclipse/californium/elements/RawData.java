@@ -33,7 +33,6 @@ package org.eclipse.californium.elements;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.security.Principal;
 
@@ -68,6 +67,13 @@ public final class RawData {
 	private final boolean multicast;
 
 	/**
+	 * Connectors inet socket address.
+	 * 
+	 * @since 3.0
+	 */
+	private final InetSocketAddress connector;
+
+	/**
 	 * Endpoint context of the remote peer.
 	 */
 	private final EndpointContext peerEndpointContext;
@@ -81,18 +87,23 @@ public final class RawData {
 	/**
 	 * Instantiates a new raw data.
 	 * 
-	 * Use {@link #inbound(byte[], EndpointContext, boolean)} or
+	 * Use {@link #inbound(byte[], EndpointContext, boolean, long, InetSocketAddress)} or
 	 * {@link #outbound(byte[], EndpointContext, MessageCallback, boolean)}.
 	 *
 	 * @param data the data that is to be sent or has been received
-	 * @param endpointContext remote peers endpoint context.
+	 * @param peerEndpointContext remote peers endpoint context.
+	 * @param callback the handler to call when this message has been sent (may
+	 *            be {@code null}).
 	 * @param multicast indicates whether the data represents a multicast
 	 *            message
-	 * @param nanoTimestamp nano-timestamp for received messages. {@code 0}
-	 *            for outgoing messages.
-	 * @throws NullPointerException if data or address is {@code null}
+	 * @param nanoTimestamp nano-timestamp for received messages. {@code 0} for
+	 *            outgoing messages.
+	 * @param connector connector's address. {@code null} for outgoing data.
+	 * @throws NullPointerException if data or endpoint context is {@code null}
+	 * @since 3.0 (added parameter connector)
 	 */
-	private RawData(byte[] data, EndpointContext peerEndpointContext, MessageCallback callback, boolean multicast, long nanoTimestamp) {
+	private RawData(byte[] data, EndpointContext peerEndpointContext, MessageCallback callback, boolean multicast,
+			long nanoTimestamp, InetSocketAddress connector) {
 		if (data == null) {
 			throw new NullPointerException("Data must not be null");
 		} else if (peerEndpointContext == null) {
@@ -103,6 +114,7 @@ public final class RawData {
 			this.callback = callback;
 			this.multicast = multicast;
 			this.receiveNanoTimestamp = nanoTimestamp;
+			this.connector = connector;
 		}
 	}
 
@@ -119,29 +131,36 @@ public final class RawData {
 	 *            multicast message. (Currently {@link DatagramPacket} nor
 	 *            {@link DatagramSocket} offers this information!)
 	 * @param nanoTimestamp nano-timestamp for received messages.
+	 * @param connector connector's address
 	 * @return the raw data object containing the inbound message.
-	 * @throws NullPointerException if data or address is {@code null}.
+	 * @throws NullPointerException if data, endpoint context, or connector is
+	 *             {@code null}.
 	 * @see ClockUtil#nanoRealtime()
+	 * @since 3.0 (added parameter connector)
 	 */
-	public static RawData inbound(byte[] data, EndpointContext peerEndpointContext, boolean isMulticast, long nanoTimestamp) {
-		return new RawData(data, peerEndpointContext, null, isMulticast, nanoTimestamp);
+	public static RawData inbound(byte[] data, EndpointContext peerEndpointContext, boolean isMulticast,
+			long nanoTimestamp, InetSocketAddress connector) {
+		if (connector == null) {
+			throw new NullPointerException("Connectors's address must not be null");
+		}
+		return new RawData(data, peerEndpointContext, null, isMulticast, nanoTimestamp, connector);
 	}
 
 	/**
 	 * Instantiates a new raw data for a message to be sent to a peer.
 	 * <p>
 	 * The given callback handler is notified when the message has been sent by
-	 * a <code>Connector</code>. The information contained in the
-	 * <code>MessageContext</code> object that is passed in to the handler may
+	 * a {@link Connector}. The information contained in the
+	 * {@link EndpointContext} object that is passed in to the handler may
 	 * be relevant for matching a response received via a
-	 * <code>RawDataChannel</code> to a request sent using this method, e.g.
+	 * {@link RawDataChannel} to a request sent using this method, e.g.
 	 * when using a DTLS based connector the context may contain the DTLS
 	 * session ID and epoch number which is required to match a response to a
 	 * request as defined in the CoAP specification.
 	 * </p>
 	 * <p>
 	 * The message context is set via a callback in order to allow
-	 * <code>Connector</code> implementations to process (send) messages
+	 * {@link Connector} implementations to process (send) messages
 	 * asynchronously.
 	 * </p>
 	 * 
@@ -156,7 +175,7 @@ public final class RawData {
 	 */
 	public static RawData outbound(byte[] data, EndpointContext peerEndpointContext, MessageCallback callback,
 			boolean useMulticast) {
-		return new RawData(data, peerEndpointContext, callback, useMulticast, 0);
+		return new RawData(data, peerEndpointContext, callback, useMulticast, 0, null);
 	}
 
 	/**
@@ -175,24 +194,6 @@ public final class RawData {
 	 */
 	public int getSize() {
 		return bytes.length;
-	}
-
-	/**
-	 * Gets the address.
-	 *
-	 * @return the address
-	 */
-	public InetAddress getAddress() {
-		return peerEndpointContext.getPeerAddress().getAddress();
-	}
-
-	/**
-	 * Gets the port.
-	 *
-	 * @return the port
-	 */
-	public int getPort() {
-		return peerEndpointContext.getPeerAddress().getPort();
 	}
 
 	/**
@@ -216,6 +217,16 @@ public final class RawData {
 	}
 
 	/**
+	 * Gets the IP address and port of the connector.
+	 *
+	 * @return the connector's address, {@code null}, for outgoing data.
+	 * @since 3.0
+	 */
+	public InetSocketAddress getConnectorAddress() {
+		return connector;
+	}
+
+	/**
 	 * Gets the source/destination IP address and port.
 	 *
 	 * @return the address
@@ -229,7 +240,7 @@ public final class RawData {
 	 * 
 	 * This property is only meaningful for messages received from a client.
 	 * 
-	 * @return the identity or <code>null</code> if the sender has not been
+	 * @return the identity or {@code null}, if the sender has not been
 	 *         authenticated
 	 */
 	public Principal getSenderIdentity() {

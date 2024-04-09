@@ -16,13 +16,16 @@
 package org.eclipse.californium.elements.util;
 
 import static org.hamcrest.CoreMatchers.*;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.*;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
+import org.eclipse.californium.elements.category.Small;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
@@ -33,6 +36,7 @@ import org.junit.runners.Parameterized.Parameters;
  *
  */
 @RunWith(Parameterized.class)
+@Category(Small.class)
 public class Base64Test {
 
 	@Parameter

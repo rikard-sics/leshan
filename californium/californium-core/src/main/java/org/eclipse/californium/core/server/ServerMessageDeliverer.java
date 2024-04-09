@@ -23,8 +23,6 @@
 package org.eclipse.californium.core.server;
 
 import java.net.InetSocketAddress;
-import java.util.Deque;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Executor;
 
@@ -33,10 +31,12 @@ import org.eclipse.californium.core.coap.CoAP.ResponseCode;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.network.Exchange;
+import org.eclipse.californium.core.observe.ObserveHealth;
 import org.eclipse.californium.core.observe.ObserveManager;
-import org.eclipse.californium.core.observe.ObserveRelation;
-import org.eclipse.californium.core.observe.ObservingEndpoint;
+import org.eclipse.californium.core.server.resources.ObservableResource;
 import org.eclipse.californium.core.server.resources.Resource;
+import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,16 +52,42 @@ public class ServerMessageDeliverer implements MessageDeliverer {
 	private final Resource root;
 
 	/* The manager of the observe mechanism for this server */
-	private final ObserveManager observeManager = new ObserveManager();
+	private final ObserveManager observeManager;
 
 	/**
 	 * Constructs a default message deliverer that delivers requests to the
 	 * resources rooted at the specified root.
 	 * 
 	 * @param root the root resource
+	 * @deprecated use {@link #ServerMessageDeliverer(Resource, Configuration)}
+	 *             instead
 	 */
-	public ServerMessageDeliverer(final Resource root) {
+	@Deprecated
+	public ServerMessageDeliverer(Resource root) {
+		this(root, null);
+	}
+
+	/**
+	 * Constructs a default message deliverer that delivers requests to the
+	 * resources rooted at the specified root.
+	 * 
+	 * @param root the root resource
+	 * @param config the configuration
+	 * @since 3.6
+	 */
+	public ServerMessageDeliverer(Resource root, Configuration config) {
 		this.root = root;
+		this.observeManager = new ObserveManager(config);
+	}
+
+	/**
+	 * Set observe health status.
+	 * 
+	 * @param observeHealth health status for observe.
+	 * @since 3.6
+	 */
+	public void setObserveHealth(ObserveHealth observeHealth) {
+		observeManager.setObserveHealth(observeHealth);
 	}
 
 	/**
@@ -89,29 +115,36 @@ public class ServerMessageDeliverer implements MessageDeliverer {
 		}
 		boolean processed = preDeliverRequest(exchange);
 		if (!processed) {
-			final Resource resource = findResource(exchange);
-			if (resource != null) {
-				checkForObserveOption(exchange, resource);
+			try {
+				final Resource resource = findResource(exchange);
+				if (resource != null) {
+					checkForObserveOption(exchange, resource);
 
-				// Get the executor and let it process the request
-				Executor executor = resource.getExecutor();
-				if (executor != null) {
-					executor.execute(new Runnable() {
+					// Get the executor and let it process the request
+					Executor executor = resource.getExecutor();
+					if (executor != null) {
+						executor.execute(new Runnable() {
 
-						public void run() {
-							resource.handleRequest(exchange);
-						}
-					});
+							public void run() {
+								resource.handleRequest(exchange);
+							}
+						});
+					} else {
+						resource.handleRequest(exchange);
+					}
 				} else {
-					resource.handleRequest(exchange);
+					if (LOGGER.isInfoEnabled()) {
+						Request request = exchange.getRequest();
+						LOGGER.info("did not find resource /{} requested by {}",
+								request.getOptions().getUriPathString(),
+								StringUtil.toLog(request.getSourceContext().getPeerAddress()));
+					}
+					exchange.sendResponse(new Response(ResponseCode.NOT_FOUND, true));
 				}
-			} else {
-				if (LOGGER.isInfoEnabled()) {
-					Request request = exchange.getRequest();
-					LOGGER.info("did not find resource /{} requested by {}", request.getOptions().getUriPathString(),
-							request.getSourceContext().getPeerAddress());
-				}
-				exchange.sendResponse(new Response(ResponseCode.NOT_FOUND));
+			} catch (DelivererException ex) {
+				Response response = new Response(ex.getErrorResponseCode(), ex.isInternal());
+				response.setPayload(ex.getMessage());
+				exchange.sendResponse(response);
 			}
 		}
 	}
@@ -147,27 +180,23 @@ public class ServerMessageDeliverer implements MessageDeliverer {
 	protected final void checkForObserveOption(final Exchange exchange, final Resource resource) {
 
 		Request request = exchange.getRequest();
-		if (CoAP.isObservable(request.getCode()) && request.getOptions().hasObserve() && resource.isObservable()) {
-
-			InetSocketAddress source = request.getSourceContext().getPeerAddress();
+		if (CoAP.isObservable(request.getCode()) && request.getOptions().hasObserve() && resource.isObservable()
+				&& resource instanceof ObservableResource) {
 
 			if (request.isObserve()) {
 				// Requests wants to observe and resource allows it :-)
-				LOGGER.debug("initiating an observe relation between {} and resource {}, {}", source, resource.getURI(), exchange);
-				ObservingEndpoint remote = observeManager.findObservingEndpoint(source);
-				ObserveRelation relation = new ObserveRelation(remote, resource, exchange);
-				remote.addObserveRelation(relation);
-				exchange.setRelation(relation);
+				InetSocketAddress source = request.getSourceContext().getPeerAddress();
+				LOGGER.debug("initiating an observe relation between {} and resource {}, {}", StringUtil.toLog(source),
+						resource.getURI(), exchange);
+				observeManager.addObserveRelation(exchange, (ObservableResource) resource);
 				request.setProtectFromOffload();
-				// all that's left is to add the relation to the resource which
-				// the resource must do itself if the response is successful
 
 			} else if (request.isObserveCancel()) {
 				// Observe defines 1 for canceling
-				ObserveRelation relation = observeManager.getRelation(source, request.getToken());
-				if (relation != null) {
-					relation.cancel();
-				}
+				InetSocketAddress source = request.getSourceContext().getPeerAddress();
+				LOGGER.debug("cancel an observe relation between {} and resource {}, {}", StringUtil.toLog(source),
+						resource.getURI(), exchange);
+				observeManager.cancelObserveRelation(exchange);
 			}
 		}
 	}
@@ -186,32 +215,36 @@ public class ServerMessageDeliverer implements MessageDeliverer {
 
 	/**
 	 * Searches in the resource tree for the specified path. A parent resource
-	 * may accept requests to subresources, e.g., to allow addresses with
+	 * may accept requests to sub-resources, e.g., to allow addresses with
 	 * wildcards like <code>coap://example.com:5683/devices/*</code>
 	 * 
 	 * @param exchange The exchange containing the inbound request including the
 	 *            path of resource names
 	 * @return the resource or {@code null}, if not found
-	 * @since 2.1
+	 * @throws DelivererException if an other error is detected.
+	 * @since 3.0 (added DelivererException)
 	 */
-	protected Resource findResource(Exchange exchange) {
+	protected Resource findResource(Exchange exchange) throws DelivererException {
 		return findResource(exchange.getRequest().getOptions().getUriPath());
 	}
 
 	/**
 	 * Searches in the resource tree for the specified path. A parent resource
-	 * may accept requests to subresources, e.g., to allow addresses with
+	 * may accept requests to sub-resources, e.g., to allow addresses with
 	 * wildcards like <code>coap://example.com:5683/devices/*</code>
 	 * 
-	 * @param list the path as list of resource names
+	 * @param path the path as list of resource names
 	 * @return the resource or {@code null}, if not found
+	 * @throws DelivererException if an other error is detected.
+	 * @since 3.0 (added DelivererException)
 	 */
-	protected Resource findResource(final List<String> list) {
-		Deque<String> path = new LinkedList<String>(list);
+	protected Resource findResource(final List<String> path) throws DelivererException {
 		Resource current = getRootResource();
-		while (!path.isEmpty() && current != null) {
-			String name = path.removeFirst();
+		for (String name : path) {
 			current = current.getChild(name);
+			if (current == null) {
+				break;
+			}
 		}
 		return current;
 	}

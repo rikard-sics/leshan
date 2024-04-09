@@ -24,6 +24,7 @@ import java.util.Arrays;
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.OptionSet;
 import org.eclipse.californium.cose.AlgorithmID;
+import org.eclipse.californium.elements.util.ExpectedExceptionWrapper;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -49,15 +50,16 @@ public class OSSerializerTest {
 	private final static int version = CoAP.VERSION;
 	private final static int seq = 1;
 	private final static byte[] partialIV = new byte[] { 0x01 };
+	private final static int MAX_UNFRAGMENTED_SIZE = 4096;
 
 	private static OSCoreCtx ctx = null;
 
 	@Rule
-	public final ExpectedException exception = ExpectedException.none();
+	public final ExpectedException exception = ExpectedExceptionWrapper.none();
 
 	@Before
 	public void setUp() throws Exception {
-		ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, null);
+		ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, null, MAX_UNFRAGMENTED_SIZE);
 	}
 
 	@After

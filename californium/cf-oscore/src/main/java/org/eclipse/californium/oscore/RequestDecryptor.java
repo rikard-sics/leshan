@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory;
 
 import org.eclipse.californium.core.coap.OptionSet;
 import org.eclipse.californium.core.coap.Request;
-import org.eclipse.californium.core.network.serialization.DataParser;
+import org.eclipse.californium.core.network.serialization.UdpDataParser;
 import org.eclipse.californium.cose.Encrypt0Message;
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.CoAP.Code;
@@ -61,7 +61,6 @@ public class RequestDecryptor extends Decryptor {
 	 */
 	public static Request decrypt(OSCoreCtxDB db, Request request, OSCoreCtx ctx) throws CoapOSException {
 
-		LOGGER.info("Removes E options from outer options which are not allowed there");
 		discardEOptions(request);
 
 		byte[] protectedData = request.getPayload();
@@ -121,7 +120,7 @@ public class RequestDecryptor extends Decryptor {
 			ctx.setCoAPCode(Code.valueOf(reader.read(CoAP.MessageFormat.CODE_BITS)));
 			// resets option so eOptions gets priority during parse
 			request.setOptions(EMPTY);
-			DataParser.parseOptionsAndPayload(reader, request);
+			new UdpDataParser().parseOptionsAndPayload(reader, request);
 		} catch (Exception e) {
 			LOGGER.error(ErrorDescriptions.DECRYPTION_FAILED);
 			throw new CoapOSException(ErrorDescriptions.DECRYPTION_FAILED, ResponseCode.BAD_REQUEST);

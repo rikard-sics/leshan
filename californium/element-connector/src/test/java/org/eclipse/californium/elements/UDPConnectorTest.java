@@ -25,7 +25,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.sameInstance;
 import static org.hamcrest.Matchers.equalTo;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -50,6 +50,8 @@ import org.slf4j.LoggerFactory;
 public class UDPConnectorTest {
 	public static final Logger LOGGER = LoggerFactory.getLogger(UDPConnectorTest.class);
 
+	private static final long TIMEOUT_MILLIS = 1500;
+
 	@ClassRule
 	public static NetworkRule network = new NetworkRule(NetworkRule.Mode.DIRECT, NetworkRule.Mode.NATIVE);
 
@@ -64,11 +66,13 @@ public class UDPConnectorTest {
 	@Before
 	public void setup() throws IOException {
 		matcher = new TestEndpointContextMatcher(1, 1);
-		connector = new UDPConnector(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0));
+		connector = new UDPConnector(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
+				network.getStandardTestConfig());
 		connector.setEndpointContextMatcher(matcher);
 		connector.start();
 		channel = new SimpleRawDataChannel(1);
-		destination = new UDPConnector(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0));
+		destination = new UDPConnector(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
+				network.getStandardTestConfig());
 		destination.setRawDataReceiver(channel);
 		destination.start();
 	}
@@ -88,7 +92,7 @@ public class UDPConnectorTest {
 		RawData message = RawData.outbound(data, context, null, false);
 		connector.send(message);
 
-		matcher.await();
+		assertThat(matcher.await(TIMEOUT_MILLIS), is(true));
 
 		assertThat(matcher.getMessageEndpointContext(), is(sameInstance(context)));
 	}
@@ -103,7 +107,7 @@ public class UDPConnectorTest {
 		RawData message = RawData.outbound(data, context, callback, false);
 		connector.send(message);
 
-		callback.await(100);
+		assertThat(callback.await(TIMEOUT_MILLIS), is(true));
 		assertThat(callback.toString(), callback.getEndpointContext(), is(notNullValue()));
 	}
 
@@ -117,7 +121,7 @@ public class UDPConnectorTest {
 		RawData message = RawData.outbound(data, context, callback, false);
 		connector.send(message);
 
-		callback.await(100);
+		assertThat(callback.await(TIMEOUT_MILLIS), is(true));
 		assertThat(callback.toString(), callback.isSent(), is(true));
 	}
 
@@ -144,7 +148,7 @@ public class UDPConnectorTest {
 		message = RawData.outbound(data, context, null, false);
 		connector.send(message);
 
-		receivedData = channel.poll(100, TimeUnit.SECONDS);
+		receivedData = channel.poll(TIMEOUT_MILLIS, TimeUnit.SECONDS);
 		assertThat("second received data:", receivedData, is(notNullValue()));
 		assertThat("bytes received:", receivedData.bytes, is(equalTo(data)));
 	}
@@ -159,7 +163,7 @@ public class UDPConnectorTest {
 		RawData message = RawData.outbound(data, context, null, false);
 		connector.send(message);
 
-		RawData receivedData = channel.poll(100, TimeUnit.MILLISECONDS);
+		RawData receivedData = channel.poll(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 		assertThat("second received data:", receivedData, is(notNullValue()));
 		assertThat("bytes received:", receivedData.bytes, is(equalTo(data)));
 	}
@@ -176,8 +180,24 @@ public class UDPConnectorTest {
 		SimpleMessageCallback callback = new SimpleMessageCallback(1, false);
 		RawData message = RawData.outbound(data, context, callback, false);
 		connector.send(message);
+		assertThat(callback.await(TIMEOUT_MILLIS), is(true));
+		assertThat(callback.toString(), callback.getError(), is(notNullValue()));
+	}
 
-		callback.await(100);
+	@Test
+	public void testMessageToPortZeroFails() throws InterruptedException {
+		byte[] data = { 0, 1, 2 };
+		InetSocketAddress malicousDestination = new InetSocketAddress(destination.getAddress().getAddress(), 0);
+		EndpointContext context = new UdpEndpointContext(malicousDestination);
+
+		matcher = new TestEndpointContextMatcher(1, 0);
+		connector.setEndpointContextMatcher(matcher);
+
+		SimpleMessageCallback callback = new SimpleMessageCallback(1, false);
+		RawData message = RawData.outbound(data, context, callback, false);
+		connector.send(message);
+
+		assertThat(callback.await(TIMEOUT_MILLIS), is(true));
 		assertThat(callback.toString(), callback.getError(), is(notNullValue()));
 	}
 
@@ -207,7 +227,7 @@ public class UDPConnectorTest {
 				connector.send(message);
 			}
 			connector.stop();
-			assertThat(loop + ": " + callback.toString(), callback.await(100), is(true));
+			assertThat(loop + ": " + callback.toString(), callback.await(TIMEOUT_MILLIS), is(true));
 			try {
 				connector.start();
 				Thread.sleep(20);
@@ -262,8 +282,8 @@ public class UDPConnectorTest {
 			return 0 < matches.getAndDecrement();
 		}
 
-		public void await() throws InterruptedException {
-			latchSendMatcher.await();
+		public boolean await(long timeoutMillis) throws InterruptedException {
+			return latchSendMatcher.await(timeoutMillis, TimeUnit.MILLISECONDS);
 		}
 
 		@Override

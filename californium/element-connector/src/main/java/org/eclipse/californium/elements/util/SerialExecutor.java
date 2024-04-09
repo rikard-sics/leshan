@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
  * 
  * Serialize job execution before passing the jobs to a provided executor.
  */
-public class SerialExecutor extends AbstractExecutorService {
+public class SerialExecutor extends AbstractExecutorService implements CheckedExecutor {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(SerialExecutor.class);
 
@@ -90,10 +90,14 @@ public class SerialExecutor extends AbstractExecutorService {
 	 * 
 	 * @param executor target executor. If {@code null}, the executor is
 	 *            shutdown.
+	 * @throws IllegalArgumentException if the executor is also a
+	 *             {@link SerialExecutor}
 	 */
 	public SerialExecutor(final Executor executor) {
 		if (executor == null) {
 			shutdown = true;
+		} else if (executor instanceof SerialExecutor) {
+			throw new IllegalArgumentException("Sequences of SerialExecutors are not supported!");
 		}
 		this.executor = executor;
 	}
@@ -115,12 +119,11 @@ public class SerialExecutor extends AbstractExecutorService {
 	}
 
 	/**
-	 * Assert, that the current thread executes the
-	 * {@link #currentlyExecutedJob}.
+	 * {@inheritDoc}
 	 * 
-	 * @throws ConcurrentModificationException if current thread doesn't execute
-	 *             the {@link #currentlyExecutedJob}.
-	 */
+	 * {@link #currentlyExecutedJob} is used for the current job.
+		 */
+	@Override
 	public void assertOwner() {
 		final Thread me = Thread.currentThread();
 		if (owner.get() != me) {
@@ -134,11 +137,11 @@ public class SerialExecutor extends AbstractExecutorService {
 	}
 
 	/**
-	 * Check, if current thread executes the {@link #currentlyExecutedJob}.
+	 * {@inheritDoc}
 	 * 
-	 * @return {@code true}, if current thread executes the
-	 *         {@link #currentlyExecutedJob}, {@code false}, otherwise.
-	 */
+	 * {@link #currentlyExecutedJob} is used for the current job.
+		 */
+	@Override
 	public boolean checkOwner() {
 		return owner.get() == Thread.currentThread();
 	}
@@ -146,7 +149,7 @@ public class SerialExecutor extends AbstractExecutorService {
 	/**
 	 * Set current thread executing the {@link #currentlyExecutedJob}.
 	 * 
-	 * @throws ConcurrentModificationException, if thread is already set.
+	 * @throws ConcurrentModificationException if thread is already set.
 	 */
 	private void setOwner() {
 		final Thread thread = owner.get();
@@ -162,7 +165,7 @@ public class SerialExecutor extends AbstractExecutorService {
 	/**
 	 * Remove current thread executing the {@link #currentlyExecutedJob}.
 	 * 
-	 * @throws ConcurrentModificationException, if the current thread is not
+	 * @throws ConcurrentModificationException if the current thread is not
 	 *             executing the {@link #currentlyExecutedJob}.
 	 */
 	private void clearOwner() {
@@ -211,7 +214,7 @@ public class SerialExecutor extends AbstractExecutorService {
 	}
 
 	/**
-	 * Shutdown this executor and add all pending task from {@link #tasks} to
+	 * Shutdown this executor and add all pending jobs from {@link #tasks} to
 	 * the provided collection.
 	 * 
 	 * @param jobs collection to add pending jobs.
@@ -295,12 +298,16 @@ public class SerialExecutor extends AbstractExecutorService {
 										current.afterExecution();
 									}
 								} catch (Throwable t) {
-									LOGGER.error("unexpected error occurred:", t);
+									LOGGER.error("unexpected error occurred after execution:", t);
 								}
 								clearOwner();
 							}
 						} finally {
-							scheduleNextJob();
+							try {
+								scheduleNextJob();
+							} catch (RejectedExecutionException ex) {
+								LOGGER.debug("shutdown?", ex);
+							}
 						}
 					}
 				});
@@ -310,21 +317,6 @@ public class SerialExecutor extends AbstractExecutorService {
 		} finally {
 			lock.unlock();
 		}
-	}
-
-	/**
-	 * Create serial executor from provided executor.
-	 * 
-	 * @param executor target executor. if {@code null}, no serial executor is
-	 *            created.
-	 * @return created serial executor, or {@code null}, if provided executor is
-	 *         {@code null}.
-	 */
-	public static SerialExecutor create(final Executor executor) {
-		if (executor != null) {
-			return new SerialExecutor(executor);
-		}
-		return null;
 	}
 
 	/**
@@ -343,7 +335,8 @@ public class SerialExecutor extends AbstractExecutorService {
 	/**
 	 * Execution listener.
 	 * 
-	 * Called before and after executing a task.
+	 * Called before and after executing a task. The calling thread is the same
+	 * as the the one executing the job.
 	 * 
 	 * @since 2.4
 	 */

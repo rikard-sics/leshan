@@ -143,26 +143,61 @@ public class SecretUtil {
 	public static SecretIvParameterSpec createIv(SecretIvParameterSpec iv) {
 		SecretIvParameterSpec result = null;
 		if (iv != null) {
-			byte[] secret = iv.getIV();
-			result = new SecretIvParameterSpec(secret, 0, secret.length);
-			Bytes.clear(secret);
+			result = new SecretIvParameterSpec(iv);
 		}
 		return result;
 	}
 
 	/**
-	 * Create secret iv paramter (with destroyable implementation).
+	 * Create secret iv parameter (with destroyable implementation).
 	 * 
 	 * @param iv as byte array
 	 * @param offset offset of iv within the provided byte array
 	 * @param length length of iv
-	 * @return the secreate iv
+	 * @return the secret iv
 	 * @throws NullPointerException if iv is {@code null}
-	 * @throws IllegalArgumentException if iv is empty, or len is negative or
+	 * @throws IllegalArgumentException if iv is empty, or length is negative or
 	 *             offset and length doesn't fit into iv.
 	 */
 	public static SecretIvParameterSpec createIv(byte[] iv, int offset, int length) {
 		return new SecretIvParameterSpec(iv, offset, length);
+	}
+
+	/**
+	 * Create secret iv parameter (with destroyable implementation).
+	 * 
+	 * @param iv as byte array
+	 * @return the secret iv
+	 * @throws NullPointerException if iv is {@code null}
+	 * @since 2.6
+	 */
+	public static SecretIvParameterSpec createIv(byte[] iv) {
+		return new SecretIvParameterSpec(iv, 0, iv.length);
+	}
+
+	/**
+	 * Indicates whether some secret keys are "equal to" each other.
+	 * 
+	 * @param key1 first key to check
+	 * @param key2 second key to check
+	 * @return {@code true}, if the keys are equal, {@code false}, otherwise.
+	 * @since 3.0
+	 */
+	public static boolean equals(SecretKey key1, SecretKey key2) {
+		if (key1 == key2) {
+			return true;
+		} else if (key1 == null || key2 == null) {
+			return false;
+		}
+		if (!key1.getAlgorithm().equals(key2.getAlgorithm())) {
+			return false;
+		}
+		byte[] secret1 = key1.getEncoded();
+		byte[] secret2 = key2.getEncoded();
+		boolean ok = Arrays.equals(secret1, secret2);
+		Bytes.clear(secret1);
+		Bytes.clear(secret2);
+		return ok;
 	}
 
 	private static class DestroyableSecretKeySpec implements KeySpec, SecretKey, Destroyable {

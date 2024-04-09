@@ -15,29 +15,40 @@
  ******************************************************************************/
 package org.eclipse.californium.interoperability.test;
 
+import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.CoreMatchers.notNullValue;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.security.Principal;
 import java.util.Arrays;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.californium.core.CoapClient;
 import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.CoapResponse;
 import org.eclipse.californium.core.CoapServer;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.coap.MediaTypeRegistry;
 import org.eclipse.californium.core.coap.Option;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.coap.option.MapBasedOptionRegistry;
+import org.eclipse.californium.core.coap.option.OpaqueOptionDefinition;
+import org.eclipse.californium.core.coap.option.StandardOptionRegistry;
 import org.eclipse.californium.core.network.CoapEndpoint;
-import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.server.resources.CoapExchange;
+import org.eclipse.californium.elements.DtlsEndpointContext;
+import org.eclipse.californium.elements.EndpointContext;
+import org.eclipse.californium.elements.MapBasedEndpointContext;
+import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.exception.ConnectorException;
+import org.eclipse.californium.elements.util.StandardCharsets;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
 
@@ -47,6 +58,14 @@ import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
  * Configure and starts coap-server or -client.
  */
 public class CaliforniumUtil extends ConnectorUtil {
+
+	static {
+		CoapConfig.register();
+	}
+
+	public static final int OPTION_TRACE_CONTEXT_NO = 0b1111110111111110; // 65022
+
+	public static final OpaqueOptionDefinition OPTION_TRACE_CONTEXT = new OpaqueOptionDefinition(OPTION_TRACE_CONTEXT_NO, "Trace_Context", true, 1, 128);
 
 	/**
 	 * {@code true}, if used as client, {@code false}, otherwise.
@@ -61,6 +80,10 @@ public class CaliforniumUtil extends ConnectorUtil {
 	 */
 	private CoapClient client;
 
+	/**
+	 * Last principal.
+	 */
+	private final AtomicReference<Principal> principal = new AtomicReference<>();
 	/**
 	 * Queue of incoming message for the coap-server.
 	 */
@@ -92,6 +115,7 @@ public class CaliforniumUtil extends ConnectorUtil {
 		}
 		super.shutdown();
 		incoming.clear();
+		assertNoUnexpectedAlert();
 	}
 
 	/**
@@ -113,26 +137,26 @@ public class CaliforniumUtil extends ConnectorUtil {
 	 * Start coap-server or -client.
 	 * 
 	 * @param bind address to bind connector to
-	 * @param rsa use mixed certifcate path (includes RSA certificate). Server
-	 *            only!
-	 * @param dtlsBuilder preconfigured dtls builder. Maybe {@link null}.
+	 * @param dtlsBuilder preconfigured dtls builder. May be {@code null}.
 	 * @param trust alias of trusted certificate, or {@code null} to trust all
 	 *            received certificates.
 	 * @param cipherSuites cipher suites to support.
 	 * @throws IOException if an error occurred starting the connector on the
 	 *             provided bind address
 	 */
-	public void start(InetSocketAddress bind, boolean rsa, DtlsConnectorConfig.Builder dtlsBuilder, String trust,
+	public void start(InetSocketAddress bind, DtlsConnectorConfig.Builder dtlsBuilder, String trust,
 			CipherSuite... cipherSuites) throws IOException {
-		build(bind, rsa, dtlsBuilder, trust, cipherSuites);
+		build(bind, dtlsBuilder, trust, cipherSuites);
 		start();
 	}
 
 	private void start() throws IOException {
-		NetworkConfig config = NetworkConfig.getStandard();
+		Configuration config = Configuration.createStandardWithoutFile();
+		MapBasedOptionRegistry registry = new MapBasedOptionRegistry(StandardOptionRegistry.STANDARD_OPTIONS, OPTION_TRACE_CONTEXT);
 		CoapEndpoint.Builder builder = new CoapEndpoint.Builder();
-		builder.setNetworkConfig(config);
+		builder.setConfiguration(config);
 		builder.setConnector(getConnector());
+		builder.setOptionRegistry(registry);
 		CoapEndpoint endpoint = builder.build();
 		if (asClient) {
 			client = new CoapClient();
@@ -144,7 +168,7 @@ public class CaliforniumUtil extends ConnectorUtil {
 
 				@Override
 				public void handlePOST(CoapExchange exchange) {
-					addReceivedMessage(exchange.getRequestText());
+					addReceivedExchange(exchange);
 					exchange.respond(ResponseCode.CHANGED, "Greetings!");
 				}
 			});
@@ -152,7 +176,7 @@ public class CaliforniumUtil extends ConnectorUtil {
 
 				@Override
 				public void handlePOST(CoapExchange exchange) {
-					addReceivedMessage(exchange.getRequestText());
+					addReceivedExchange(exchange);
 					int size = 1024;
 					String sizeParam = exchange.getQueryParameter("size");
 					if (sizeParam != null && !sizeParam.isEmpty()) {
@@ -161,11 +185,7 @@ public class CaliforniumUtil extends ConnectorUtil {
 						} catch (NumberFormatException ex) {
 						}
 					}
-					byte[] message = new byte[size];
-					Arrays.fill(message, (byte) '#');
-					for (int index = 63; index < message.length; index += 64) {
-						message[index] = (byte) '\n';
-					}
+					byte[] message = createPayload(size);
 					exchange.respond(ResponseCode.CHANGED, message);
 				}
 			});
@@ -173,12 +193,11 @@ public class CaliforniumUtil extends ConnectorUtil {
 
 				@Override
 				public void handlePOST(CoapExchange exchange) {
-					addReceivedMessage(exchange.getRequestText());
+					addReceivedExchange(exchange);
 					Response response = new Response(ResponseCode.CHANGED);
 					response.setPayload("Custom Greetings!");
 					response.getOptions().setContentFormat(MediaTypeRegistry.MAX_TYPE - 10);
-					int OPTION_TRACE_CONTEXT = 0b1111110111111110; // 65022
-					Option custom = new Option(OPTION_TRACE_CONTEXT);
+					Option custom = OPTION_TRACE_CONTEXT.create(new byte[] { 0x1 });
 					custom.setStringValue("test");
 					response.getOptions().addOption(custom);
 					response.getOptions().setContentFormat(MediaTypeRegistry.MAX_TYPE - 10);
@@ -189,7 +208,7 @@ public class CaliforniumUtil extends ConnectorUtil {
 
 				@Override
 				public void handlePOST(CoapExchange exchange) {
-					addReceivedMessage(exchange.getRequestText());
+					addReceivedExchange(exchange);
 					Response response = new Response(ResponseCode.CHANGED);
 					response.getOptions().setLocationPath("/command/1234-abcde");
 					response.getOptions().setLocationQuery("hono-command=blink");
@@ -203,21 +222,47 @@ public class CaliforniumUtil extends ConnectorUtil {
 	}
 
 	/**
+	 * Send request using a full handshake.
+	 * 
+	 * Only available for clients, see {@link #CaliforniumUtil(boolean)}.
+	 * 
+	 * @param request request to send
+	 * @return response, or {@code null}, if no response was received.
+	 * @throws IllegalStateException if it is not a client
+	 * @since 3.0
+	 */
+	public CoapResponse sendWithFullHandshake(Request request) {
+		EndpointContext destinationContext = request.getDestinationContext();
+		destinationContext = MapBasedEndpointContext.setEntries(destinationContext,
+				DtlsEndpointContext.ATTRIBUE_HANDSHAKE_MODE_FORCE_FULL);
+		request.setDestinationContext(destinationContext);
+		return send(request);
+	}
+
+	/**
 	 * Send request.
 	 * 
 	 * Only available for clients, see {@link #CaliforniumUtil(boolean)}.
 	 * 
 	 * @param request request to send
 	 * @return response, or {@code null}, if no response was received.
-	 * @throws ConnectorException if the connector reports an error
-	 * @throws IOException if the io reports an error.
 	 * @throws IllegalStateException if it is not a client
 	 */
-	public CoapResponse send(Request request) throws ConnectorException, IOException {
+	public CoapResponse send(Request request) {
 		if (!asClient) {
 			throw new IllegalStateException("Only available for clients!");
 		}
-		return client.advanced(request);
+		try {
+			CoapResponse response = client.advanced(request);
+			if (response != null) {
+				principal.set(response.advanced().getSourceContext().getPeerIdentity());
+			}
+			return response;
+		} catch (ConnectorException ex) {
+			return null;
+		} catch (IOException ex) {
+			return null;
+		}
 	}
 
 	/**
@@ -225,10 +270,20 @@ public class CaliforniumUtil extends ConnectorUtil {
 	 * 
 	 * Only available for servers
 	 * 
-	 * @param message received message
+	 * @param exchange exchange with received request
 	 */
-	private void addReceivedMessage(String message) {
-		incoming.add(message);
+	private void addReceivedExchange(CoapExchange exchange) {
+		principal.set(exchange.advanced().getRequest().getSourceContext().getPeerIdentity());
+		incoming.add(exchange.getRequestText());
+	}
+
+	/**
+	 * Get principal.
+	 * 
+	 * @return principal. Maybe {@code null}.
+	 */
+	public Principal getPrincipal() {
+		return principal.get();
 	}
 
 	/**
@@ -239,7 +294,7 @@ public class CaliforniumUtil extends ConnectorUtil {
 	 * @return received message. Maybe {@code null}.
 	 * @throws IllegalStateException if it is not a server
 	 */
-	public synchronized String getReceivedMessage() {
+	public String getReceivedMessage() {
 		if (asClient) {
 			throw new IllegalStateException("Only available for servers!");
 		}
@@ -255,7 +310,7 @@ public class CaliforniumUtil extends ConnectorUtil {
 	 * @throws InterruptedException if interrupted during wait
 	 * @throws IllegalStateException if it is not a server
 	 */
-	public synchronized String waitForReceivedMessage(long timeoutMillis) throws InterruptedException {
+	public String waitForReceivedMessage(long timeoutMillis) throws InterruptedException {
 		if (asClient) {
 			throw new IllegalStateException("Only available for servers!");
 		}
@@ -268,10 +323,59 @@ public class CaliforniumUtil extends ConnectorUtil {
 	 * @param message message the receiving is to be asserted
 	 * @param timeoutMillis timeout of message
 	 * @throws InterruptedException if interrupted during wait
+	 * @throws IllegalStateException if it is not a server
 	 */
 	public void assertReceivedData(String message, long timeoutMillis) throws InterruptedException {
 		String received = waitForReceivedMessage(timeoutMillis);
-		assertNotNull("Californium server missing message '" + message + "'!", received);
+		assertThat("Californium server missing message '" + message + "'!", received, is(notNullValue()));
 		assertThat(received, is(message));
+	}
+
+	/**
+	 * Assert, that the peer's principal is of expected type.
+	 * 
+	 * @param expectedPrincipalType expected principal type
+	 * @since 3.0
+	 */
+	public void assertPrincipalType(final Class<?> expectedPrincipalType) {
+		// assert that peer identity is of given type
+		assertThat(principal.get(), instanceOf(expectedPrincipalType));
+	}
+
+	/**
+	 * Create payload.
+	 * 
+	 * @param size size of payload.
+	 * @return created payload.
+	 * @since 3.0
+	 */
+	public byte[] createPayload(int size) {
+		byte[] message = new byte[size];
+		Arrays.fill(message, (byte) '#');
+		for (int index = 0; index < message.length; ++index) {
+			int page = index / 64;
+			message[index] = (byte) Character.forDigit((page / 16) % 16, 16);
+			++index;
+			if (index < message.length) {
+				message[index] = (byte) Character.forDigit(page % 16, 16);
+				index += 62;
+				if (index < message.length) {
+					message[index] = (byte) '\n';
+				}
+			}
+		}
+		return message;
+	}
+
+	/**
+	 * Create text payload.
+	 * 
+	 * @param size size of text payload.
+	 * @return created text payload.
+	 * @since 3.0
+	 */
+	public String createTextPayload(int size) {
+		byte[] message = createPayload(size);
+		return new String(message, StandardCharsets.US_ASCII);
 	}
 }

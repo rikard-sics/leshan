@@ -19,11 +19,15 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 import java.util.List;
 
+import org.eclipse.californium.elements.PersistentConnector;
 import org.eclipse.californium.scandium.ConnectionListener;
 
 /**
@@ -31,7 +35,14 @@ import org.eclipse.californium.scandium.ConnectionListener;
  * 
  * @since 1.1
  */
-public interface ResumptionSupportingConnectionStore {
+@SuppressWarnings("deprecation")
+public interface ResumptionSupportingConnectionStore extends PersistentConnector {
+
+	/**
+	 * Set connection listener.
+	 * 
+	 * @param listener connection listener
+	 */
 	void setConnectionListener(ConnectionListener listener);
 
 	/**
@@ -45,6 +56,57 @@ public interface ResumptionSupportingConnectionStore {
 	 *             was already called before.
 	 */
 	void attach(ConnectionIdGenerator connectionIdGenerator);
+
+	/**
+	 * Save connections.
+	 * 
+	 * Connector must be stopped before saving connections. The connections are
+	 * removed after saving.
+	 * 
+	 * Note: the stream will contain not encrypted critical credentials. It is
+	 * required to protect this data before exporting it.
+	 * 
+	 * @param out output stream to save connections
+	 * @param maxQuietPeriodInSeconds maximum quiet period of the connections in
+	 *            seconds. Connections without traffic for that time are skipped
+	 *            during serialization.
+	 * @return number of save connections.
+	 * @throws IOException if an io-error occurred
+	 * @throws IllegalStateException if connector is running
+	 * @since 3.4 (overrides the deprecated interface method)
+	 */
+	int saveConnections(OutputStream out, long maxQuietPeriodInSeconds) throws IOException;
+
+	/**
+	 * Load connections.
+	 * 
+	 * Note: the stream contain not encrypted critical credentials. It is
+	 * required to protect this data.
+	 * 
+	 * @param in input stream to load connections
+	 * @param delta adjust-delta for nano-uptime. In nanoseconds. The stream
+	 *            contains timestamps based on nano-uptime. On loading, this
+	 *            requires to adjust these timestamps according the current nano
+	 *            uptime and the passed real time.
+	 * @return number of loaded connections.
+	 * @throws IOException if an io-error occurred. Indicates, that further
+	 *             loading should be aborted.
+	 * @throws IllegalArgumentException if an reading error occurred. Continue
+	 *             to load other connection-stores may work, that may be not
+	 *             affected by this error.
+	 * @since 3.4 (overrides the deprecated interface method)
+	 */
+	int loadConnections(InputStream in, long delta) throws IOException;
+
+
+	/**
+	 * Restore connection.
+	 * 
+	 * @param connection connection to restore.
+	 * @return {@code true}, on success, {@code false}, otherwise.
+	 * @since 3.0
+	 */
+	boolean restore(Connection connection);
 
 	/**
 	 * Puts a connection into the store.
@@ -89,20 +151,26 @@ public interface ResumptionSupportingConnectionStore {
 	/**
 	 * Associates the connection with the session id.
 	 * 
-	 * Removes previous associated connection from store.
+	 * Removes previous associated connection from store, if no second level
+	 * session store is used.
 	 * 
-	 * @param session established session.
 	 * @param connection connection of established session
+	 * @throws IllegalArgumentException if connection has no established session
+	 * @since 3.0 (the parameter session is removed)
 	 */
-	void putEstablishedSession(DTLSSession session, Connection connection);
+	void putEstablishedSession(Connection connection);
 
 	/**
 	 * Remove the association of the connection with the session id.
 	 * 
-	 * @param session established session.
+	 * Removes associated connection from store, if no second level session
+	 * store is used.
+	 * 
 	 * @param connection connection of established session
+	 * @throws IllegalArgumentException if connection has no established session
+	 * @since 3.0 (the parameter session is removed)
 	 */
-	void removeFromEstablishedSessions(DTLSSession session, Connection connection);
+	void removeFromEstablishedSessions(Connection connection);
 
 	/**
 	 * Gets the number of additional connection this store can manage.
@@ -115,7 +183,7 @@ public interface ResumptionSupportingConnectionStore {
 	 * Gets a connection by its peer address.
 	 * 
 	 * @param peerAddress the peer address
-	 * @return the matching connection or <code>null</code> if no connection
+	 * @return the matching connection or {@code null}, if no connection
 	 *         exists for the given address
 	 */
 	Connection get(InetSocketAddress peerAddress);
@@ -124,7 +192,7 @@ public interface ResumptionSupportingConnectionStore {
 	 * Gets a connection by its connection id.
 	 * 
 	 * @param cid connection id
-	 * @return the matching connection or <code>null</code> if no connection
+	 * @return the matching connection or {@code null}, if no connection
 	 *         exists for the given connection id
 	 */
 	Connection get(ConnectionId cid);
@@ -133,31 +201,22 @@ public interface ResumptionSupportingConnectionStore {
 	 * Finds a connection by its session ID.
 	 * 
 	 * @param id the session ID
-	 * @return the matching connection or <code>null</code> if no connection
+	 * @return the matching connection or {@code null}, if no connection
 	 *         with an established session with the given ID exists
 	 */
-	Connection find(SessionId id);
+	DTLSSession find(SessionId id);
 
 	/**
-	 * Removes a connection from the store and session cache.
+	 * Removes a connection from the store and optional from the session store.
 	 * 
 	 * @param connection the connection to remove
-	 * @return <code>true</code> if the connection was removed,
-	 *         <code>false</code>, otherwise
+	 * @param removeFromSessionStore {@code true} if the session of the
+	 *            connection should be removed from the session store,
+	 *           {@code false}, otherwise
+	 * @return {@code true}, if the connection was removed,
+	 *         {@code false}, otherwise
 	 */
-	boolean remove(Connection connection);
-
-	/**
-	 * Removes a connection from the store and optional from the session cache.
-	 * 
-	 * @param connection the connection to remove
-	 * @param removeFromSessionCache <code>true</code> if the session of the
-	 *            connection should be removed from the session cache,
-	 *            <code>false</code>, otherwise
-	 * @return <code>true</code> if the connection was removed,
-	 *         <code>false</code>, otherwise
-	 */
-	boolean remove(Connection connection, boolean removeFromSessionCache);
+	boolean remove(Connection connection, boolean removeFromSessionStore);
 
 	/**
 	 * Removes all connections from the store.

@@ -23,7 +23,6 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
-import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
 import java.security.PublicKey;
 import java.security.cert.CertPath;
@@ -33,13 +32,12 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import javax.security.auth.x500.X500Principal;
 
 import org.eclipse.californium.elements.util.Asn1DerDecoder;
-import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.CertPathUtil;
 import org.eclipse.californium.elements.util.DatagramReader;
 import org.eclipse.californium.elements.util.DatagramWriter;
@@ -54,42 +52,110 @@ import org.slf4j.LoggerFactory;
 /**
  * The server MUST send a Certificate message whenever the agreed-upon key
  * exchange method uses certificates for authentication. This message will
- * always immediately follow the {@link ServerHello} message. For details see <a
- * href="http://tools.ietf.org/html/rfc5246#section-7.4.2">RFC 5246</a>.
+ * always immediately follow the {@link ServerHello} message. For details see
+ * <a href="https://tools.ietf.org/html/rfc5246#section-7.4.2" target=
+ * "_blank">RFC 5246</a>.
  */
 public final class CertificateMessage extends HandshakeMessage {
-
-	// Logging ///////////////////////////////////////////////////////////
 
 	private static final String CERTIFICATE_TYPE_X509 = "X.509";
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(CertificateMessage.class);
 
-	// DTLS-specific constants ///////////////////////////////////////////
-
 	/**
-	 * <a href="http://tools.ietf.org/html/rfc5246#section-7.4.2">RFC 5246</a>:
-	 * <code>opaque ASN.1Cert<1..2^24-1>;</code>
+	 * <a href="https://tools.ietf.org/html/rfc5246#section-7.4.2" target=
+	 * "_blank">RFC 5246</a>: {@code opaque ASN.1Cert<1..2^24-1>;}
 	 */
 	private static final int CERTIFICATE_LENGTH_BITS = 24;
 
 	/**
-	 * <a href="http://tools.ietf.org/html/rfc5246#section-7.4.2">RFC 5246</a>:
-	 * <code>ASN.1Cert certificate_list<0..2^24-1>;</code>
+	 * <a href="https://tools.ietf.org/html/rfc5246#section-7.4.2" target=
+	 * "_blank">RFC 5246</a>: {@code ASN.1Cert certificate_list<0..2^24-1>;}
 	 */
 	private static final int CERTIFICATE_LIST_LENGTH_BITS = 24;
 
 	/**
+	 * X509 certificate factory.
+	 * 
 	 * @since 2.4
 	 */
 	private static final ThreadLocalCertificateFactory CERTIFICATE_FACTORY = new ThreadLocalCertificateFactory(
 			CERTIFICATE_TYPE_X509);
 
-	// Members ///////////////////////////////////////////////////////////
+	/**
+	 * Empty certificate chain.
+	 * 
+	 * Used for empty client certificate messages, if no matching certificate is
+	 * available.
+	 * 
+	 * Note: <a href="https://www.rfc-editor.org/rfc/rfc5246.html#section-7.4.6"
+	 * target="_blank">RFC 5246, 7.4.6 Client Certificate</a>
+	 * 
+	 * "If no suitable certificate is available, the client MUST send a
+	 * certificate message containing no certificates. That is, the
+	 * certificate_list structure has a length of zero."
+	 * 
+	 * That complies to the definition of:
+	 * <a href="https://www.rfc-editor.org/rfc/rfc5246.html#section-7.4.2"
+	 * target="_blank">RFC 5246, 7.4.2 Server Certificate</a>
+	 * 
+	 * <pre>
+	 * struct {
+	 *    ASN.1Cert certificate_list{@code <0..2^24-1>};
+	 * } Certificate;
+	 * </pre>
+	 * 
+	 * (0 as minimum value.)
+	 * 
+	 * <a href="https://www.rfc-editor.org/rfc/rfc7250#section-3" target=
+	 * "_blank">RFC 7250, 3 Structure of the Raw Public Key Extension</a>
+	 * 
+	 * extends that by
+	 * 
+	 * <pre>
+	 * struct {
+	 *    select(certificate_type){
+	 * 
+	 *       // certificate type defined in this document.
+	 *       case RawPublicKey:
+	 *          opaque ASN.1_subjectPublicKeyInfo{@code <1..2^24-1>};
+	 * 
+	 *       // X.509 certificate defined in RFC 5246
+	 *       case X.509:
+	 *          ASN.1Cert certificate_list{@code <0..2^24-1>};
+	 * 
+	 *       // Additional certificate type based on
+	 *       // "TLS Certificate Types" subregistry
+	 *    };
+	 * } Certificate;
+	 * </pre>
+	 * 
+	 * The culprit of this definition is, that the minimum length for a Raw
+	 * Public key certificate is 1. That creates a contradiction to the client
+	 * certificate definition in RFC 5246. Californium follows therefore RFC5246
+	 * and relaxes that 1 also to 0.
+	 * 
+	 * @since 3.6
+	 */
+	private static final CertPath EMPTY_CERT_PATH;
+
+	private static final List<byte[]> EMPTY_ENCODED_CHAIN;
+
+	static {
+		CertPath certPath = null;
+		try {
+			List<Certificate> certs = Collections.emptyList();
+			CertificateFactory factory = CERTIFICATE_FACTORY.currentWithCause();
+			certPath = factory.generateCertPath(certs);
+		} catch (GeneralSecurityException e) {
+		}
+		EMPTY_CERT_PATH = certPath;
+		EMPTY_ENCODED_CHAIN = Collections.emptyList();
+	}
 
 	/**
-	 * A chain of certificates asserting the sender's identity.
-	 * The sender's identity is reflected by the certificate at index 0.
+	 * A chain of certificates asserting the sender's identity. The sender's
+	 * identity is reflected by the certificate at index 0.
 	 */
 	private final CertPath certPath;
 
@@ -103,28 +169,35 @@ public final class CertificateMessage extends HandshakeMessage {
 	private final byte[] rawPublicKeyBytes;
 	private final PublicKey publicKey;
 
-	// length is at least 3 bytes containing the message's overall number of bytes
+	// length is at least 3 bytes containing the message's overall number of
+	// bytes
 	private final int length;
 
-	// Constructor ////////////////////////////////////////////////////
+	/**
+	 * Creates a empty <em>CERTIFICATE</em> message containing a empty
+	 * certificate chain.
+	 * 
+	 * @since 3.0
+	 */
+	public CertificateMessage() {
+		this(EMPTY_CERT_PATH);
+	}
 
 	/**
 	 * Creates a <em>CERTIFICATE</em> message containing a certificate chain.
 	 * 
-	 * @param certificateChain
-	 *            the certificate chain with the (first certificate must be the
-	 *            server's)
-	 * @param peerAddress the IP address and port of the peer this
-	 *            message has been received from or should be sent to
-	 * @throws NullPointerException if the certificate chain is <code>null</code>
-	 *            (use an array of length zero to create an <em>empty</em> message)
+	 * @param certificateChain the certificate chain with the (first certificate
+	 *            must be the server's)
+	 * @throws NullPointerException if the certificate chain is {@code null}
+	 *             (use an array of length zero to create an <em>empty</em>
+	 *             message)
 	 * @throws IllegalArgumentException if the certificate chain contains any
-	 *            non-X.509 certificates or does not form a valid chain of
-	 *            certification.
+	 *             non-X.509 certificates or does not form a valid chain of
+	 *             certification.
 	 * 
 	 */
-	public CertificateMessage(List<X509Certificate> certificateChain, InetSocketAddress peerAddress) {
-		this(certificateChain, null, peerAddress);
+	public CertificateMessage(List<X509Certificate> certificateChain) {
+		this(certificateChain, null);
 	}
 
 	/**
@@ -134,23 +207,21 @@ public final class CertificateMessage extends HandshakeMessage {
 	 *            must be the server's)
 	 * @param certificateAuthorities the certificate authorities to truncate
 	 *            chain. Maybe {@code null} or empty.
-	 * @param peerAddress the IP address and port of the peer this message has
-	 *            been received from or should be sent to
-	 * @throws NullPointerException if the certificate chain is
-	 *             <code>null</code> (use an array of length zero to create an
-	 *             <em>empty</em> message)
+	 * @throws NullPointerException if the certificate chain is {@code null}
+	 *             (use an array of length zero to create an <em>empty</em>
+	 *             message)
 	 * @throws IllegalArgumentException if the certificate chain contains any
 	 *             non-X.509 certificates or does not form a valid chain of
 	 *             certification.
 	 * @since 2.1
 	 */
-	public CertificateMessage(List<X509Certificate> certificateChain, List<X500Principal> certificateAuthorities,
-			InetSocketAddress peerAddress) {
-		this(CertPathUtil.generateValidatableCertPath(certificateChain, certificateAuthorities), peerAddress);
+	public CertificateMessage(List<X509Certificate> certificateChain, List<X500Principal> certificateAuthorities) {
+		this(CertPathUtil.generateValidatableCertPath(certificateChain, certificateAuthorities));
 		if (LOGGER.isDebugEnabled()) {
 			int size = certPath.getCertificates().size();
 			if (size < certificateChain.size()) {
-				LOGGER.debug("created CERTIFICATE message with truncated certificate chain [length: {}, full-length: {}]",
+				LOGGER.debug(
+						"created CERTIFICATE message with truncated certificate chain [length: {}, full-length: {}]",
 						size, certificateChain.size());
 			} else {
 				LOGGER.debug("created CERTIFICATE message with certificate chain [length: {}]", size);
@@ -158,19 +229,22 @@ public final class CertificateMessage extends HandshakeMessage {
 		}
 	}
 
-	private CertificateMessage(CertPath peerCertChain, InetSocketAddress peerAddress) {
-		super(peerAddress);
+	private CertificateMessage(CertPath peerCertChain) {
 		if (peerCertChain == null) {
-			throw new NullPointerException("Certificate chain must not be null");
+			throw new NullPointerException("Certificate chain must not be null!");
 		}
 		this.rawPublicKeyBytes = null;
 		this.certPath = peerCertChain;
 
 		List<? extends Certificate> certificates = peerCertChain.getCertificates();
 		int size = certificates.size();
-		List<byte[]> encodedChain = new ArrayList<byte[]>(size);
-		int length = 0;
-		if (size > 0) {
+		if (size == 0) {
+			this.publicKey = null;
+			this.encodedChain = EMPTY_ENCODED_CHAIN;
+			this.length = CERTIFICATE_LENGTH_BITS / Byte.SIZE;
+		} else {
+			List<byte[]> encodedChain = new ArrayList<byte[]>(size);
+			int length = 0;
 			try {
 				for (Certificate cert : certificates) {
 					byte[] encoded = cert.getEncoded();
@@ -181,79 +255,48 @@ public final class CertificateMessage extends HandshakeMessage {
 					length += (CERTIFICATE_LENGTH_BITS / Byte.SIZE) + encoded.length;
 				}
 			} catch (CertificateEncodingException e) {
-				encodedChain = null;
+				encodedChain = EMPTY_ENCODED_CHAIN;
 				length = 0;
 				LOGGER.warn("Could not encode certificate chain", e);
 			}
+			this.publicKey = encodedChain.isEmpty() ? null : certificates.get(0).getPublicKey();
+			this.encodedChain = encodedChain;
+			// the certificate chain length uses 3 bytes
+			this.length = length + CERTIFICATE_LENGTH_BITS / Byte.SIZE;
 		}
-		this.publicKey = encodedChain == null || size == 0 ? null : certificates.get(0).getPublicKey();
-		this.encodedChain = encodedChain;
-		// the certificate chain length uses 3 bytes
-		this.length = length + CERTIFICATE_LENGTH_BITS / Byte.SIZE;
 	}
 
 	/**
 	 * Creates a <em>CERTIFICATE</em> message containing a raw public key.
 	 * 
-	 * @param publicKey
-	 *           the public key
-	 * @param peerAddress the IP address and port of the peer this
-	 *           message has been received from or should be sent to
-	 * @since 2.4
+	 * @param publicKey the public key, {@code null} for an empty
+	 *            <em>CERTIFICATE</em> message
 	 */
-	public CertificateMessage(PublicKey publicKey, InetSocketAddress peerAddress) {
-		super(peerAddress);
-		this.certPath = null;
-		this.encodedChain = null;
-		this.rawPublicKeyBytes = publicKey == null ? Bytes.EMPTY : publicKey.getEncoded();
-		this.length = (CERTIFICATE_LENGTH_BITS / Byte.SIZE) + rawPublicKeyBytes.length;
+	public CertificateMessage(PublicKey publicKey) {
 		this.publicKey = publicKey;
-	}
-
-	/**
-	 * Creates a <em>CERTIFICATE</em> message containing a raw public key.
-	 * 
-	 * @param rawPublicKeyBytes
-	 *           the raw public key (SubjectPublicKeyInfo)
-	 * @param peerAddress the IP address and port of the peer this
-	 *           message has been received from or should be sent to
-	 * @throws NullPointerException if the raw public key byte array is <code>null</code>
-	 *           (use an array of length zero to create an <em>empty</em> message)
-	 */
-	public CertificateMessage(byte[] rawPublicKeyBytes, InetSocketAddress peerAddress) {
-		super(peerAddress);
-		if (rawPublicKeyBytes == null) {
-			throw new NullPointerException("Raw public key byte array must not be null");
+		if (publicKey == null) {
+			this.rawPublicKeyBytes = null;
+			this.certPath = EMPTY_CERT_PATH;
+			this.encodedChain = EMPTY_ENCODED_CHAIN;
+			this.length = CERTIFICATE_LENGTH_BITS / Byte.SIZE;
 		} else {
 			this.certPath = null;
 			this.encodedChain = null;
-			this.rawPublicKeyBytes = Arrays.copyOf(rawPublicKeyBytes, rawPublicKeyBytes.length);
+			this.rawPublicKeyBytes = publicKey.getEncoded();
 			this.length = (CERTIFICATE_LENGTH_BITS / Byte.SIZE) + rawPublicKeyBytes.length;
-			// get server's public key from Raw Public Key
-			PublicKey publicKey = null;
-			if (rawPublicKeyBytes.length > 0) {
-				try {
-					String keyAlgorithm = Asn1DerDecoder.readSubjectPublicKeyAlgorithm(rawPublicKeyBytes);
-					if (keyAlgorithm != null) {
-						ThreadLocalKeyFactory factory = ThreadLocalKeyFactory.KEY_FACTORIES.get(keyAlgorithm);
-						if (factory != null && factory.current() != null) {
-							publicKey = factory.current().generatePublic(new X509EncodedKeySpec(rawPublicKeyBytes));
-						}
-					} else {
-						LOGGER.info("Could not reconstruct the peer's public key [{}]",
-								StringUtil.byteArray2Hex(rawPublicKeyBytes));
-					}
-				} catch (GeneralSecurityException e) {
-					LOGGER.warn("Could not reconstruct the peer's public key", e);
-				} catch (IllegalArgumentException e) {
-					LOGGER.warn("Could not reconstruct the peer's public key", e);
-				}
-			}
-			this.publicKey = publicKey;
 		}
 	}
 
-	// Methods ////////////////////////////////////////////////////////
+	/**
+	 * Creates a <em>CERTIFICATE</em> message containing a raw public key.
+	 * 
+	 * @param rawPublicKeyBytes the raw public key (SubjectPublicKeyInfo).
+	 *            {@code null} or empty array for an empty <em>CERTIFICATE</em>
+	 *            message
+	 */
+	public CertificateMessage(byte[] rawPublicKeyBytes) {
+		this(generateRawPublicKey(rawPublicKeyBytes));
+	}
 
 	@Override
 	public HandshakeType getMessageType() {
@@ -266,20 +309,34 @@ public final class CertificateMessage extends HandshakeMessage {
 	}
 
 	@Override
-	public String toString() {
+	public String toString(int indent) {
 		StringBuilder sb = new StringBuilder();
-		sb.append(super.toString());
+		sb.append(super.toString(indent));
+		String indentation = StringUtil.indentation(indent + 1);
+		String indentation2 = StringUtil.indentation(indent + 2);
 		if (rawPublicKeyBytes == null && certPath != null) {
-			sb.append("\t\tCertificate chain length: ").append(getMessageLength() - 3).append(StringUtil.lineSeparator());
+			List<? extends Certificate> certificates = certPath.getCertificates();
+			sb.append(indentation).append("Certificate chain: ").append(certificates.size()).append(" certificates")
+					.append(StringUtil.lineSeparator());
 			int index = 0;
-			for (Certificate cert : certPath.getCertificates()) {
-				sb.append("\t\t\tCertificate Length: ").append(encodedChain.get(index).length).append(StringUtil.lineSeparator());
-				sb.append("\t\t\tCertificate: ").append(cert).append(StringUtil.lineSeparator());
+			for (Certificate cert : certificates) {
+				sb.append(indentation2).append("Certificate Length: ").append(encodedChain.get(index).length)
+						.append(" bytes").append(StringUtil.lineSeparator());
+				String text = StringUtil.toDisplayString(cert);
+				sb.append(indentation2).append("Certificate[").append(index).append(".]: ");
+				sb.append(text.replaceAll("\n", "\n" + indentation2)).append(StringUtil.lineSeparator());
 				index++;
 			}
 		} else if (rawPublicKeyBytes != null && certPath == null) {
-			sb.append("\t\tRaw Public Key: ");
-			sb.append(getPublicKey().toString());
+			sb.append(indentation).append("Raw Public Key: ");
+			String text;
+			if (publicKey != null) {
+				text = StringUtil.toDisplayString(publicKey);
+				text = text.replaceAll("\n", "\n" + indentation2);
+			} else {
+				text = "<empty>";
+			}
+			sb.append(text.replaceAll("\n", "\n" + indentation2));
 			sb.append(StringUtil.lineSeparator());
 		}
 
@@ -287,14 +344,32 @@ public final class CertificateMessage extends HandshakeMessage {
 	}
 
 	/**
+	 * Gets the public key contained in this message.
+	 * 
+	 * The key is either extracted from the certificate chain contained in the
+	 * message or is instantiated from the <em>RawPublicKey</em> bytes from the
+	 * message.
+	 * 
+	 * @return the peer's public key. {@code null}, for an empty
+	 *         <em>CERTIFICATE</em> message.
+	 */
+	public PublicKey getPublicKey() {
+		return publicKey;
+	}
+
+	/**
 	 * Gets the certificate chain provided by the peer.
 	 * 
-	 * This method only provides a result if the peer uses
-	 * <em>X.509</em> certificates. In that case the returned array
-	 * contains the peer's public key certificate at position 0.
+	 * This method only provides a result if the peer uses <em>X.509</em>
+	 * certificates. In that case the returned array contains the peer's public
+	 * key certificate at position 0.
 	 * 
-	 * @return the certificate chain or <code>null</code> if
-	 *        <em>RawPublicKey</em>s are used
+	 * Note: if <em>RawPublicKey</em> is used, and the client has no no suitable
+	 * public key, this is interpreted as empty list.
+	 * 
+	 * @return the certificate chain or {@code null}, if <em>RawPublicKey</em>s
+	 *         are used. May be an empty certificate path, if the client has no
+	 *         suitable certificate or public key.
 	 */
 	public CertPath getCertificateChain() {
 		return certPath;
@@ -311,27 +386,21 @@ public final class CertificateMessage extends HandshakeMessage {
 	 * @since 2.5
 	 */
 	public boolean isEmpty() {
-		return encodedChain != null && encodedChain.isEmpty();
+		return publicKey == null;
 	}
-
-	// Serialization //////////////////////////////////////////////////
 
 	@Override
 	public byte[] fragmentToByteArray() {
-		DatagramWriter writer = new DatagramWriter();
+		DatagramWriter writer = new DatagramWriter(getMessageLength());
 
 		if (rawPublicKeyBytes == null) {
 			writer.write(getMessageLength() - (CERTIFICATE_LENGTH_BITS / Byte.SIZE), CERTIFICATE_LIST_LENGTH_BITS);
 			// the size of the certificate chain
 			for (byte[] encoded : encodedChain) {
-				// the size of the current certificate
-				writer.write(encoded.length, CERTIFICATE_LENGTH_BITS);
-				// the encoded current certificate
-				writer.writeBytes(encoded);
+				writer.writeVarBytes(encoded, CERTIFICATE_LENGTH_BITS);
 			}
 		} else {
-			writer.write(rawPublicKeyBytes.length, CERTIFICATE_LENGTH_BITS);
-			writer.writeBytes(rawPublicKeyBytes);
+			writer.writeVarBytes(rawPublicKeyBytes, CERTIFICATE_LENGTH_BITS);
 		}
 
 		return writer.toByteArray();
@@ -341,63 +410,76 @@ public final class CertificateMessage extends HandshakeMessage {
 	 * Creates a certificate message from its binary encoding.
 	 * 
 	 * @param reader reader for the binary encoding of the message.
-	 * @param certificateType negotiated type of certificate the certificate message contains.
-	 * @param peerAddress The IP address and port of the peer that sent the message.
+	 * @param certificateType negotiated type of certificate the certificate
+	 *            message contains.
 	 * @return The certificate message.
 	 * @throws HandshakeException if the binary encoding could not be parsed.
-	 * @throws IllegalArgumentException if the certificate type is not supported.
+	 * @throws IllegalArgumentException if the certificate type is not
+	 *             supported.
 	 */
-	public static CertificateMessage fromReader(
-			DatagramReader reader,
-			CertificateType certificateType,
-			InetSocketAddress peerAddress) throws HandshakeException {
+	public static CertificateMessage fromReader(DatagramReader reader, CertificateType certificateType)
+			throws HandshakeException {
 
-		if (CertificateType.RAW_PUBLIC_KEY == certificateType) {
+		int certificatesLength = reader.read(CERTIFICATE_LIST_LENGTH_BITS);
+		if (certificatesLength == 0) {
+			// anonymous peer
+			return new CertificateMessage(EMPTY_CERT_PATH);
+		} else if (CertificateType.RAW_PUBLIC_KEY == certificateType) {
 			LOGGER.debug("Parsing RawPublicKey CERTIFICATE message");
-			int certificateLength = reader.read(CERTIFICATE_LENGTH_BITS);
-			byte[] rawPublicKey = reader.readBytes(certificateLength);
-			return new CertificateMessage(rawPublicKey, peerAddress);
+			byte[] rawPublicKey = reader.readBytes(certificatesLength);
+			return new CertificateMessage(rawPublicKey);
 		} else if (CertificateType.X_509 == certificateType) {
-			return readX509CertificateMessage(reader, peerAddress);
+			reader = reader.createRangeReader(certificatesLength);
+			LOGGER.debug("Parsing X.509 CERTIFICATE message");
+			try {
+				CertificateFactory factory = CERTIFICATE_FACTORY.currentWithCause();
+				List<Certificate> certs = new ArrayList<>();
+
+				while (reader.bytesAvailable()) {
+					int certificateLength = reader.read(CERTIFICATE_LENGTH_BITS);
+					certs.add(factory.generateCertificate(reader.createRangeInputStream(certificateLength)));
+				}
+
+				return new CertificateMessage(factory.generateCertPath(certs));
+
+			} catch (GeneralSecurityException e) {
+				throw new HandshakeException("Cannot parse X.509 certificate chain provided by peer",
+						new AlertMessage(AlertLevel.FATAL, AlertDescription.BAD_CERTIFICATE), e);
+			}
 		} else {
 			throw new IllegalArgumentException("Certificate type " + certificateType + " not supported!");
 		}
 	}
 
-	private static CertificateMessage readX509CertificateMessage(final DatagramReader reader, final InetSocketAddress peerAddress) throws HandshakeException {
-
-		LOGGER.debug("Parsing X.509 CERTIFICATE message");
-		int certificateChainLength = reader.read(CERTIFICATE_LIST_LENGTH_BITS);
-		DatagramReader rangeReader = reader.createRangeReader(certificateChainLength);
-		try {
-			CertificateFactory factory = CERTIFICATE_FACTORY.currentWithCause();
-			List<Certificate> certs = new ArrayList<>();
-
-			while (rangeReader.bytesAvailable()) {
-				int certificateLength = rangeReader.read(CERTIFICATE_LENGTH_BITS);
-				certs.add(factory.generateCertificate(rangeReader.createRangeInputStream(certificateLength)));
-			}
-
-			return new CertificateMessage(factory.generateCertPath(certs), peerAddress);
-
-		} catch (GeneralSecurityException e) {
-			throw new HandshakeException(
-					"Cannot parse X.509 certificate chain provided by peer",
-					new AlertMessage(AlertLevel.FATAL, AlertDescription.BAD_CERTIFICATE, peerAddress),
-					e);
-		}
-	}
-
 	/**
-	 * Gets the public key contained in this message.
+	 * Generate <em>RawPublicKey</em> from binary representation.
 	 * 
-	 * The key is either extracted from the certificate chain contained
-	 * in the message or is instantiated from the <em>RawPublicKey</em>
-	 * bytes from the message.
-	 * 
-	 * @return the peer's public key
+	 * @param rawPublicKeyBytes byte array with binary representation. May be
+	 *            {@code null} or empyt.
+	 * @return generated public key, or {@code null}, if the byte array doesn't
+	 *         contain a public key.
+	 * @since 3.6
 	 */
-	public PublicKey getPublicKey() {
-		return publicKey;
+	private static PublicKey generateRawPublicKey(byte[] rawPublicKeyBytes) {
+		if (rawPublicKeyBytes != null && rawPublicKeyBytes.length > 0) {
+			try {
+				String keyAlgorithm = Asn1DerDecoder.readSubjectPublicKeyAlgorithm(rawPublicKeyBytes);
+				if (keyAlgorithm != null) {
+					ThreadLocalKeyFactory factory = ThreadLocalKeyFactory.KEY_FACTORIES.get(keyAlgorithm);
+					if (factory != null && factory.current() != null) {
+						return factory.current().generatePublic(new X509EncodedKeySpec(rawPublicKeyBytes));
+					}
+				} else {
+					LOGGER.info("Could not reconstruct the peer's public key [{}]",
+							StringUtil.byteArray2Hex(rawPublicKeyBytes));
+				}
+			} catch (GeneralSecurityException e) {
+				LOGGER.warn("Could not reconstruct the peer's public key", e);
+			} catch (IllegalArgumentException e) {
+				LOGGER.warn("Could not reconstruct the peer's public key", e);
+			}
+		}
+		return null;
 	}
+
 }

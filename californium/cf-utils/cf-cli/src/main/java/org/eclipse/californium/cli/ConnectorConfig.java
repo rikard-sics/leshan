@@ -26,13 +26,21 @@ import java.util.List;
 
 import javax.crypto.SecretKey;
 
-import org.eclipse.californium.core.network.config.NetworkConfig;
-import org.eclipse.californium.core.network.config.NetworkConfigDefaultHandler;
+import org.eclipse.californium.core.config.CoapConfig;
+import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.config.Configuration.DefinitionsProvider;
+import org.eclipse.californium.elements.config.UdpConfig;
 import org.eclipse.californium.elements.util.SslContextUtil;
+import org.eclipse.californium.elements.util.SslContextUtil.Credentials;
+import org.eclipse.californium.elements.util.SslContextUtil.IncompleteCredentialsException;
 import org.eclipse.californium.elements.util.StringUtil;
-import org.eclipse.californium.scandium.dtls.DTLSSession;
-import org.eclipse.californium.scandium.dtls.RecordLayer;
+import org.eclipse.californium.scandium.config.DtlsConfig;
+import org.eclipse.californium.scandium.config.DtlsConfig.DtlsRole;
+import org.eclipse.californium.scandium.dtls.CertificateType;
+import org.eclipse.californium.scandium.dtls.ExtendedMasterSecretMode;
+import org.eclipse.californium.scandium.dtls.PskSecretResult;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
+import org.eclipse.californium.scandium.dtls.pskstore.MultiPskFileStore;
 import org.eclipse.californium.scandium.util.SecretUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,8 +67,9 @@ public class ConnectorConfig implements Cloneable {
 	 */
 	public static final int MAX_WIDTH = 60;
 	/**
-	 * Dummy PSK identity for sandbox "californium.eclipseprojects.io". All identities,
-	 * starting with this prefix, share the "not" secret {@link #PSK_SECRET}.
+	 * Dummy PSK identity for sandbox "californium.eclipseprojects.io". All
+	 * identities, starting with this prefix, share the "not" secret
+	 * {@link #PSK_SECRET}.
 	 */
 	public static final String PSK_IDENTITY_PREFIX = "cali.";
 	/**
@@ -73,6 +82,23 @@ public class ConnectorConfig implements Cloneable {
 	 */
 	public static enum AuthenticationMode {
 		NONE, PSK, RPK, X509, ECDHE_PSK
+	}
+
+	/**
+	 * Helper class for {@link ITypeConverter}, wrapper around
+	 * {@link Certificate} array.
+	 * 
+	 * Arrays as destination type are interpreted as multiple options.
+	 * 
+	 * @since 3.3
+	 */
+	private static class TrustedCertificates {
+
+		private final Certificate[] trusts;
+
+		private TrustedCertificates(Certificate[] trusts) {
+			this.trusts = trusts;
+		}
 	}
 
 	/**
@@ -92,24 +118,27 @@ public class ConnectorConfig implements Cloneable {
 	public String defaultEcTrusts = createDescriptor("certs/trustStore.jks", "rootPass".toCharArray(), null, null);
 
 	/**
-	 * Header for new network configuration files.
+	 * Header for new configuration files.
 	 */
-	public String networkConfigHeader = NetworkConfig.DEFAULT_HEADER;
+	public String configurationHeader = Configuration.DEFAULT_HEADER;
 	/**
-	 * Default values handler for for new network configuration files.
+	 * Default values provider for new configuration files.
 	 */
-	public NetworkConfigDefaultHandler networkConfigDefaultHandler;
+	public DefinitionsProvider customConfigurationDefaultsProvider;
 	/**
-	 * Network Configuration.
+	 * Configuration.
 	 */
-	public NetworkConfig networkConfig;
+	public Configuration configuration;
 
 	/**
-	 * Filename for network configuration.
+	 * Filename for configuration.
 	 */
-	@Option(names = { "-N",
-			"--netconfig" }, paramLabel = "FILE", description = "network config file. Default ${DEFAULT-VALUE}.")
-	public File networkConfigFile;
+	@Option(names = { "-C",
+			"--config" }, paramLabel = "FILE", description = "configuration file. Default ${DEFAULT-VALUE}.")
+	public File configurationFile;
+
+	@Option(names = "--tag", description = "use logging tag.")
+	public String tag;
 
 	/**
 	 * Use record-size-limit for DTLS handshake.
@@ -122,6 +151,14 @@ public class ConnectorConfig implements Cloneable {
 	 */
 	@Option(names = "--mtu", description = "MTU.")
 	public Integer mtu;
+
+	/**
+	 * Specify extended master secret mode.
+	 * 
+	 * @since 3.5
+	 */
+	@Option(names = "--extended-master-secret", description = "Specify usage of extended master secret.")
+	public ExtendedMasterSecretMode extendedMasterSecretMode;
 
 	/**
 	 * Use CID .
@@ -138,17 +175,92 @@ public class ConnectorConfig implements Cloneable {
 	public static class Authentication {
 
 		/**
-		 * X509 credentials loaded from store.
+		 * X509/RPK credentials loaded from store.
+		 * 
+		 * @see #defaults()
 		 */
-		@Option(names = { "-c",
-				"--cert" }, description = "certificate store. Format keystore#hexstorepwd#hexkeypwd#alias or keystore.pem")
-		public SslContextUtil.Credentials credentials;
+		public Credentials credentials;
+
+		/**
+		 * X509/RPK Identity loaded from store.
+		 */
+		@ArgGroup(exclusive = false)
+		public Identity identity;
 
 		/**
 		 * X509 trusts all.
 		 */
 		@Option(names = "--anonymous", description = "anonymous, no certificate.")
 		public boolean anonymous;
+
+		public void defaults() {
+			if (!anonymous) {
+				if (identity.certificate == null) {
+					LOGGER.info("x509 identity from private key.");
+					credentials = identity.privateKey;
+				} else if (identity.certificate.getPrivateKey() == null) {
+					LOGGER.info("x509 identity from certificate and private key.");
+					credentials = new Credentials(identity.privateKey.getPrivateKey(),
+							identity.certificate.getPublicKey(), identity.certificate.getCertificateChain());
+				} else {
+					LOGGER.info("x509 identity from certificate.");
+					credentials = identity.certificate;
+				}
+				if (credentials.getPrivateKey() == null) {
+					throw new IllegalArgumentException("Missing private key!");
+				}
+				if (credentials.getPublicKey() == null) {
+					throw new IllegalArgumentException("Missing public key or certificate!");
+				}
+			}
+		}
+
+		public void defaults(String defaultEcCredentials) {
+			if (!anonymous && identity == null) {
+				try {
+					identity = new Identity();
+					identity.certificate = SslContextUtil.loadCredentials(defaultEcCredentials);
+					LOGGER.info("x509 default identity.");
+				} catch (GeneralSecurityException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+			defaults();
+		}
+	}
+
+	/**
+	 * X509 identity.
+	 *
+	 * If the private key is stored separately, it's loaded by different option
+	 * {@link Identity#privateKey} and included in the
+	 * {@link Authentication#credentials} calling {@link #defaults()}.
+	 * 
+	 * @since 3.0
+	 */
+	public static class Identity {
+
+		/**
+		 * X509 credentials loaded from store and/or the {@link #privateKey}
+		 * option.
+		 * 
+		 * If provided, {@link ConnectorConfig#defaults()} prepares
+		 * {@link Authentication#credentials} with the data from this.
+		 */
+		@Option(names = { "-c",
+				"--cert" }, description = "certificate store. Format keystore#hexstorepwd#hexkeypwd#alias or keystore.pem. If the private key is not contained, use '--private-key' to add it from a separate file.")
+		public Credentials certificate;
+
+		/**
+		 * X509 private key loaded from store.
+		 * 
+		 * If provided, {@link ConnectorConfig#defaults()} prepares
+		 * {@link Authentication#credentials} with the keys from this.
+		 */
+		@Option(names = "--private-key", description = "private key store. Format keystore#hexstorepwd#hexkeypwd#alias or keystore.pem")
+		public Credentials privateKey;
 
 	}
 
@@ -163,15 +275,52 @@ public class ConnectorConfig implements Cloneable {
 		/**
 		 * X509 trusts loaded from store.
 		 */
+		public Certificate[] trusts;
+
+		/**
+		 * Helper class for trusted {@link Certificate} array.
+		 * 
+		 * @since 3.3
+		 */
 		@Option(names = { "-t",
 				"--trusts" }, description = "trusted certificates. Format keystore#hexstorepwd#alias or truststore.pem")
-		public Certificate[] trusts;
+		public TrustedCertificates trusted;
 
 		/**
 		 * X509 trusts all.
 		 */
 		@Option(names = "--trust-all", description = "trust all valid certificates.")
 		public boolean trustall;
+
+		/**
+		 * Setup default trusts.
+		 * 
+		 * If {@link #trusts} is not initialized, use {@link #trusted},
+		 * {@link #trustall}, or the provided parameter defaultEcTrusts in that
+		 * order to initialize it
+		 * 
+		 * @param defaultEcTrusts default ec trusts.
+		 * @see ConnectorConfig#defaultEcTrusts
+		 * @since 3.3
+		 */
+		public void defaults(String defaultEcTrusts) {
+			if (trusted != null && trusts == null) {
+				trusts = trusted.trusts;
+			}
+			if (trusts == null) {
+				if (trustall) {
+					trusts = new Certificate[0];
+				} else {
+					try {
+						trusts = SslContextUtil.loadTrustedCertificates(defaultEcTrusts);
+					} catch (GeneralSecurityException e) {
+						e.printStackTrace();
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				}
+			}
+		}
 	}
 
 	/**
@@ -202,7 +351,7 @@ public class ConnectorConfig implements Cloneable {
 	 * List of authentication modes (ordered by preference).
 	 */
 	@Option(names = { "-a",
-			"--auth" }, split = ":", description = "use authentikation modes. '--help-auth' to list available authentication modes.")
+			"--auth" }, split = ":", description = "use authentication modes. '--help-auth' to list available authentication modes.")
 	public List<AuthenticationMode> authenticationModes;
 
 	/**
@@ -220,9 +369,9 @@ public class ConnectorConfig implements Cloneable {
 	public static class Secret {
 
 		/**
-		 * Secret key in utf-8.
+		 * Secret key in UTF-8.
 		 */
-		@Option(names = { "-s", "--secret" }, description = "PSK secret, utf8")
+		@Option(names = { "-s", "--secret" }, description = "PSK secret, UTF-8")
 		public String text;
 
 		/**
@@ -237,6 +386,39 @@ public class ConnectorConfig implements Cloneable {
 		@Option(names = "--secret64", description = "PSK secret, base64")
 		public String base64;
 
+		/**
+		 * PSK secret key in bytes.
+		 * 
+		 * @see #toKey()
+		 * @since 3.7
+		 */
+		public SecretKey key;
+
+		/**
+		 * Get the secret key.
+		 * 
+		 * Initialize {@link #key} from other fields, if {@link #key} is
+		 * {@code null}.
+		 * 
+		 * @return secret key
+		 * @since 3.0
+		 */
+		public SecretKey toKey() {
+			if (key == null) {
+				byte[] encoded = null;
+				if (text != null && text.length() > 0) {
+					encoded = text.getBytes();
+				} else if (hex != null && hex.length() > 0) {
+					encoded = StringUtil.hex2ByteArray(hex);
+				} else if (base64 != null && base64.length() > 0) {
+					encoded = StringUtil.base64ToByteArray(base64);
+				}
+				if (encoded != null) {
+					key = SecretUtil.create(encoded, PskSecretResult.ALGORITHM_PSK);
+				}
+			}
+			return key;
+		}
 	}
 
 	@Option(names = { "-v", "--verbose" }, negatable = true, description = "verbose")
@@ -255,9 +437,18 @@ public class ConnectorConfig implements Cloneable {
 	boolean versionInfoRequested;
 
 	/**
-	 * PSK secret key in bytes.
+	 * Get PSK secret key.
+	 * 
+	 * @return secret key. Provided by CLI or {@link #PSK_SECRET}
+	 * @since 3.7
 	 */
-	public byte[] secretKey;
+	public SecretKey getPskSecretKey() {
+		if (secret != null) {
+			return secret.toKey();
+		} else {
+			return PSK_SECRET;
+		}
+	}
 
 	/**
 	 * Register converter and providers.
@@ -266,7 +457,7 @@ public class ConnectorConfig implements Cloneable {
 	 */
 	public void register(CommandLine cmd) {
 		cmd.registerConverter(SslContextUtil.Credentials.class, credentialsReader);
-		cmd.registerConverter(Certificate[].class, trustsReader);
+		cmd.registerConverter(TrustedCertificates.class, trustsReader);
 		cmd.registerConverter(PskCredentialStore.class, pskCredentialsStoreReader);
 		cmd.setDefaultValueProvider(defaultValueProvider);
 	}
@@ -275,81 +466,72 @@ public class ConnectorConfig implements Cloneable {
 	 * Setup dependent defaults.
 	 */
 	public void defaults() {
+		CoapConfig.register();
+		UdpConfig.register();
+		DtlsConfig.register();
+		DefinitionsProvider provider = new DefinitionsProvider() {
+
+			@Override
+			public void applyDefinitions(Configuration config) {
+				config.set(DtlsConfig.DTLS_ROLE, DtlsRole.CLIENT_ONLY);
+				config.set(DtlsConfig.DTLS_RECOMMENDED_CIPHER_SUITES_ONLY, false);
+				if (customConfigurationDefaultsProvider != null) {
+					customConfigurationDefaultsProvider.applyDefinitions(config);
+				}
+			}
+		};
+		configuration = Configuration.createWithFile(configurationFile, configurationHeader, provider);
 		if (pskStore != null) {
 			if (identity != null || secret != null) {
 				System.err.println("Use either '--psk-store' or single psk credentials!");
 				helpRequested = true;
 			}
 			if (pskIndex != null) {
-				secret = new ConnectorConfig.Secret();
-				secret.hex = StringUtil.byteArray2Hex(pskStore.getSecrets(pskIndex));
 				identity = pskStore.getIdentity(pskIndex);
-			}
-		}
-		if (secret != null && secretKey == null) {
-			if (secret.text != null) {
-				secretKey = secret.text.getBytes();
-			} else if (secret.hex != null) {
-				secretKey = StringUtil.hex2ByteArray(secret.hex);
-			} else if (secret.base64 != null) {
-				secretKey = StringUtil.base64ToByteArray(secret.base64);
+				secret = new Secret();
+				secret.key = pskStore.getSecret(pskIndex);
 			}
 		}
 		if (authenticationModes == null) {
 			authenticationModes = new ArrayList<ConnectorConfig.AuthenticationMode>();
 		}
 		if (authenticationModes.isEmpty()) {
-			if (identity != null || secretKey != null || pskStore != null) {
-				authenticationModes.add(AuthenticationMode.PSK);
+			defaultAuthenticationModes();
+		}
+		if (authenticationModes.contains(AuthenticationMode.X509)
+				|| authenticationModes.contains(AuthenticationMode.RPK)) {
+			if (trust == null) {
+				trust = new Trust();
 			}
-			if (authentication != null) {
-				authenticationModes.add(AuthenticationMode.X509);
+			trust.defaults(defaultEcTrusts);
+			if (authentication == null) {
+				authentication = new Authentication();
 			}
-		} else {
-			if (authenticationModes.contains(AuthenticationMode.X509)
-					|| authenticationModes.contains(AuthenticationMode.RPK)) {
-				if (trust == null) {
-					trust = new Trust();
-				}
-				if (trust.trusts == null) {
-					if (trust.trustall) {
-						trust.trusts = new Certificate[0];
-					} else {
-						try {
-							trust.trusts = SslContextUtil.loadTrustedCertificates(defaultEcTrusts);
-						} catch (GeneralSecurityException e) {
-							e.printStackTrace();
-						} catch (IOException e) {
-							e.printStackTrace();
-						}
-					}
-				}
-				if (authentication == null) {
-					authentication = new Authentication();
-				}
-				if (!authentication.anonymous && authentication.credentials == null) {
-					try {
-						authentication.credentials = SslContextUtil.loadCredentials(defaultEcCredentials);
-					} catch (GeneralSecurityException e) {
-						e.printStackTrace();
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-				}
-			}
+			authentication.defaults(defaultEcCredentials);
 		}
 		if (cipherHelpRequested || authHelpRequested) {
 			helpRequested = true;
 		}
-		networkConfig = NetworkConfig.createWithFile(networkConfigFile, networkConfigHeader,
-				networkConfigDefaultHandler);
+	}
 
-		int extra = RecordLayer.IPV4_HEADER_LENGTH + 20 - DTLSSession.DTLS_HEADER_LENGTH
-				- CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8.getMaxCiphertextExpansion();
-		if (mtu != null && recordSizeLimit == null) {
-			recordSizeLimit = mtu - extra;
-		} else if (mtu == null && recordSizeLimit != null) {
-			mtu = recordSizeLimit + extra;
+	protected void defaultAuthenticationModes() {
+		if (identity != null || pskStore != null) {
+			authenticationModes.add(AuthenticationMode.PSK);
+		}
+		if (authentication != null) {
+			List<CertificateType> list = configuration.get(DtlsConfig.DTLS_CERTIFICATE_TYPES);
+			if (list.isEmpty()) {
+				authenticationModes.add(AuthenticationMode.X509);
+				authenticationModes.add(AuthenticationMode.RPK);
+			} else {
+				for (CertificateType type : list) {
+					if (CertificateType.RAW_PUBLIC_KEY == type) {
+						authenticationModes.add(AuthenticationMode.RPK);
+					} else if (CertificateType.X_509 == type) {
+						authenticationModes.add(AuthenticationMode.X509);
+					}
+				}
+			}
 		}
 	}
 
@@ -377,11 +559,11 @@ public class ConnectorConfig implements Cloneable {
 		public String defaultValue(ArgSpec argSpec) throws Exception {
 			if (argSpec instanceof OptionSpec) {
 				OptionSpec optionSpec = (OptionSpec) argSpec;
-				if ("--netconfig".equals(optionSpec.longestName())) {
-					if (networkConfigFile != null) {
-						return networkConfigFile.getPath();
+				if ("--config".equals(optionSpec.longestName())) {
+					if (configurationFile != null) {
+						return configurationFile.getPath();
 					} else {
-						return NetworkConfig.DEFAULT_FILE_NAME;
+						return Configuration.DEFAULT_FILE_NAME;
 					}
 				}
 			}
@@ -392,14 +574,15 @@ public class ConnectorConfig implements Cloneable {
 
 	/**
 	 * Truststore reader.
+	 * 
+	 * @since 3.3 (changed type from Certificate[] to TrustedCertificates)
 	 */
-	private static ITypeConverter<Certificate[]> trustsReader = new ITypeConverter<Certificate[]>() {
+	private static ITypeConverter<TrustedCertificates> trustsReader = new ITypeConverter<TrustedCertificates>() {
 
 		@Override
-		public Certificate[] convert(String value) throws Exception {
-			return SslContextUtil.loadTrustedCertificates(value);
+		public TrustedCertificates convert(String value) throws Exception {
+			return new TrustedCertificates(SslContextUtil.loadTrustedCertificates(value));
 		}
-
 	};
 
 	/**
@@ -409,7 +592,11 @@ public class ConnectorConfig implements Cloneable {
 
 		@Override
 		public SslContextUtil.Credentials convert(String value) throws Exception {
-			return SslContextUtil.loadCredentials(value);
+			try {
+				return SslContextUtil.loadCredentials(value);
+			} catch (IncompleteCredentialsException ex) {
+				return ex.getIncompleteCredentials();
+			}
 		}
 
 	};
@@ -443,27 +630,11 @@ public class ConnectorConfig implements Cloneable {
 	 * @return psk credentials store
 	 */
 	public static PskCredentialStore loadPskCredentials(String file) {
-		boolean error = false;
 		BufferedReader lineReader = null;
 		try (FileReader reader = new FileReader(file)) {
 			PskCredentialStore pskCredentials = new PskCredentialStore();
-			int lineNumber = 0;
-			String line;
-			lineReader = new BufferedReader(reader);
-			while ((line = lineReader.readLine()) != null) {
-				++lineNumber;
-				String[] entry = line.split("=", 2);
-				if (entry.length == 2) {
-					byte[] secretBytes = StringUtil.base64ToByteArray(entry[1]);
-					pskCredentials.add(entry[0], secretBytes);
-				} else {
-					error = true;
-					LOGGER.error("{}: '{}' invalid psk-line!", lineNumber, line);
-				}
-			}
-			if (!error) {
-				return pskCredentials;
-			}
+			pskCredentials.loadPskCredentials(reader);
+			return pskCredentials;
 		} catch (IOException e) {
 		} finally {
 			if (lineReader != null) {
@@ -479,55 +650,7 @@ public class ConnectorConfig implements Cloneable {
 	/**
 	 * PSK credentials store.
 	 */
-	public static class PskCredentialStore {
+	public static class PskCredentialStore extends MultiPskFileStore {
 
-		/**
-		 * Identities.
-		 */
-		private List<String> identities = new ArrayList<String>();
-		/**
-		 * secret keys.
-		 */
-		private List<byte[]> secrets = new ArrayList<byte[]>();
-
-		/**
-		 * Add entry.
-		 * 
-		 * @param identity identity
-		 * @param secret secret key
-		 */
-		private void add(String identity, byte[] secret) {
-			identities.add(identity);
-			secrets.add(secret);
-		}
-
-		/**
-		 * Get identity.
-		 * 
-		 * @param index index of identity.
-		 * @return identity at provided index
-		 */
-		public String getIdentity(int index) {
-			return identities.get(index);
-		}
-
-		/**
-		 * Get secret key.
-		 * 
-		 * @param index index of key
-		 * @return secret key at provided index
-		 */
-		public byte[] getSecrets(int index) {
-			return secrets.get(index);
-		}
-
-		/**
-		 * Size.
-		 * 
-		 * @return number of identity and key pairs.
-		 */
-		public int size() {
-			return secrets.size();
-		}
 	}
 }

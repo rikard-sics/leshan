@@ -30,8 +30,6 @@ package org.eclipse.californium.core.network.stack;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.eclipse.californium.core.coap.BlockOption;
 import org.eclipse.californium.core.coap.EmptyMessage;
 import org.eclipse.californium.core.coap.Request;
@@ -42,12 +40,14 @@ import org.eclipse.californium.core.network.Outbox;
 import org.eclipse.californium.core.network.stack.Layer.TopDownBuilder;
 import org.eclipse.californium.core.observe.ObservationStoreException;
 import org.eclipse.californium.core.server.MessageDeliverer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The BaseCoapStack passes the messages through the layers configured in the
  * stacks implementations.
  */
-public abstract class BaseCoapStack implements CoapStack {
+public abstract class BaseCoapStack implements CoapStack, ExtendedCoapStack {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(BaseCoapStack.class);
 
@@ -97,25 +97,14 @@ public abstract class BaseCoapStack implements CoapStack {
 	@Override
 	public void sendResponse(final Exchange exchange, final Response response) {
 		// delegate to top
-		boolean retransmit = exchange.getRequest().getOptions().hasObserve();
 		try {
-			if (retransmit) {
-				// observe- or cancel-observe-requests may have
-				// multiple responses.
-				// when observes are finished, the last response has
-				// no longer an observe option. Therefore check the
-				// request for it.
-				exchange.retransmitResponse();
-			}
 			top.sendResponse(exchange, response);
 		} catch (ExchangeCompleteException ex) {
 			LOGGER.warn("error send response {}", response, ex);
 			response.setSendError(ex);
 		} catch (RuntimeException ex) {
 			LOGGER.warn("error send response {}", response, ex);
-			if (!retransmit) {
-				exchange.sendReject();
-			}
+			exchange.sendReject();
 			response.setSendError(ex);
 		}
 	}
@@ -164,6 +153,17 @@ public abstract class BaseCoapStack implements CoapStack {
 	@Override
 	public final boolean hasDeliverer() {
 		return deliverer != null;
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public <T extends Layer> T getLayer(Class<T> type) {
+		for (Layer layer : layers) {
+			if (type.isInstance(layer)) {
+				return (T) layer;
+			}
+		}
+		return null;
 	}
 
 	@Override
@@ -238,7 +238,7 @@ public abstract class BaseCoapStack implements CoapStack {
 			if (block2 == null || !block2.isM()) {
 				// for blockwise, the original response shares
 				// the MessageObserver with the block response
-				response.onComplete();
+				response.onTransferComplete();
 			}
 		}
 

@@ -17,9 +17,6 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
-import java.net.InetSocketAddress;
-import java.util.Arrays;
-
 import org.eclipse.californium.elements.util.DatagramReader;
 import org.eclipse.californium.elements.util.DatagramWriter;
 import org.eclipse.californium.elements.util.StringUtil;
@@ -28,13 +25,29 @@ import org.eclipse.californium.elements.util.StringUtil;
  * The server send this request after receiving a {@link ClientHello} message to
  * prevent Denial-of-Service Attacks.
  * <p>
- * See <a href="https://tools.ietf.org/html/rfc6347#section-4.2.1">RFC 6347</a>
- * for the definition.
+ * See <a href="https://tools.ietf.org/html/rfc6347#section-4.2.1" target=
+ * "_blank">RFC 6347</a> for the definition.
  * </p>
+ * 
+ * <pre>
+ *   Client                                   Server
+ *   ------                                   ------
+ *   ClientHello           -----&gt;
+ * 
+ *                         &lt;----- HelloVerifyRequest
+ *                                 (contains cookie)
+ * 
+ *   ClientHello           -----&gt;
+ *   (with cookie)
+ * 
+ *   [Rest of handshake] *
+ * </pre>
+ * 
  * <p>
  * It seems, that this definition is ambiguous about the server version to be
  * used.
  * </p>
+ * 
  * <pre>
  * The server_version field ...
  * DTLS 1.2 server implementations SHOULD use DTLS version 1.0 regardless
@@ -46,15 +59,19 @@ import org.eclipse.californium.elements.util.StringUtil;
  * A DTLS 1.2 server can either (SHOULD) send a version 1.0, or (MUST use same
  * version) 1.2. This question is pending in the IETF TLS mailing list, see
  * <a href=
- * "https://mailarchive.ietf.org/arch/msg/tls/rQ3El3ROKTN0rpzhRpJCaKOrUyU/">RFC
- * 6347 - Section 4.2.1 - used version in a HelloVerifyReques</a>.
+ * "https://mailarchive.ietf.org/arch/msg/tls/rQ3El3ROKTN0rpzhRpJCaKOrUyU/"
+ * target="_blank">RFC 6347 - Section 4.2.1 - used version in a
+ * HelloVerifyReques</a>.
  * </p>
  * <p>
- * There may be many assumptions about the intended behavior. One is to postpone
- * the version negotiation according
- * <a href= "https://tools.ietf.org/html/rfc5246#appendix-E.1">RFC 5246 - E.1 -
- * Compatibility with TLS 1.0/1.1 and SSL 3.0</a> until the endpoint ownership is
- * verified. That prevents sending protocol-version alerts to wrong clients.
+ * There may be many assumptions about the intended behavior. The one
+ * implemented is to postpone the version negotiation according
+ * <a href="https://tools.ietf.org/html/rfc5246#appendix-E.1" target=
+ * "_blank">RFC 5246 - E.1 - Compatibility with TLS 1.0/1.1 and SSL 3.0</a>
+ * until the endpoint ownership is verified. That prevents sending
+ * protocol-version alerts to wrong clients. Therefore the server tries to use
+ * the client version in the HELLO_VERIFY_REQUEST, and once a CLIENT_HELLO with
+ * the proper cookie is received, a protocol-version alert is sent back.
  * </p>
  * 
  * Behavior of other DTLS 1.2 implementations:
@@ -88,13 +105,9 @@ import org.eclipse.californium.elements.util.StringUtil;
  */
 public final class HelloVerifyRequest extends HandshakeMessage {
 
-	// DTLS-specific constants ///////////////////////////////////////////
-
 	private static final int VERSION_BITS = 8; // for major and minor each
 
 	private static final int COOKIE_LENGTH_BITS = 8;
-
-	// Members ///////////////////////////////////////////////////////////
 
 	/**
 	 * This field will contain the lower of that suggested by the client in the
@@ -105,42 +118,33 @@ public final class HelloVerifyRequest extends HandshakeMessage {
 	/** The cookie which needs to be replayed by the client. */
 	private final byte[] cookie;
 
-	// Constructor ////////////////////////////////////////////////////
-
-	public HelloVerifyRequest(ProtocolVersion version, byte[] cookie, InetSocketAddress peerAddress) {
-		super(peerAddress);
+	public HelloVerifyRequest(ProtocolVersion version, byte[] cookie) {
 		this.serverVersion = version;
-		this.cookie = Arrays.copyOf(cookie, cookie.length);
+		this.cookie = cookie;
 	}
-
-	// Serialization //////////////////////////////////////////////////
 
 	@Override
 	public byte[] fragmentToByteArray() {
-		DatagramWriter writer = new DatagramWriter();
+		DatagramWriter writer = new DatagramWriter(cookie.length + 3);
 
 		writer.write(serverVersion.getMajor(), VERSION_BITS);
 		writer.write(serverVersion.getMinor(), VERSION_BITS);
 
-		writer.write(cookie.length, COOKIE_LENGTH_BITS);
-		writer.writeBytes(cookie);
+		writer.writeVarBytes(cookie, COOKIE_LENGTH_BITS);
 
 		return writer.toByteArray();
 	}
 
-	public static HandshakeMessage fromReader(DatagramReader reader, InetSocketAddress peerAddress) {
+	public static HandshakeMessage fromReader(DatagramReader reader) {
 
 		int major = reader.read(VERSION_BITS);
 		int minor = reader.read(VERSION_BITS);
 		ProtocolVersion version = ProtocolVersion.valueOf(major, minor);
 
-		int cookieLength = reader.read(COOKIE_LENGTH_BITS);
-		byte[] cookie = reader.readBytes(cookieLength);
+		byte[] cookie = reader.readVarBytes(COOKIE_LENGTH_BITS);
 
-		return new HelloVerifyRequest(version, cookie, peerAddress);
+		return new HelloVerifyRequest(version, cookie);
 	}
-
-	// Methods ////////////////////////////////////////////////////////
 
 	@Override
 	public HandshakeType getMessageType() {
@@ -162,14 +166,14 @@ public final class HelloVerifyRequest extends HandshakeMessage {
 	}
 
 	@Override
-	public String toString() {
+	public String toString(int indent) {
 		StringBuilder sb = new StringBuilder();
-		sb.append(super.toString());
-		sb.append("\t\tServer Version: ").append(serverVersion).append(StringUtil.lineSeparator());
-		sb.append("\t\tCookie Length: ").append(cookie.length).append(StringUtil.lineSeparator());
-		sb.append("\t\tCookie: ").append(StringUtil.byteArray2HexString(cookie)).append(StringUtil.lineSeparator());
+		sb.append(super.toString(indent));
+		String indentation = StringUtil.indentation(indent + 1);
+		sb.append(indentation).append("Server Version: ").append(serverVersion.getMajor()).append(", ").append(serverVersion.getMinor()).append(StringUtil.lineSeparator());
+		sb.append(indentation).append("Cookie Length: ").append(cookie.length).append(" bytes").append(StringUtil.lineSeparator());
+		sb.append(indentation).append("Cookie: ").append(StringUtil.byteArray2HexString(cookie)).append(StringUtil.lineSeparator());
 
 		return sb.toString();
 	}
-
 }

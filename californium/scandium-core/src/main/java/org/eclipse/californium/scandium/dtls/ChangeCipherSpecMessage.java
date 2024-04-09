@@ -18,10 +18,9 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium.dtls;
 
-import java.net.InetSocketAddress;
-
 import org.eclipse.californium.elements.util.DatagramReader;
 import org.eclipse.californium.elements.util.DatagramWriter;
+import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertDescription;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertLevel;
 
@@ -32,32 +31,24 @@ import org.eclipse.californium.scandium.dtls.AlertMessage.AlertLevel;
  * ChangeCipherSpec message is sent by both the client and the server to notify
  * the receiving party that subsequent records will be protected under the newly
  * negotiated CipherSpec and keys. For further details see <a
- * href="http://tools.ietf.org/html/rfc5246#section-7.1">RFC 5246</a>.
+ * href="https://tools.ietf.org/html/rfc5246#section-7.1" target="_blank">RFC 5246</a>.
  */
-public final class ChangeCipherSpecMessage extends AbstractMessage {
-
-	// DTLS-specific constants ////////////////////////////////////////
+public final class ChangeCipherSpecMessage implements DTLSMessage {
 
 	private static final int CCS_BITS = 8;
 
-	// Members ////////////////////////////////////////////////////////
-
 	private final CCSType CCSProtocolType;
 
-	// Constructor ////////////////////////////////////////////////////
-
-	public ChangeCipherSpecMessage(InetSocketAddress peerAddress) {
-		super(peerAddress);
+	public ChangeCipherSpecMessage() {
 		CCSProtocolType = CCSType.CHANGE_CIPHER_SPEC;
 	}
 
-	// Change Cipher Spec Enum ////////////////////////////////////////
-
 	/**
-	 * See <a href="http://tools.ietf.org/html/rfc5246#section-7.1">RFC 5246</a>
+	 * See <a href="https://tools.ietf.org/html/rfc5246#section-7.1" target="_blank">RFC 5246</a>
 	 * for specification.
 	 */
 	public enum CCSType {
+
 		CHANGE_CIPHER_SPEC(1);
 
 		private int code;
@@ -71,8 +62,6 @@ public final class ChangeCipherSpecMessage extends AbstractMessage {
 		}
 	}
 
-	// Methods ////////////////////////////////////////////////////////
-
 	@Override
 	public ContentType getContentType() {
 		return ContentType.CHANGE_CIPHER_SPEC;
@@ -83,8 +72,13 @@ public final class ChangeCipherSpecMessage extends AbstractMessage {
 	}
 
 	@Override
+	public String toString(int indent) {
+		return StringUtil.indentation(indent) + "Change Cipher Spec Message" + StringUtil.lineSeparator();
+	}
+
+	@Override
 	public String toString() {
-		return "\tChange Cipher Spec Message\n";
+		return toString(0);
 	}
 
 	@Override
@@ -92,24 +86,26 @@ public final class ChangeCipherSpecMessage extends AbstractMessage {
 		return CCS_BITS / Byte.SIZE;
 	}
 
-	// Serialization //////////////////////////////////////////////////
-
 	@Override
 	public byte[] toByteArray() {
-		DatagramWriter writer = new DatagramWriter();
+		DatagramWriter writer = new DatagramWriter(1);
 		writer.write(CCSProtocolType.getCode(), CCS_BITS);
 
 		return writer.toByteArray();
 	}
 
-	public static DTLSMessage fromByteArray(byte[] byteArray, InetSocketAddress peerAddress) throws HandshakeException {
+	public static DTLSMessage fromByteArray(byte[] byteArray) throws HandshakeException {
 		DatagramReader reader = new DatagramReader(byteArray);
 		int code = reader.read(CCS_BITS);
 		if (code == CCSType.CHANGE_CIPHER_SPEC.getCode()) {
-			return new ChangeCipherSpecMessage(peerAddress);
+			if (reader.bytesAvailable()) {
+				throw new HandshakeException("Change Cipher Spec must be empty!",
+						new AlertMessage(AlertLevel.FATAL, AlertDescription.DECODE_ERROR));
+			}
+			return new ChangeCipherSpecMessage();
 		} else {
 			String message = "Unknown Change Cipher Spec code received: " + code;
-			AlertMessage alert = new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE, peerAddress);
+			AlertMessage alert = new AlertMessage(AlertLevel.FATAL, AlertDescription.ILLEGAL_PARAMETER);
 			throw new HandshakeException(message, alert);
 		}
 	}

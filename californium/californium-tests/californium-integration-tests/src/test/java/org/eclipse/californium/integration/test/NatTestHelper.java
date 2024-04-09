@@ -25,34 +25,38 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 import org.eclipse.californium.TestTools;
 import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.CoapServer;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.config.CoapConfig;
+import org.eclipse.californium.core.config.CoapConfig.MatcherMode;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.Endpoint;
-import org.eclipse.californium.core.network.EndpointContextMatcherFactory.MatcherMode;
 import org.eclipse.californium.core.network.EndpointManager;
-import org.eclipse.californium.core.network.config.NetworkConfig;
-import org.eclipse.californium.core.network.config.NetworkConfig.Keys;
 import org.eclipse.californium.core.network.interceptors.HealthStatisticLogger;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.elements.Connector;
-import org.eclipse.californium.elements.PrincipalEndpointContextMatcher;
+import org.eclipse.californium.elements.DtlsEndpointContext;
+import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.util.CounterStatisticManager;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.integration.test.util.CoapsNetworkRule;
 import org.eclipse.californium.scandium.AlertHandler;
+import org.eclipse.californium.scandium.ConnectorHelper;
 import org.eclipse.californium.scandium.DTLSConnector;
 import org.eclipse.californium.scandium.DtlsClusterConnector;
 import org.eclipse.californium.scandium.DtlsClusterHealthLogger;
 import org.eclipse.californium.scandium.DtlsHealthLogger;
 import org.eclipse.californium.scandium.DtlsManagedClusterConnector;
 import org.eclipse.californium.scandium.config.DtlsClusterConnectorConfig;
+import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
+import org.eclipse.californium.scandium.config.DtlsConfig.DtlsRole;
 import org.eclipse.californium.scandium.dtls.AlertMessage;
 import org.eclipse.californium.scandium.dtls.ConnectionIdGenerator;
 import org.eclipse.californium.scandium.dtls.DebugConnectionStore;
@@ -68,22 +72,27 @@ import org.slf4j.LoggerFactory;
 public class NatTestHelper {
 	private static final Logger LOGGER = LoggerFactory.getLogger(NatTestHelper.class);
 
+	static final long ACK_TIMEOUT = 400;
 	static final long RESPONSE_TIMEOUT = 10 * 1000L;
 	static final String TARGET = "resource";
 	static final String IDENITITY = "client1";
 	static final String KEY = "key1";
 
-	static final ConnectionIdGenerator SUPPORT_CID = new SingleNodeConnectionIdGenerator(0);
+	static final Integer SUPPORT_CID = 0;
 
-	static final ConnectionIdGenerator USE_CID_4 = new SingleNodeConnectionIdGenerator(4);
+	static final Integer USE_CID = 4;
+
+	static {
+		CoapConfig.register();
+		DtlsConfig.register();
+	}
 
 	CoapsNetworkRule network;
 
 	boolean first;
 	Random rand;
 	NioNatUtil nat;
-	MatcherMode mode;
-	NetworkConfig config;
+	Configuration config;
 
 	List<DebugConnectionStore> serverConnections = new ArrayList<>();
 	List<DebugConnectionStore> clientConnections = new ArrayList<>();
@@ -195,18 +204,27 @@ public class NatTestHelper {
 		}
 	}
 
-	void setupNetworkConfig(MatcherMode mode, int ackTimeout) {
-		this.mode = mode;
+	Configuration setupConfiguration(MatcherMode mode) {
 		config = network.getStandardTestConfig()
 				// retransmit starting with 200 milliseconds
-				.setInt(Keys.ACK_TIMEOUT, ackTimeout).setFloat(Keys.ACK_RANDOM_FACTOR, 1.5f)
-				.setFloat(Keys.ACK_TIMEOUT_SCALE, 1.5f).setLong(Keys.EXCHANGE_LIFETIME, RESPONSE_TIMEOUT)
-				.setString(Keys.RESPONSE_MATCHING, mode.name());
+				.set(CoapConfig.ACK_TIMEOUT, ACK_TIMEOUT, TimeUnit.MILLISECONDS)
+				.set(CoapConfig.ACK_INIT_RANDOM, 1.5f)
+				.set(CoapConfig.ACK_TIMEOUT_SCALE, 1.5f)
+				.set(CoapConfig.EXCHANGE_LIFETIME, RESPONSE_TIMEOUT, TimeUnit.MILLISECONDS)
+				.set(CoapConfig.RESPONSE_MATCHING, mode)
+				.set(DtlsConfig.DTLS_RETRANSMISSION_TIMEOUT, ACK_TIMEOUT, TimeUnit.MILLISECONDS)
+				.set(DtlsConfig.DTLS_MAX_RETRANSMISSIONS, 4);
+		return config;
+	}
+
+	void createSecureServer(Integer cidLength) throws IOException {
+		ConnectionIdGenerator cidGenerator = cidLength == null ? null : new SingleNodeConnectionIdGenerator(cidLength);
+		createSecureServer(cidGenerator);
 	}
 
 	void createSecureServer(ConnectionIdGenerator... cidGenerators) throws IOException {
 		MyClusterNodesProvider provider = new MyClusterNodesProvider();
-		int timeout = config.getInt(Keys.ACK_TIMEOUT);
+
 		int count = 1;
 		for (ConnectionIdGenerator generator : cidGenerators) {
 			String tag = "server" + count;
@@ -215,15 +233,20 @@ public class NatTestHelper {
 			TestUtilPskStore pskStore = new TestUtilPskStore();
 			pskStore.set(IDENITITY, KEY.getBytes());
 			pskStore.setCatchAll(true);
-			DtlsConnectorConfig dtlsConfig = new DtlsConnectorConfig.Builder().setAddress(TestTools.LOCALHOST_EPHEMERAL)
-					.setLoggingTag(tag).setHealthHandler(health).setServerOnly(true).setReceiverThreadCount(2)
-					.setMaxConnections(10000).setStaleConnectionThreshold(20).setConnectionThreadCount(4)
-					.setConnectionIdGenerator(generator).setMaxRetransmissions(4).setRetransmissionTimeout(timeout)
-					.setVerifyPeersOnResumptionThreshold(100).setAdvancedPskStore(pskStore).build();
+			DtlsConnectorConfig dtlsConfig = DtlsConnectorConfig.builder(config)
+					.set(DtlsConfig.DTLS_ROLE, DtlsRole.SERVER_ONLY)
+					.set(DtlsConfig.DTLS_MAX_CONNECTIONS, 10000)
+					.set(DtlsConfig.DTLS_STALE_CONNECTION_THRESHOLD, 20, TimeUnit.SECONDS)
+					.set(DtlsConfig.DTLS_RECEIVER_THREAD_COUNT, 2)
+					.set(DtlsConfig.DTLS_CONNECTOR_THREAD_COUNT, 4)
+					.set(DtlsConfig.DTLS_VERIFY_PEERS_ON_RESUMPTION_THRESHOLD, 100)
+					.setAddress(TestTools.LOCALHOST_EPHEMERAL)
+					.setLoggingTag(tag)
+					.setHealthHandler(health)
+					.setConnectionIdGenerator(generator)
+					.setAdvancedPskStore(pskStore).build();
 
-			DebugConnectionStore serverConnectionStore = new DebugConnectionStore(dtlsConfig.getMaxConnections(),
-					dtlsConfig.getStaleConnectionThreshold(), null);
-			serverConnectionStore.setTag(dtlsConfig.getLoggingTag());
+			DebugConnectionStore serverConnectionStore = ConnectorHelper.createDebugConnectionStore(dtlsConfig);
 			this.serverConnections.add(serverConnectionStore);
 
 			CoapEndpoint.Builder builder = new CoapEndpoint.Builder();
@@ -241,11 +264,7 @@ public class NatTestHelper {
 				serverConnector.setAlertHandler(new MyAlertHandler(dtlsConfig.getLoggingTag()));
 				builder.setConnector(serverConnector);
 			}
-			if (mode == MatcherMode.PRINCIPAL) {
-				// requires different client identities!
-				builder.setEndpointContextMatcher(new PrincipalEndpointContextMatcher(true));
-			}
-			builder.setNetworkConfig(config);
+			builder.setConfiguration(config);
 			CoapEndpoint serverEndpoint = builder.build();
 			HealthStatisticLogger healthLogger = new HealthStatisticLogger(tag, true);
 			serverCoapStatistics.add(healthLogger);
@@ -263,47 +282,48 @@ public class NatTestHelper {
 		System.out.println("coap-server " + uri);
 	}
 
-	CoapEndpoint createClientEndpoint(ConnectionIdGenerator cidGenerator) throws IOException {
+	CoapEndpoint createClientEndpoint(Integer cidLength) throws IOException {
 
 		String tag = "client";
 		int size = clientEndpoints.size();
 		if (size > 0) {
 			tag += "." + size;
 		}
-		int timeout = config.getInt(Keys.ACK_TIMEOUT);
 
 		DtlsHealthLogger health = new DtlsHealthLogger(tag);
 		this.clientStatistics.add(health);
 
 		// prepare secure client endpoint
-		DtlsConnectorConfig clientDtlsConfig = new DtlsConnectorConfig.Builder()
-				.setAddress(TestTools.LOCALHOST_EPHEMERAL).setLoggingTag(tag).setHealthHandler(health)
-				.setReceiverThreadCount(2).setMaxConnections(20).setConnectionThreadCount(2)
-				.setConnectionIdGenerator(cidGenerator).setMaxRetransmissions(4).setRetransmissionTimeout(timeout)
-				.setSupportedCipherSuites(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8)
+		DtlsConnectorConfig clientDtlsConfig = DtlsConnectorConfig.builder(config)
+				.set(DtlsConfig.DTLS_MAX_CONNECTIONS, 20)
+				.set(DtlsConfig.DTLS_RECEIVER_THREAD_COUNT, 2)
+				.set(DtlsConfig.DTLS_CONNECTOR_THREAD_COUNT, 2)
+				.set(DtlsConfig.DTLS_CONNECTION_ID_LENGTH, cidLength)
+				.setAddress(TestTools.LOCALHOST_EPHEMERAL)
+				.setLoggingTag(tag)
+				.setHealthHandler(health)
+				.setAsList(DtlsConfig.DTLS_CIPHER_SUITES, CipherSuite.TLS_PSK_WITH_AES_128_CCM_8)
 				.setAdvancedPskStore(new AdvancedSinglePskStore(IDENITITY + "." + size, KEY.getBytes())).build();
 
-		DebugConnectionStore connections = new DebugConnectionStore(clientDtlsConfig.getMaxConnections(),
-				clientDtlsConfig.getStaleConnectionThreshold(), null);
-		connections.setTag(clientDtlsConfig.getLoggingTag());
+		DebugConnectionStore clientConnectionStore = ConnectorHelper.createDebugConnectionStore(clientDtlsConfig);
 
-		DTLSConnector clientConnector = new MyDtlsConnector(clientDtlsConfig, connections);
+		DTLSConnector clientConnector = new MyDtlsConnector(clientDtlsConfig, clientConnectionStore);
 		clientConnector.setAlertHandler(new MyAlertHandler(clientDtlsConfig.getLoggingTag()));
 		CoapEndpoint.Builder builder = new CoapEndpoint.Builder();
 		builder.setConnector(clientConnector);
-		builder.setNetworkConfig(config);
+		builder.setConfiguration(config);
 		CoapEndpoint clientEndpoint = builder.build();
 		HealthStatisticLogger healthLogger = new HealthStatisticLogger(tag, true);
 		clientCoapStatistics.add(healthLogger);
 		clientEndpoint.addPostProcessInterceptor(healthLogger);
 		clientEndpoint.start();
-		clientConnections.add(connections);
+		clientConnections.add(clientConnectionStore);
 		clientEndpoints.add(clientEndpoint);
 		return clientEndpoint;
 	}
 
-	void createDefaultClientEndpoint(ConnectionIdGenerator cidGenerator) throws IOException {
-		Endpoint clientEndpoint = createClientEndpoint(cidGenerator);
+	void createDefaultClientEndpoint(Integer cidLength) throws IOException {
+		Endpoint clientEndpoint = createClientEndpoint(cidLength);
 		EndpointManager.getEndpointManager().setDefaultEndpoint(clientEndpoint);
 		System.out.println("coap-client " + clientEndpoint.getUri());
 	}
@@ -347,7 +367,7 @@ public class NatTestHelper {
 			}
 		}
 		List<Integer> idOfErrors = new ArrayList<Integer>();
-		long responseTimeout = config.getLong(Keys.EXCHANGE_LIFETIME) + 1000;
+		long responseTimeout = config.get(CoapConfig.EXCHANGE_LIFETIME, TimeUnit.MILLISECONDS) + 1000;
 		for (int count = 0; count < requests.size(); ++count) {
 			int id = count + 1;
 			Request request = requests.get(count);
@@ -412,8 +432,14 @@ public class NatTestHelper {
 
 		@Override
 		public void handleGET(CoapExchange exchange) {
+			InetSocketAddress previousAddress = exchange.advanced().getRequest().getSourceContext()
+					.get(DtlsEndpointContext.KEY_PREVIOUS_ADDRESS);
 			Response response = new Response(ResponseCode.CONTENT);
-			response.setPayload("Hello");
+			if (previousAddress != null) {
+				response.setPayload("Hello?");
+			} else {
+				response.setPayload("Hello");
+			}
 			exchange.respond(response);
 		}
 	}

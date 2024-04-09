@@ -20,11 +20,8 @@ package org.eclipse.californium.scandium.dtls;
 import java.util.List;
 
 import org.eclipse.californium.elements.util.DatagramReader;
-import org.eclipse.californium.elements.util.StringUtil;
 
 public class ClientCertificateTypeExtension extends CertificateTypeExtension {
-
-	// Constructors ///////////////////////////////////////////////////
 
 	private ClientCertificateTypeExtension(DatagramReader extensionDataReader) {
 		super(ExtensionType.CLIENT_CERT_TYPE, extensionDataReader);
@@ -50,16 +47,9 @@ public class ClientCertificateTypeExtension extends CertificateTypeExtension {
 		super(ExtensionType.CLIENT_CERT_TYPE, certificateType);
 	}
 
-	// Methods ////////////////////////////////////////////////////////
-
-	public String toString() {
-		StringBuilder sb = new StringBuilder(super.toString());
-
-		for (CertificateType type : getCertificateTypes()) {
-			sb.append("\t\t\t\tClient certificate type: ").append(type).append(StringUtil.lineSeparator());
-		}
-
-		return sb.toString();
+	@Override
+	public String toString(int indent) {
+		return super.toString(indent, "Client");
 	}
 
 	/**
@@ -72,7 +62,7 @@ public class ClientCertificateTypeExtension extends CertificateTypeExtension {
 	 * @throws NullPointerException if extension data is {@code null}
 	 * @throws IllegalArgumentException if extension data is empty
 	 */
-	public static ClientCertificateTypeExtension fromExtensionDataReaader(DatagramReader extensionDataReader) {
+	public static ClientCertificateTypeExtension fromExtensionDataReader(DatagramReader extensionDataReader) {
 		return new ClientCertificateTypeExtension(extensionDataReader);
 	}
 }

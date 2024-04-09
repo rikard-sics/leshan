@@ -52,6 +52,7 @@
  ******************************************************************************/
 package org.eclipse.californium.core.network;
 
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.List;
@@ -61,13 +62,14 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.californium.core.coap.BlockOption;
 import org.eclipse.californium.core.coap.CoAP.Type;
+import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.coap.EmptyMessage;
 import org.eclipse.californium.core.coap.Message;
+import org.eclipse.californium.core.coap.NoResponseOption;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.coap.Token;
@@ -75,9 +77,14 @@ import org.eclipse.californium.core.network.stack.BlockwiseLayer;
 import org.eclipse.californium.core.network.stack.CoapStack;
 import org.eclipse.californium.core.observe.ObserveRelation;
 import org.eclipse.californium.core.server.resources.CoapExchange;
+import org.eclipse.californium.elements.Connector;
 import org.eclipse.californium.elements.EndpointContext;
+import org.eclipse.californium.elements.EndpointIdentityResolver;
+import org.eclipse.californium.elements.UdpMulticastConnector;
+import org.eclipse.californium.elements.util.CheckedExecutor;
 import org.eclipse.californium.elements.util.ClockUtil;
 import org.eclipse.californium.elements.util.SerialExecutor;
+import org.eclipse.californium.elements.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -119,16 +126,38 @@ import org.slf4j.LoggerFactory;
  * concurrent collections in the matcher and therefore establish a "happens
  * before" order (as long as threads accessing the exchange via the matcher).
  * But some methods are out of scope of that and use Exchange directly (e.g.
- * {@link #setEndpointContext(EndpointContext)} the "sender thread" or
- * {@link #setFailedTransmissionCount(int)} the "retransmission thread
- * (executor)"). Therefore use at least volatile for the fields. This doesn't
- * ensure, that Exchange is thread safe, it only ensures the visibility of the
- * states.
+ * {@link #setEndpointContext(EndpointContext)} the "sender thread"). Therefore
+ * some fields use at least volatile. This doesn't ensure, that Exchange is
+ * thread safe, it only ensures the visibility of the states.
  */
 public class Exchange {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(Exchange.class);
-	
+
+	/**
+	 * Dummy executor when {@code null} is provided. Experimental, not supported
+	 * and may fail.
+	 * 
+	 * @since 3.9
+	 */
+	private static final CheckedExecutor DUMMY_EXECUTOR = new CheckedExecutor() {
+
+		@Override
+		public void execute(Runnable command) {
+			command.run();
+		}
+
+		@Override
+		public boolean checkOwner() {
+			return true;
+		}
+
+		@Override
+		public void assertOwner() {
+			// no check applied
+		}
+	};
+
 	static final boolean DEBUG = LOGGER.isTraceEnabled();
 
 	private static final int MAX_OBSERVE_NO = (1 << 24) - 1;
@@ -164,10 +193,33 @@ public class Exchange {
 	/**
 	 * Executor for exchange jobs.
 	 * 
-	 * Note: for unit tests this may be {@code null} to escape the owner checking.
-	 * Otherwise many change in the tests would be required.
+	 * @since 3.0 (changed from optional (unit tests) to mandatory)
 	 */
-	private final SerialExecutor executor;
+	private final CheckedExecutor executor;
+	/** The nano timestamp when this exchange has been created */
+	private final long nanoTimestamp;
+	/**
+	 * Enable to keep the original request in the exchange store. Intended to be
+	 * used for observe request with blockwise response to be able to react on
+	 * newer notifies during an ongoing transfer.
+	 */
+	private final boolean keepRequestInStore;
+	/**
+	 * Mark exchange as notification.
+	 */
+	private final boolean notification;
+	/**
+	 * The other peer's identity.
+	 * 
+	 * Usually that's the peer's {@link InetSocketAddress}.
+	 * 
+	 * @since 3.0
+	 */
+	private final Object peersIdentity;
+	// indicates where the request of this exchange has been initiated.
+	// (as suggested by effective Java, item 40.)
+	private final Origin origin;
+
 	/**
 	 * Caller of {@link #setComplete()}. Intended for debug logging.
 	 */
@@ -180,26 +232,15 @@ public class Exchange {
 	 */
 	private volatile Endpoint endpoint;
 
-	/** An remove handler to be called when a exchange must be removed from the exchange store */
+	/**
+	 * An remove handler to be called when a exchange must be removed from the
+	 * exchange store
+	 */
 	private volatile RemoveHandler removeHandler;
 
 	/** Indicates if the exchange is complete */
 	private final AtomicBoolean complete = new AtomicBoolean();
 
-	/** The nano timestamp when this exchange has been created */
-	private final long nanoTimestamp;
-
-	/**
-	 * Enable to keep the original request in the exchange store. Intended to be
-	 * used for observe request with blockwise response to be able to react on
-	 * newer notifies during an ongoing transfer.
-	 */
-	private final boolean keepRequestInStore;
-
-	/**
-	 * Mark exchange as notification.
-	 */
-	private final boolean notification;
 	/**
 	 * The key mid for the current request.
 	 */
@@ -220,7 +261,27 @@ public class Exchange {
 	 * extremely rare cases, that the realtime in nanosecond is actually
 	 * {@code 0}, the value is adapted to {@code -1}.
 	 */
-	private final AtomicLong sendNanoTimestamp = new AtomicLong();
+	private volatile long sendNanoTimestamp;
+
+	/**
+	 * Indicates, that the transmission is started.
+	 * 
+	 * @since 3.0
+	 */
+	private boolean transmissionRttStart;
+	/**
+	 * Indicates, that the transmission round trip time is set.
+	 * 
+	 * @since 3.0
+	 */
+	private boolean transmissionRttSet;
+	/**
+	 * Nanotimestamp for transmission round trip. Either start time or time
+	 * span.
+	 * 
+	 * @since 3.0
+	 */
+	private long transmissionRttTimestamp;
 
 	/**
 	 * The actual request that caused this exchange. Layers below the
@@ -250,21 +311,21 @@ public class Exchange {
 	// Matching needs to know when receiving duplicate
 	private volatile Response currentResponse;
 
-	// indicates where the request of this exchange has been initiated.
-	// (as suggested by effective Java, item 40.)
-	private final Origin origin;
-
 	// true if the exchange has failed due to a timeout
 	private volatile boolean timedOut;
 
+	// the timeout scale factor, exponential back-off between retransmissions,
+	// if larger than 1.0F.
+	private float timeoutScale;
+
 	// the timeout of the current request or response set by reliability layer
-	private volatile int currentTimeout;
+	private int currentTimeout;
 
 	// the amount of attempted transmissions that have not succeeded yet
 	private volatile int failedTransmissionCount = 0;
 
 	// handle to cancel retransmission
-	private ScheduledFuture<?> retransmissionHandle;
+	private volatile ScheduledFuture<?> retransmissionHandle;
 
 	// If the request was sent with a block1 option the response has to send its
 	// first block piggy-backed with the Block1 option of the last request block
@@ -275,51 +336,86 @@ public class Exchange {
 	// The relation that the target resource has established with the source
 	private volatile ObserveRelation relation;
 
-	/** The notifications that have been sent, so they can be removed from the Matcher */
-	private volatile List<KeyMID> notifications;
+	/**
+	 * The NON notifications that have been sent, so they can be removed from
+	 * the Matcher.
+	 * 
+	 * @since 3.5 (changed item's type to include a timestamp)
+	 */
+	private volatile List<NotificationKeyMID> notifications;
+
+	/**
+	 * Lifetime of NON notifications in nanoseconds to limit the length of
+	 * {@link #notifications}.
+	 * 
+	 * @since 3.5
+	 */
+	private long nonLifetimeNanos;
 
 	private final AtomicReference<EndpointContext> endpointContext = new AtomicReference<EndpointContext>();
 
 	private volatile EndpointContextOperator endpointContextPreOperator;
 
-	//If object security option is used, the Cryptographic context identifier is stored here
+	// If object security option is used, the Cryptographic context identifier
+	// is stored here
 	// for request/response mapping of contexts
 	private byte[] cryptoContextId;
 
 	/**
 	 * Creates a new exchange with the specified request and origin.
 	 * 
+	 * Note: since 3.9 {@code null} as executor doesn't longer fail with a
+	 * {@link NullPointerException}. Using {@code null} is still not supported
+	 * and comes with risks, that especially requires your own responsibility.
+	 * 
 	 * @param request the request that starts the exchange
+	 * @param peersIdentity peer's identity. Usually that's the peer's
+	 *            {@link InetSocketAddress}.
 	 * @param origin the origin of the request (LOCAL or REMOTE)
-	 * @param executor executor to be used for exchanges. Maybe {@code null} for unit tests.
+	 * @param executor executor to be used for exchanges.
 	 * @throws NullPointerException if request is {@code null}
+	 * @see EndpointIdentityResolver
+	 * @since 3.0 (added peersIdentity, executor adapted to mandatory)
 	 */
-	public Exchange(Request request, Origin origin, Executor executor) {
-		this(request, origin, executor, null, false);
+	public Exchange(Request request, Object peersIdentity, Origin origin, Executor executor) {
+		this(request, peersIdentity, origin, executor, null, false);
 	}
 
 	/**
 	 * Creates a new exchange with the specified request, origin, context, and
 	 * notification marker.
 	 * 
+	 * Note: since 3.9 {@code null} as executor doesn't longer fail with a
+	 * {@link NullPointerException}. Using {@code null} is still not supported
+	 * and comes with risks, that especially requires your own responsibility.
+	 * 
 	 * @param request the request that starts the exchange
+	 * @param peersIdentity peer's identity. Usually that's the peer's
+	 *            {@link InetSocketAddress}.
 	 * @param origin the origin of the request (LOCAL or REMOTE)
-	 * @param executor executor to be used for exchanges. Maybe {@code null} for unit tests.
+	 * @param executor executor to be used for exchanges.
 	 * @param ctx the endpoint context of this exchange
 	 * @param notification {@code true} for notification exchange, {@code false}
 	 *            otherwise
 	 * @throws NullPointerException if request is {@code null}
+	 * @see EndpointIdentityResolver
+	 * @since 3.0 (added peersIdentity, executor adapted to mandatory)
 	 */
-	public Exchange(Request request, Origin origin, Executor executor, EndpointContext ctx, boolean notification) {
+	public Exchange(Request request, Object peersIdentity, Origin origin, Executor executor, EndpointContext ctx,
+			boolean notification) {
 		// might only be the first block of the whole request
 		if (request == null) {
 			throw new NullPointerException("request must not be null!");
+		} else if (executor == null) {
+			// Dummy executor.
+			executor = DUMMY_EXECUTOR;
 		}
 		this.id = INSTANCE_COUNTER.incrementAndGet();
-		this.executor = SerialExecutor.create(executor);
+		this.executor = executor instanceof CheckedExecutor ? (CheckedExecutor) executor : new SerialExecutor(executor);
 		this.currentRequest = request;
 		this.request = request;
 		this.origin = origin;
+		this.peersIdentity = peersIdentity;
 		this.endpointContext.set(ctx);
 		this.keepRequestInStore = !notification && request.isObserve() && origin == Origin.LOCAL;
 		this.notification = notification;
@@ -328,12 +424,18 @@ public class Exchange {
 
 	@Override
 	public String toString() {
-		char originMarker = origin == Origin.LOCAL ? 'L' : 'R';
-		if (complete.get()) {
-			return "Exchange[" + originMarker + id + ", complete]";
+		StringBuilder result = new StringBuilder("Exchange[");
+		result.append(origin == Origin.LOCAL ? 'L' : 'R').append(id).append(", ");
+		if (peersIdentity instanceof InetSocketAddress) {
+			result.append(StringUtil.toString((InetSocketAddress) peersIdentity));
 		} else {
-			return "Exchange[" + originMarker + id + "]";
+			result.append(peersIdentity);
 		}
+		if (complete.get()) {
+			result.append(", complete");
+		}
+		result.append(']');
+		return result.toString();
 	}
 
 	/**
@@ -362,7 +464,7 @@ public class Exchange {
 	public void sendAccept(EndpointContext context) {
 		assert (origin == Origin.REMOTE);
 		Request current = currentRequest;
-		if (current.getType() == Type.CON && current.hasMID() && current.acknowledge()) {
+		if (current.getType() == Type.CON && current.hasMID() && !current.isRejected() && current.acknowledge()) {
 			EmptyMessage ack = EmptyMessage.newACK(current, context);
 			endpoint.sendEmptyMessage(this, ack);
 		}
@@ -374,8 +476,7 @@ public class Exchange {
 	 * endpoint context of the current request to send the RST.
 	 * 
 	 * Note: since 2.3, rejects for multicast requests are not sent. (See
-	 * {@link MulticastReceivers#addMulticastReceiver(org.eclipse.californium.elements.Connector)
-	 * for receiving multicast requests}.
+	 * {@link UdpMulticastConnector} for receiving multicast requests).
 	 * 
 	 * @see #sendReject(EndpointContext)
 	 * @since 2.3 rejects for multicast requests are not sent
@@ -390,8 +491,7 @@ public class Exchange {
 	 * client, if the request has not been already rejected.
 	 * 
 	 * Note: since 2.3, rejects for multicast requests are not sent. (See
-	 * {@link MulticastReceivers#addMulticastReceiver(org.eclipse.californium.elements.Connector)
-	 * for receiving multicast requests}.
+	 * {@link UdpMulticastConnector} for receiving multicast requests).
 	 * 
 	 * @param context endpoint context to send RST
 	 * 
@@ -401,7 +501,7 @@ public class Exchange {
 	public void sendReject(EndpointContext context) {
 		assert (origin == Origin.REMOTE);
 		Request current = currentRequest;
-		if (current.hasMID() && !current.isRejected()) {
+		if (current.hasMID() && !current.isRejected() && !current.isAcknowledged()) {
 			current.setRejected(true);
 			if (!current.isMulticast()) {
 				EmptyMessage rst = EmptyMessage.newRST(current, context);
@@ -417,16 +517,29 @@ public class Exchange {
 	 * If no destination context is provided, use the source context of the
 	 * request.
 	 * 
-	 * Note: since 2.3, error responses for multicast requests are not sent. (See
-	 * {@link MulticastReceivers#addMulticastReceiver(org.eclipse.californium.elements.Connector)
-	 * for receiving multicast requests}.
+	 * Note: since 2.3, error responses for multicast requests are not sent.
+	 * (See {@link UdpMulticastConnector} for receiving multicast requests).
+	 * 
+	 * Note: since 3.0, {@link NoResponseOption} is considered. That may cause
+	 * to send error responses also for multicast requests.
 	 * 
 	 * @param response the response
 	 * @since 2.3 error responses for multicast requests are not sent
+	 * @since 3.0 {@link NoResponseOption} is considered
 	 */
 	public void sendResponse(Response response) {
+		if (response.getType() == Type.RST) {
+			throw new IllegalArgumentException("Response must not use type RST!");
+		}
 		Request current = currentRequest;
-		if (current.isMulticast() && response.isError()) {
+		if (current.getOptions().hasNoResponse()) {
+			NoResponseOption noResponse = current.getOptions().getNoResponse();
+			if (noResponse.suppress(response.getCode())) {
+				if (!current.acknowledge()) {
+					return;
+				}
+			}
+		} else if (current.isMulticast() && response.isError()) {
 			return;
 		}
 		if (response.getDestinationContext() == null) {
@@ -441,6 +554,32 @@ public class Exchange {
 
 	public boolean isOfLocalOrigin() {
 		return origin == Origin.LOCAL;
+	}
+
+	/**
+	 * Get remote socket address.
+	 * 
+	 * Get remote socket address of current request.
+	 * 
+	 * @return current remote socket address
+	 * @throws IllegalArgumentException if corresponding endpoint context is
+	 *             missing
+	 * @since 3.8
+	 */
+	public InetSocketAddress getRemoteSocketAddress() {
+		EndpointContext remoteEndpoint;
+		if ((origin == Origin.LOCAL)) {
+			remoteEndpoint = currentRequest.getDestinationContext();
+			if (remoteEndpoint == null) {
+				throw new IllegalArgumentException("Outgoing request must have destination context");
+			}
+		} else {
+			remoteEndpoint = currentRequest.getSourceContext();
+			if (remoteEndpoint == null) {
+				throw new IllegalArgumentException("Incoming request must have source context");
+			}
+		}
+		return remoteEndpoint.getPeerAddress();
 	}
 
 	/**
@@ -521,6 +660,8 @@ public class Exchange {
 	public void setCurrentRequest(Request newCurrentRequest) {
 		assertOwner();
 		if (currentRequest != newCurrentRequest) {
+			// reset retransmission also for remote exchanges
+			// enables to replace newer notifies for CON notifies in transit
 			setRetransmissionHandle(null);
 			failedTransmissionCount = 0;
 			LOGGER.debug("{} replace {} by {}", this, currentRequest, newCurrentRequest);
@@ -529,11 +670,15 @@ public class Exchange {
 	}
 
 	/**
-	 * Returns the response to the request or null if no response has arrived
-	 * yet. If there is an observe relation, the last received notification is
-	 * the response.
+	 * Returns the response to the request or {@code null}, if no response has
+	 * arrived yet.
 	 * 
-	 * @return the response
+	 * If there is an observe relation, the last received notification is the
+	 * response on the client side. On the server side, that is the last
+	 * notification to be sent, but may differ from the current response, if
+	 * that is in transit.
+	 * 
+	 * @return the response. or {@code null},
 	 */
 	public Response getResponse() {
 		return response;
@@ -552,20 +697,25 @@ public class Exchange {
 	}
 
 	/**
-	 * Returns the current response block. If a response is not being sent
-	 * blockwise, the whole response counts as a single block and this method
-	 * returns the same request as {@link #getResponse()}. Call getResponse() to
-	 * access the assembled response.
+	 * Returns the current response block.
 	 * 
-	 * @return the current response block
+	 * If a response is not being sent blockwise, the whole response counts as a
+	 * single block and this method returns the same response as
+	 * {@link #getResponse()}. Call {@link #getResponse()} to access the
+	 * assembled response. On the server-side, this is the current notification
+	 * in flight.
+	 * 
+	 * @return the current response block, or current notification in flight.
 	 */
 	public Response getCurrentResponse() {
 		return currentResponse;
 	}
 
 	/**
-	 * Sets the current response block. If a response is not being sent
-	 * blockwise, the origin request (equal to getResponse()) should be set.
+	 * Sets the current response block.
+	 * 
+	 * If a response is not being sent blockwise, the origin response (equal to
+	 * getResponse()) should be set.
 	 * 
 	 * @param newCurrentResponse the current response block
 	 * @throws ConcurrentModificationException if not executed within
@@ -578,7 +728,32 @@ public class Exchange {
 					&& currentResponse.getType() == Type.NON && currentResponse.isNotification()) {
 				// keep NON notifies in KeyMID store.
 				LOGGER.info("{} store NON notification: {}", this, currentKeyMID);
-				notifications.add(currentKeyMID);
+				long now = ClockUtil.nanoRealtime();
+				RemoveHandler handler = this.removeHandler;
+				// remove expired NON-notifications.
+				while (!notifications.isEmpty()) {
+					NotificationKeyMID eldest = notifications.get(0);
+					if (eldest.isExpired(now)) {
+						notifications.remove(0);
+						if (handler != null) {
+							KeyMID keyMid = eldest.getMID();
+							LOGGER.info("{} removing expired NON notification: {}", this, keyMid);
+							// notifications are local MID namespace
+							handler.remove(this, null, keyMid);
+						}
+					} else {
+						break;
+					}
+				}
+				if (nonLifetimeNanos == 0) {
+					Endpoint endpoint = this.endpoint;
+					if (endpoint != null) {
+						nonLifetimeNanos = endpoint.getConfig().get(CoapConfig.NON_LIFETIME, TimeUnit.NANOSECONDS);
+					} else {
+						nonLifetimeNanos = TimeUnit.SECONDS.toNanos(CoapConfig.DEFAULT_NON_LIFETIME_IN_SECONDS);
+					}
+				}
+				notifications.add(new NotificationKeyMID(currentKeyMID, now + nonLifetimeNanos));
 				currentKeyMID = null;
 			}
 			currentResponse = newCurrentResponse;
@@ -676,6 +851,17 @@ public class Exchange {
 	}
 
 	/**
+	 * Returns the other peer's identity.
+	 * 
+	 * @return the other peer's identity
+	 * @see EndpointIdentityResolver
+	 * @since 3.0
+	 */
+	public Object getPeersIdentity() {
+		return peersIdentity;
+	}
+
+	/**
 	 * Indicated, that this exchange retransmission reached the timeout.
 	 * 
 	 * @return {@code true}, transmission reached timeout, {@code false},
@@ -714,30 +900,95 @@ public class Exchange {
 		}
 	}
 
+	/**
+	 * Get failed transmissions count.
+	 * 
+	 * @return number of failed transmissions
+	 */
 	public int getFailedTransmissionCount() {
 		return failedTransmissionCount;
 	}
 
-	public void setFailedTransmissionCount(int failedTransmissionCount) {
-		this.failedTransmissionCount = failedTransmissionCount;
+	/**
+	 * Increment the failed transmission count.
+	 * 
+	 * @return incremented number of failed transmissions
+	 * @since 3.0
+	 */
+	public int incrementFailedTransmissionCount() {
+		assertOwner();
+		return ++failedTransmissionCount;
 	}
 
+	/**
+	 * Get timeout scale factor for exponential back-off between
+	 * retransmissions.
+	 * 
+	 * @return timeout scale factor for exponential back-off.
+	 * @since 3.0
+	 */
+	public float getTimeoutScale() {
+		return timeoutScale;
+	}
+
+	/**
+	 * Set timeout scale factor for exponential back-off between
+	 * retransmissions.
+	 * 
+	 * @param scale timeout scale factor. Must be at least 1.0. If larger than
+	 *            1.0, an exponential back-off between retransmissions is used.
+	 * @throws IllegalArgumentException if value is not at least 1.0.
+	 * @since 3.0
+	 */
+	public void setTimeoutScale(float scale) {
+		if (scale < 1.0F) {
+			throw new IllegalArgumentException("Timeout scale factor must be at least 1.0, not " + scale);
+		}
+		timeoutScale = scale;
+	}
+
+	/**
+	 * Get current timeout.
+	 * 
+	 * Timeout for retransmission, if no ACK, RST nor response is received.
+	 * 
+	 * @return current timeout in milliseconds
+	 */
 	public int getCurrentTimeout() {
 		return currentTimeout;
 	}
 
+	/**
+	 * Set current timeout.
+	 * 
+	 * Timeout for retransmission, if no ACK, RST nor response is received.
+	 * 
+	 * @param currentTimeout current timeout in milliseconds. Must be larger
+	 *            than 0.
+	 */
 	public void setCurrentTimeout(int currentTimeout) {
+		if (currentTimeout <= 1) {
+			throw new IllegalArgumentException("Timeout  must be larger than 1 ms, not " + currentTimeout);
+		}
 		this.currentTimeout = currentTimeout;
 	}
 
-	public ScheduledFuture<?> getRetransmissionHandle() {
-		return retransmissionHandle;
+	/**
+	 * Check, if ACK, RST or response for transmission is pending.
+	 * 
+	 * @return {@code true}, if ACK, RST or response is pending, {@code false},
+	 *         if not.
+	 * @since 3.0 (was getRetransmissionHandle)
+	 */
+	public boolean isTransmissionPending() {
+		return retransmissionHandle != null;
 	}
 
 	/**
 	 * Set retransmission handle.
 	 * 
-	 * @param newRetransmissionHandle
+	 * @param newRetransmissionHandle new retransmission handle. May be
+	 *            {@code null}, if no retransmission is required.
 	 * @throws ConcurrentModificationException if not executed within
 	 *             {@link #execute(Runnable)}.
 	 */
@@ -842,8 +1093,9 @@ public class Exchange {
 	 * <p>
 	 * This means that both request and response have been sent/received.
 	 * <p>
-	 * This method invokes the {@linkplain RemoveHandler#remove(Exchange, KeyToken, KeyMID)
-	 * remove} method on the observer registered on this exchange (if any).
+	 * This method invokes the
+	 * {@linkplain RemoveHandler#remove(Exchange, KeyToken, KeyMID) remove}
+	 * method on the observer registered on this exchange (if any).
 	 * <p>
 	 * Call this method to trigger a clean-up in the Matcher through its
 	 * ExchangeObserverImpl. Usually, it is called automatically when reaching
@@ -925,7 +1177,7 @@ public class Exchange {
 		if (complete.get()) {
 			return false;
 		}
-		if (executor == null || checkOwner()) {
+		if (checkOwner()) {
 			setComplete();
 		} else {
 			execute(new Runnable() {
@@ -955,7 +1207,7 @@ public class Exchange {
 	 * Get the realtime of the last sending of a message in nanoseconds.
 	 * 
 	 * The realtime is just before sending this message to ensure, that the
-	 * message wasn't sent up to this time. This will alos contain the realtime
+	 * message wasn't sent up to this time. This will also contain the realtime
 	 * for ACK or RST messages.
 	 * 
 	 * @return nano-time of last message sending. {@code 0}, if no message was
@@ -965,7 +1217,7 @@ public class Exchange {
 	 * @see ClockUtil#nanoRealtime()
 	 */
 	public long getSendNanoTimestamp() {
-		return sendNanoTimestamp.get();
+		return sendNanoTimestamp;
 	}
 
 	/**
@@ -977,7 +1229,43 @@ public class Exchange {
 	 *            to {@code -1}.
 	 */
 	public void setSendNanoTimestamp(long nanoTimestamp) {
-		sendNanoTimestamp.set(nanoTimestamp);
+		sendNanoTimestamp = nanoTimestamp;
+	}
+
+	/**
+	 * Start transmission RTT.
+	 * 
+	 * @since 3.0
+	 */
+	public void startTransmissionRtt() {
+		transmissionRttStart = true;
+		transmissionRttSet = false;
+		transmissionRttTimestamp = ClockUtil.nanoRealtime();
+	}
+
+	/**
+	 * Calculate transmission round trip time.
+	 * 
+	 * {@link #startTransmissionRtt()} must be called before.
+	 * 
+	 * @return transmission round trip time in nanoseconds.
+	 * @throws IllegalStateException if {@link #startTransmissionRtt()} wasn't
+	 *             called before.
+	 * @since 3.0
+	 */
+	public long calculateTransmissionRtt() {
+		if (!transmissionRttSet && !transmissionRttStart) {
+			throw new IllegalStateException("startTransmissionRtt must be called before!");
+		}
+		if (!transmissionRttSet) {
+			transmissionRttSet = true;
+			transmissionRttStart = false;
+			transmissionRttTimestamp = ClockUtil.nanoRealtime() - transmissionRttTimestamp;
+			if (transmissionRttTimestamp == 0) {
+				transmissionRttTimestamp = 1;
+			}
+		}
+		return transmissionRttTimestamp;
 	}
 
 	/**
@@ -985,16 +1273,24 @@ public class Exchange {
 	 * 
 	 * MUST be called on receiving the response.
 	 * 
-	 * @return RTT in milliseconds
+	 * @return RTT in nanoseconds
+	 * @since 3.0 (was calculateRTT returning milliseconds)
 	 */
-	public long calculateRTT() {
-		return TimeUnit.NANOSECONDS.toMillis(ClockUtil.nanoRealtime() - nanoTimestamp);
+	public long calculateApplicationRtt() {
+		return ClockUtil.nanoRealtime() - nanoTimestamp;
 	}
 
 	/**
-	 * Returns the CoAP observe relation that this exchange has established.
+	 * Returns the CoAP observe relation that this exchange has initially
+	 * established.
+	 * <p>
+	 * <b>Note:</b> in the meantime the relation may have been
+	 * {@link ObserveRelation#cancel()}. Therefore it's important to check the
+	 * current state of the relation using {@link ObserveRelation#isCanceled()}
+	 * or {@link ObserveRelation#isEstablished()}.
 	 * 
-	 * @return the observe relation or null
+	 * @return the observe relation, or {@code null}, if this exchange is not
+	 *         related to an observation.
 	 */
 	public ObserveRelation getRelation() {
 		return relation;
@@ -1018,7 +1314,7 @@ public class Exchange {
 			throw new IllegalStateException("Observer relation already set!");
 		}
 		this.relation = relation;
-		notifications = new ArrayList<KeyMID>();
+		notifications = new ArrayList<NotificationKeyMID>();
 	}
 
 	/**
@@ -1033,17 +1329,18 @@ public class Exchange {
 	 */
 	public void removeNotifications() {
 		assertOwner();
-		RemoveHandler handler = this.removeHandler;
 		if (notifications != null && !notifications.isEmpty()) {
-			for (KeyMID keyMid : notifications) {
-				LOGGER.info("{} removing NON notification: {}", this, keyMid);
-				// notifications are local MID namespace
-				if (handler != null) {
+			RemoveHandler handler = this.removeHandler;
+			if (handler != null) {
+				for (NotificationKeyMID notification : notifications) {
+					KeyMID keyMid = notification.getMID();
+					LOGGER.info("{} removing NON notification: {}", this, keyMid);
+					// notifications are local MID namespace
 					handler.remove(this, null, keyMid);
 				}
 			}
 			notifications.clear();
-			LOGGER.debug("{} removing all remaining NON-notifications of observe relation with {}", this,
+			LOGGER.debug("{} removed all remaining NON-notifications of observe relation with {}", this,
 					relation.getSource());
 		}
 	}
@@ -1052,14 +1349,15 @@ public class Exchange {
 	 * Sets additional information about the context this exchange's request has
 	 * been sent in.
 	 * <p>
-	 * The information is usually obtained from the <code>Connector</code> this
+	 * The information is usually obtained from the {@link Connector} this
 	 * exchange is using to send and receive data. The information contained in
 	 * the context can be used in addition to the message ID and token of this
 	 * exchange to increase security when matching an incoming response to this
 	 * exchange's request.
 	 * </p>
-	 * If a {@link #setEndpointContextPreOperator(EndpointContextOperator)} is used,
-	 * this pre-operator is called before the endpoint context is set and forwarded.
+	 * If a {@link #setEndpointContextPreOperator(EndpointContextOperator)} is
+	 * used, this pre-operator is called before the endpoint context is set and
+	 * forwarded.
 	 * 
 	 * @param ctx the endpoint context information
 	 */
@@ -1075,11 +1373,15 @@ public class Exchange {
 		}
 	}
 
+	public void resetEndpointContext() {
+		endpointContext.set(null);
+	}
+
 	/**
 	 * Gets transport layer specific information that can be used to correlate a
 	 * response with this exchange's original request.
 	 * 
-	 * @return the endpoint context information or <code>null</code> if no
+	 * @return the endpoint context information or {@code null}, if no
 	 *         information is available.
 	 */
 	public EndpointContext getEndpointContext() {
@@ -1108,7 +1410,7 @@ public class Exchange {
 	 */
 	public void execute(final Runnable command) {
 		try {
-			if (executor == null || checkOwner()) {
+			if (checkOwner()) {
 				command.run();
 			} else {
 				executor.execute(command);
@@ -1143,9 +1445,7 @@ public class Exchange {
 	 *             {@link #execute(Runnable)}.
 	 */
 	private void assertOwner() {
-		if (executor != null) {
-			executor.assertOwner();
-		}
+		executor.assertOwner();
 	}
 
 	/**
@@ -1155,11 +1455,7 @@ public class Exchange {
 	 *         {@code false}, otherwise.
 	 */
 	public boolean checkOwner() {
-		if (executor != null) {
-			return executor.checkOwner();
-		} else {
-			return true;
-		}
+		return executor.checkOwner();
 	}
 
 	/**
@@ -1196,5 +1492,31 @@ public class Exchange {
 		 * @return resulting endpoint context.
 		 */
 		EndpointContext apply(EndpointContext context);
+	}
+
+	/**
+	 * Notification MID.
+	 * 
+	 * Keep usage time to expire MID even without CON notification.
+	 * 
+	 * @since 3.5
+	 */
+	private static class NotificationKeyMID {
+
+		private long expireNanoseconds;
+		private KeyMID keyMid;
+
+		private NotificationKeyMID(KeyMID keyMid, long expireNanoseconds) {
+			this.keyMid = keyMid;
+			this.expireNanoseconds = expireNanoseconds;
+		}
+
+		private boolean isExpired(long currentNanoseconds) {
+			return (currentNanoseconds - expireNanoseconds) > 0;
+		}
+
+		private KeyMID getMID() {
+			return keyMid;
+		}
 	}
 }

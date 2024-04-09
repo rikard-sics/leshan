@@ -32,35 +32,24 @@ import org.eclipse.californium.elements.util.DatagramWriter;
  * <p>
  * Instances of this enumeration do not implement any compression functionality.
  * They merely serve as an object representation of the identifiers defined
- * in <a href="http://tools.ietf.org/html/rfc3749">Transport Layer Security
+ * in <a href="https://tools.ietf.org/html/rfc3749" target="_blank">Transport Layer Security
  * Protocol Compression Methods</a>.
  * <p>
- * Note that only the {@link #NULL} compression method is supported at the
- * moment.
+ * Note, that only the {@link #NULL} compression method is supported.
  */
 public enum CompressionMethod {
 	NULL(0x00),
 	DEFLATE(0x01);
 
-	// DTLS-specific constants ////////////////////////////////////////
-
 	public static final int COMPRESSION_METHOD_BITS = 8;
-
-	// Logging ////////////////////////////////////////////////////////
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(CompressionMethod.class);
 
-	// Members ////////////////////////////////////////////////////////
-
-	private int code;
-	
-	// Constructor ////////////////////////////////////////////////////
+	private final int code;
 
 	private CompressionMethod(int code) {
 		this.code = code;
 	}
-	
-	// Methods ////////////////////////////////////////////////////////
 
 	public int getCode() {
 		return code;
@@ -79,24 +68,17 @@ public enum CompressionMethod {
 		}
 	}
 
-	// Serialization //////////////////////////////////////////////////
-
 	/**
-	 * Takes a list of compression methods and creates the representing byte
-	 * stream.
+	 * Write a list of compression methods.
 	 * 
-	 * @param compressionMethods
-	 *            the list of the compression methods
-	 * @return the corresponding byte array
+	 * @param writer writer to write to
+	 * @param compressionMethods the list of the compression methods
+	 * @since 3.0
 	 */
-	public static byte[] listToByteArray(List<CompressionMethod> compressionMethods) {
-
-		DatagramWriter writer = new DatagramWriter();
+	public static void listToWriter(DatagramWriter writer, List<CompressionMethod> compressionMethods) {
 		for (CompressionMethod compressionMethod : compressionMethods) {
 			writer.write(compressionMethod.getCode(), COMPRESSION_METHOD_BITS);
 		}
-
-		return writer.toByteArray();
 	}
 
 	/**
@@ -107,7 +89,7 @@ public enum CompressionMethod {
 	 * @return corresponding list of compression methods
 	 */
 	public static List<CompressionMethod> listFromReader(DatagramReader reader) {
-		List<CompressionMethod> compressionMethods = new ArrayList<CompressionMethod>();
+		List<CompressionMethod> compressionMethods = new ArrayList<>();
 
 		while (reader.bytesAvailable()) {
 			int code = reader.read(COMPRESSION_METHOD_BITS);

@@ -26,9 +26,11 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.eclipse.californium.core.CoapServer;
 import org.eclipse.californium.core.Utils;
+import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.Endpoint;
 import org.eclipse.californium.core.network.config.NetworkConfig;
@@ -36,17 +38,20 @@ import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.elements.Connector;
 import org.eclipse.californium.elements.auth.RawPublicKeyIdentity;
+import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.util.CertPathUtil;
 import org.eclipse.californium.oscore.ContextRederivation.PHASE;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.californium.oscore.OSCoreCtx;
 import org.eclipse.californium.oscore.OSException;
 import org.eclipse.californium.scandium.DTLSConnector;
+import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig.Builder;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
 import org.eclipse.californium.scandium.dtls.pskstore.AdvancedSinglePskStore;
 import org.eclipse.californium.scandium.dtls.x509.NewAdvancedCertificateVerifier;
+import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
 import org.eclipse.californium.scandium.dtls.x509.StaticNewAdvancedCertificateVerifier;
 import org.eclipse.leshan.client.EndpointsManager;
 import org.eclipse.leshan.client.OscoreHandler;
@@ -77,10 +82,13 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
 
     protected Builder dtlsConfigbuilder;
     protected List<Certificate> trustStore;
-    protected NetworkConfig coapConfig;
+	protected Configuration coapConfig;
     protected InetSocketAddress localAddress;
     protected CoapServer coapServer;
     protected EndpointFactory endpointFactory;
+
+	public int MAX_UNFRAGMENTED_SIZE = 4096;
+
 
     public CaliforniumEndpointsManager(InetSocketAddress localAddress, NetworkConfig coapConfig,
             Builder dtlsConfigBuilder, EndpointFactory endpointFactory) {
@@ -115,7 +123,7 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
         Identity serverIdentity;
         if (serverInfo.isSecure()) {
             DtlsConnectorConfig incompleteConfig = dtlsConfigbuilder.getIncompleteConfig();
-            Builder newBuilder = new Builder(incompleteConfig);
+			DtlsConnectorConfig.Builder newBuilder = DtlsConnectorConfig.builder(incompleteConfig);
 
             // Support PSK
             if (serverInfo.secureMode == SecurityMode.PSK) {
@@ -126,7 +134,9 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
                         false);
             } else if (serverInfo.secureMode == SecurityMode.RPK) {
                 // set identity
-                newBuilder.setIdentity(serverInfo.privateKey, serverInfo.publicKey);
+				SingleCertificateProvider myProv = new SingleCertificateProvider(serverInfo.privateKey,
+						serverInfo.publicKey);
+				newBuilder.setCertificateIdentityProvider(myProv);
                 // set RPK truststore
                 final PublicKey expectedKey = serverInfo.serverPublicKey;
                 NewAdvancedCertificateVerifier rpkVerifier = new StaticNewAdvancedCertificateVerifier.Builder()
@@ -137,7 +147,9 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
                         false, true);
             } else if (serverInfo.secureMode == SecurityMode.X509) {
                 // set identity
-                newBuilder.setIdentity(serverInfo.privateKey, new Certificate[] { serverInfo.clientCertificate });
+				SingleCertificateProvider myProv = new SingleCertificateProvider(serverInfo.privateKey,
+						new Certificate[] { serverInfo.clientCertificate });
+				newBuilder.setCertificateIdentityProvider(myProv);
 
                 // LWM2M v1.1.1 - 5.2.8.7. Certificate Usage Field
                 //
@@ -178,7 +190,8 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
                     newTrustedCertificatesList.add((X509Certificate) serverInfo.serverCertificate);
                     trustedCertificates = newTrustedCertificatesList.toArray(new X509Certificate[0]);
                     newBuilder.setAdvancedCertificateVerifier(
-                            new CaConstraintCertificateVerifier(serverInfo.serverCertificate, trustedCertificates));
+							new CaConstraintCertificateVerifier(serverInfo.serverCertificate, trustedCertificates,
+									null));
                 } else if (certificateUsage == CertificateUsage.SERVICE_CERTIFICATE_CONSTRAINT) {
                     X509Certificate[] trustedCertificates = null;
 
@@ -189,10 +202,10 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
                     }
 
                     newBuilder.setAdvancedCertificateVerifier(new ServiceCertificateConstraintCertificateVerifier(
-                            serverInfo.serverCertificate, trustedCertificates));
+							serverInfo.serverCertificate, trustedCertificates, null));
                 } else if (certificateUsage == CertificateUsage.TRUST_ANCHOR_ASSERTION) {
                     newBuilder.setAdvancedCertificateVerifier(new TrustAnchorAssertionCertificateVerifier(
-                            (X509Certificate) serverInfo.serverCertificate));
+							(X509Certificate) serverInfo.serverCertificate, null));
                 } else if (certificateUsage == CertificateUsage.DOMAIN_ISSUER_CERTIFICATE) {
                     newBuilder.setAdvancedCertificateVerifier(
                             new DomainIssuerCertificateVerifier(serverInfo.serverCertificate));
@@ -210,9 +223,11 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
 
             // For bootstrap no need to have DTLS role exchange
             // and so we can set DTLS Connection as client only by default.
-            if (serverInfo.bootstrap && incompleteConfig.isClientOnly() == null) {
-                newBuilder.setClientOnly();
-            }
+			// FIXME
+			// if (serverInfo.bootstrap && incompleteConfig.isClientOnly() ==
+			// null) {
+			// newBuilder.setClientOnly();
+			// }
 
             currentEndpoint = endpointFactory.createSecuredEndpoint(newBuilder.build(), coapConfig, null, null);
         } else if (serverInfo.useOscore) {
@@ -238,7 +253,7 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
             try {
                 byte[] idContext = null;
                 OSCoreCtx ctx = new OSCoreCtx(serverInfo.masterSecret, true, aeadAlg, serverInfo.senderId,
-                        serverInfo.recipientId, hkdfAlg, 32, serverInfo.masterSalt, idContext);
+						serverInfo.recipientId, hkdfAlg, 32, serverInfo.masterSalt, idContext, MAX_UNFRAGMENTED_SIZE);
                 db.addContext(serverInfo.getFullUri().toASCIIString(), ctx);
 
                 // Also add the context by the IP of the server since requests may use that
@@ -324,7 +339,10 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
         // To be sure registration doesn't expired, update request should be send considering all CoAP retransmissions
         // and registration lifetime.
         // See https://tools.ietf.org/html/rfc7252#section-4.8.2
-        long exchange_lifetime = coapConfig.getLong(NetworkConfig.Keys.EXCHANGE_LIFETIME, 247);
+		Long exchange_lifetime = coapConfig.get(CoapConfig.EXCHANGE_LIFETIME, TimeUnit.SECONDS);
+		if (exchange_lifetime == null) {
+			exchange_lifetime = 247L;
+		}
         if (lifetimeInMs - exchange_lifetime >= floor) {
             return lifetimeInMs - exchange_lifetime;
         } else {
@@ -427,6 +445,7 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
                 filteredCiphers.add(cipher);
             }
         }
-        dtlsConfigurationBuilder.setSupportedCipherSuites(filteredCiphers);
+		dtlsConfigurationBuilder.set(DtlsConfig.DTLS_CIPHER_SUITES, filteredCiphers);
+
     }
 }
