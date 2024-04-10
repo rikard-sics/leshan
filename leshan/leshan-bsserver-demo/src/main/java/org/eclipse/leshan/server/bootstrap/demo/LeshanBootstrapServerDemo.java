@@ -225,6 +225,7 @@ public class LeshanBootstrapServerDemo {
 
         // Get local address
         String localAddress = cl.getOptionValue("lh");
+		System.out.println("Local address in demo: " + localAddress);
         String localPortOption = cl.getOptionValue("lp");
         Integer localPort = null;
         if (localPortOption != null) {
@@ -371,6 +372,8 @@ public class LeshanBootstrapServerDemo {
             boolean supportDeprecatedCiphers, PublicKey publicKey, PrivateKey privateKey, X509Certificate[] certificate,
             List<Certificate> trustStore, Integer cid) throws Exception {
 
+		System.out.println("Local address in create and start: " + localAddress);
+
         // Enable OSCORE stack (fine to do even when using DTLS or only CoAP)
         // TODO OSCORE : this should be done in DefaultEndpointFactory ?
         OSCoreCoapStackFactory.useAsDefault(OscoreHandler.getContextDB());
@@ -389,6 +392,7 @@ public class LeshanBootstrapServerDemo {
         builder.setModel(new StaticModel(models));
 
         // Create DTLS Config
+		DtlsConfig.register();
 		Configuration dtlsConfig = Configuration.getStandard();
 		dtlsConfig.set(DtlsConfig.DTLS_RECOMMENDED_CIPHER_SUITES_ONLY, !supportDeprecatedCiphers);
         if (cid != null) {
@@ -467,6 +471,11 @@ public class LeshanBootstrapServerDemo {
 
         LeshanBootstrapServer bsServer = builder.build();
         bsServer.start();
+
+		System.out.println("Port1 demo: " + bsServer.getUnsecuredAddress());
+		System.out.println("Local address after server start: " + localAddress);
+		System.out.println("Secure local port after server start: " + secureLocalPort);
+		System.out.println("Port2 demo: " + bsServer.getSecuredAddress());
 
         // Now prepare and start jetty
         InetSocketAddress jettyAddr;

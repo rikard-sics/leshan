@@ -142,7 +142,7 @@ public class ContextRederivationTest {
 		String serverUri = serverEndpoint.getUri().toASCIIString();
 
 		// Enable context re-derivation functionality (in general)
-		ctx.setContextRederivationEnabled(true);
+		ctx.setContextRederivationEnabled(false);
 		// Explicitly initiate the context re-derivation procedure
 		ctx.setContextRederivationPhase(PHASE.CLIENT_INITIATE);
 
@@ -229,7 +229,7 @@ public class ContextRederivationTest {
 
 		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, context_id, MAX_UNFRAGMENTED_SIZE);
 		// Enable context re-derivation functionality (for client)
-		ctx.setContextRederivationEnabled(true);
+		ctx.setContextRederivationEnabled(false);
 		String serverUri = serverEndpoint.getUri().toASCIIString();
 		dbClient.addContext(serverUri, ctx);
 
@@ -362,7 +362,7 @@ public class ContextRederivationTest {
 		String clientUri = "coap://" + TestTools.LOCALHOST_EPHEMERAL.getAddress().getHostAddress();
 
 		// Enable context re-derivation functionality in general
-		ctx.setContextRederivationEnabled(true);
+		ctx.setContextRederivationEnabled(false);
 
 		// If the server is to initiate the context re-derivation procedure, set
 		// accordingly in the context

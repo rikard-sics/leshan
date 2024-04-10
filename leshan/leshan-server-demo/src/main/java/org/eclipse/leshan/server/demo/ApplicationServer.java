@@ -132,7 +132,8 @@ public class ApplicationServer {
 		Set<Integer> authMethods = new HashSet<Integer>();
 		authMethods.add(authenticationMethod.intValue());
 		AppProfile appStatement = new AppProfile(authMethods, false, true, false);
-		appStatements.put(uriLocal,   appStatement); appStatements.put(uriLocal + "/.well-known/edhoc", appStatement);
+		appStatements.put(uriLocal, appStatement);
+		appStatements.put("/.well-known/edhoc", appStatement);
 
 		Set<Integer> supportedEads = new HashSet<Integer>();
 		HashMap<Integer, List<CBORObject>> eadProductionInput = null;
@@ -154,35 +155,53 @@ public class ApplicationServer {
 		// Build an integer
 		// Key Pairs
 		HashMap<Integer, OneKey> inner = keyPairs.get(Constants.ECDH_KEY);
-		inner.put(Constants.CURVE_Ed25519, keyPair);
+		inner.put(Constants.CURVE_P256, keyPair);
 		inner.put(Constants.CURVE_X25519, keyPair);
 		inner = keyPairs.get(Constants.SIGNATURE_KEY);
-		inner.put(Constants.CURVE_Ed25519, keyPair);
+		inner.put(Constants.CURVE_P256, keyPair);
 		inner.put(Constants.CURVE_X25519, keyPair);
 
 		// Creds
 		HashMap<Integer, CBORObject> innerC = creds.get(Constants.ECDH_KEY);
-		innerC.put(Constants.CURVE_Ed25519, CBORObject.FromObject(cred));
+		innerC.put(Constants.CURVE_P256, CBORObject.FromObject(cred));
 		innerC.put(Constants.CURVE_X25519, CBORObject.FromObject(cred));
 		innerC = creds.get(Constants.SIGNATURE_KEY);
-		innerC.put(Constants.CURVE_Ed25519, CBORObject.FromObject(cred));
+		innerC.put(Constants.CURVE_P256, CBORObject.FromObject(cred));
 		innerC.put(Constants.CURVE_X25519, CBORObject.FromObject(cred));
 
 		// ID Creds
 		HashMap<Integer, CBORObject> innerD = idCreds.get(Constants.ECDH_KEY);
-		innerD.put(Constants.ID_CRED_TYPE_KID, idCred);
+		innerD.put(Constants.CURVE_P256, idCred);
 		innerD = idCreds.get(Constants.SIGNATURE_KEY);
-		innerD.put(Constants.ID_CRED_TYPE_KID, idCred);
+		innerD.put(Constants.CURVE_P256, idCred);
 
 		// Complete map
 		ownIdCreds.add(idCred);
 
+		// Fill maps
+		keyPairs.put(Integer.valueOf(Constants.SIGNATURE_KEY), new HashMap<Integer, OneKey>());
+		keyPairs.put(Integer.valueOf(Constants.ECDH_KEY), new HashMap<Integer, OneKey>());
+		creds.put(Integer.valueOf(Constants.SIGNATURE_KEY), new HashMap<Integer, CBORObject>());
+		creds.put(Integer.valueOf(Constants.ECDH_KEY), new HashMap<Integer, CBORObject>());
+		idCreds.put(Integer.valueOf(Constants.SIGNATURE_KEY), new HashMap<Integer, CBORObject>());
+		idCreds.put(Integer.valueOf(Constants.ECDH_KEY), new HashMap<Integer, CBORObject>());
+
 		HashMapCtxDB db = OscoreHandler.getContextDB();
+		
 
 		EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(idCreds, creds, keyPairs, peerPublicKeys,
 				peerCredentials, edhocSessions, usedConnectionIds, supportedCiphersuites, supportedEads,
 				eadProductionInput, Constants.TRUST_MODEL_STRICT, db, uriLocal, OSCORE_REPLAY_WINDOW, 2048,
 				appStatements);
+		
+
+		System.out.println("### App profiles ");
+		for (String name : edhocEndpointInfo.getAppProfiles().keySet()) {
+			String key = name.toString();
+			String value = edhocEndpointInfo.getAppProfiles().get(name).toString();
+			System.out.println(key + " " + value);
+		}
+		
 		// New
 
 		// Build well-known and EDHOC resource

@@ -30,9 +30,12 @@ import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.elements.UDPConnector;
 import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.scandium.DTLSConnector;
+import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig.Builder;
 import org.eclipse.californium.scandium.dtls.CertificateType;
+import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
+import org.eclipse.californium.scandium.dtls.pskstore.AdvancedSinglePskStore;
 import org.eclipse.leshan.core.LwM2m;
 import org.eclipse.leshan.core.californium.DefaultEndpointFactory;
 import org.eclipse.leshan.core.californium.EndpointFactory;
@@ -107,6 +110,7 @@ public class LeshanBootstrapServerBuilder {
         } else {
             this.localAddress = new InetSocketAddress(hostname, port);
         }
+		System.out.println("*** Local address: " + this.localAddress.toString());
         return this;
     }
 
@@ -139,6 +143,7 @@ public class LeshanBootstrapServerBuilder {
         } else {
             this.localAddressSecure = new InetSocketAddress(hostname, port);
         }
+		System.out.println("*** Local secure address: " + this.localAddressSecure.toString());
         return this;
     }
 
@@ -430,7 +435,13 @@ public class LeshanBootstrapServerBuilder {
             decoder = new DefaultLwM2mNodeDecoder();
 
         // handle dtlsConfig
-        DtlsConnectorConfig dtlsConfig = null;
+		coapConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Arrays.asList(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8));
+		DtlsConnectorConfig.Builder myBuilder = DtlsConnectorConfig.builder(coapConfig);
+
+		AdvancedSinglePskStore pskStore = new AdvancedSinglePskStore("clientA", "test".getBytes());
+		myBuilder.setAdvancedPskStore(pskStore);
+
+		DtlsConnectorConfig dtlsConfig = myBuilder.build();
         if (!noSecuredEndpoint && shouldTryToCreateSecureEndpoint()) {
 			System.err.println("Attempted to create secure endpoint");
         }
@@ -441,6 +452,8 @@ public class LeshanBootstrapServerBuilder {
         }
 
         CoapEndpoint securedEndpoint = null;
+        System.out.println("noSecuredEndpoint " + noSecuredEndpoint);
+        System.out.println("dtlsConfig " + dtlsConfig);
         if (!noSecuredEndpoint && dtlsConfig != null) {
             securedEndpoint = endpointFactory.createSecuredEndpoint(dtlsConfig, coapConfig, null, null);
         }

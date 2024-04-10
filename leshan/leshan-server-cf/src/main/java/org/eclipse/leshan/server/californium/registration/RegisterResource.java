@@ -29,9 +29,11 @@ import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.core.server.resources.Resource;
+import org.eclipse.californium.oscore.CoapOSException;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.californium.oscore.OSCoreCtx;
 import org.eclipse.californium.oscore.OSException;
+import org.eclipse.californium.oscore.OscoreOptionDecoder;
 import org.eclipse.leshan.core.Link;
 import org.eclipse.leshan.core.californium.LwM2mCoapResource;
 import org.eclipse.leshan.core.request.BindingMode;
@@ -134,7 +136,17 @@ public class RegisterResource extends LwM2mCoapResource {
             // Update the URI of the associated OSCORE Context with the client's URI
             // So the server can send requests to the client
             HashMapCtxDB db = OscoreHandler.getContextDB();
-            OSCoreCtx clientCtx = db.getContext(exchange.advanced().getCryptographicContextID());
+
+			OscoreOptionDecoder dec = null;
+			try {
+				dec = new OscoreOptionDecoder(exchange.advanced().getCryptographicContextID());
+			} catch (CoapOSException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+			byte rid[] = dec.getKid();
+
+			OSCoreCtx clientCtx = db.getContext(rid);
 
             try {
                 db.addContext(request.getScheme() + "://"

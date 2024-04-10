@@ -353,6 +353,7 @@ public class Util {
 		List<CBORObject> serializationList = new ArrayList<CBORObject>();
 		
 		for (int i = 0; i < objectList.size(); i++) {
+			System.out.println("Element ID: " + i);
 			byte[] objBytes = objectList.get(i).EncodeToBytes();			
 			serializationList.add(CBORObject.FromObject(objBytes));
 			sequenceLength += objBytes.length;

@@ -50,7 +50,7 @@ import org.apache.commons.cli.Option.Builder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.eclipse.californium.core.Utils;
-
+import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.elements.Connector;
@@ -836,6 +836,7 @@ public class LeshanClientDemo {
         List<LwM2mObjectEnabler> enablers = initializer.createAll();
 
         // Create CoAP Config
+		CoapConfig.register();
 		Configuration coapConfig;
 		File configFile = new File(Configuration.DEFAULT_FILE_NAME);
         if (configFile.isFile()) {

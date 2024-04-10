@@ -193,7 +193,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 							masterSalt, idContext, 2048);
 
                     // Support Appendix B.2 functionality
-                    ctx.setContextRederivationEnabled(true);
+                    ctx.setContextRederivationEnabled(false);
                 } catch (OSException e) {
                     throw new JsonParseException("Failed to generate OSCORE context", e);
                 }
@@ -262,7 +262,9 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				Set<Integer> authMethods = new HashSet<Integer>();
 				authMethods.add(authenticationMethod.intValue());
 				AppProfile appStatement = new AppProfile(authMethods, false, true, false);
-				appStatements.put(uriLocal,   appStatement); appStatements.put(uriLocal + "/.well-known/edhoc", appStatement);
+				appStatements.put(uriLocal,   appStatement);
+				appStatements.put(uriLocal + "/.well-known/edhoc", appStatement);
+				appStatements.put("/.well-known/edhoc", appStatement);
 
 				Set<Integer> supportedEads = new HashSet<Integer>();
 				HashMap<Integer, List<CBORObject>> eadProductionInput = null;
@@ -280,6 +282,14 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				// supported curve)
 				HashMap<Integer, HashMap<Integer, CBORObject>> creds = new HashMap<Integer, HashMap<Integer, CBORObject>>();
 
+				// Fill maps
+				keyPairs.put(Integer.valueOf(Constants.SIGNATURE_KEY), new HashMap<Integer, OneKey>());
+				keyPairs.put(Integer.valueOf(Constants.ECDH_KEY), new HashMap<Integer, OneKey>());
+				creds.put(Integer.valueOf(Constants.SIGNATURE_KEY), new HashMap<Integer, CBORObject>());
+				creds.put(Integer.valueOf(Constants.ECDH_KEY), new HashMap<Integer, CBORObject>());
+				idCreds.put(Integer.valueOf(Constants.SIGNATURE_KEY), new HashMap<Integer, CBORObject>());
+				idCreds.put(Integer.valueOf(Constants.ECDH_KEY), new HashMap<Integer, CBORObject>());
+				
 				// Each element is the ID_CRED_X used for an authentication
 				// credential
 				// associated to this peer
@@ -288,25 +298,25 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				// Build an integer
 				// Key Pairs
 				HashMap<Integer, OneKey> inner = keyPairs.get(Constants.ECDH_KEY);
-				inner.put(Constants.CURVE_Ed25519, keyPair);
+				inner.put(Constants.CURVE_P256, keyPair);
 				inner.put(Constants.CURVE_X25519, keyPair);
 				inner = keyPairs.get(Constants.SIGNATURE_KEY);
-				inner.put(Constants.CURVE_Ed25519, keyPair);
+				inner.put(Constants.CURVE_P256, keyPair);
 				inner.put(Constants.CURVE_X25519, keyPair);
 
 				// Creds
 				HashMap<Integer, CBORObject> innerC = creds.get(Constants.ECDH_KEY);
-				innerC.put(Constants.CURVE_Ed25519, CBORObject.FromObject(cred));
+				innerC.put(Constants.CURVE_P256, CBORObject.FromObject(cred));
 				innerC.put(Constants.CURVE_X25519, CBORObject.FromObject(cred));
 				innerC = creds.get(Constants.SIGNATURE_KEY);
-				innerC.put(Constants.CURVE_Ed25519, CBORObject.FromObject(cred));
+				innerC.put(Constants.CURVE_P256, CBORObject.FromObject(cred));
 				innerC.put(Constants.CURVE_X25519, CBORObject.FromObject(cred));
 
 				// ID Creds
 				HashMap<Integer, CBORObject> innerD = idCreds.get(Constants.ECDH_KEY);
-				innerD.put(Constants.ID_CRED_TYPE_KID, idCred);
+				innerD.put(Constants.CURVE_P256, idCred);
 				innerD = idCreds.get(Constants.SIGNATURE_KEY);
-				innerD.put(Constants.ID_CRED_TYPE_KID, idCred);
+				innerD.put(Constants.CURVE_P256, idCred);
 
 				// Complete map
 				ownIdCreds.add(idCred);
@@ -318,7 +328,13 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 						appStatements);
 				// NEW
 
-
+				System.out.println("*** App profiles ");
+				for (String name : edhocEndpointInfo.getAppProfiles().keySet()) {
+					String key = name.toString();
+					String value = edhocEndpointInfo.getAppProfiles().get(name).toString();
+					System.out.println(key + " " + value);
+				}
+				
 				// Build well-known and EDHOC resource
 				// provide an instance of a .well-known/edhoc resource
 				CoapResource edhocResource = new EdhocResource("edhoc", edhocEndpointInfo, ownIdCreds);
@@ -477,6 +493,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 			// Use 0x07 as kid for this peer, i.e. the serialized ID_CRED_X
 			// is 0xa1, 0x04, 0x41, 0x07
 			// byte[] idCredKid = new byte[] { (byte) 0x24 };
+			System.out.println("This peer ID CRED " + Utils.toHexString(idCredKid));
 			idCred = org.eclipse.californium.edhoc.Util.buildIdCredKid(idCredKid);
 			// Build the related CRED
 			cred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKeyCcs(keyPair, subjectName, idCred);
@@ -544,6 +561,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 			// Use 0x24 as kid for the other peer, i.e. the serialized
 			// ID_CRED_X is 0xa1, 0x04, 0x41, 0x24
 			// byte[] peerKid = new byte[] { (byte) 0x07 };
+			System.out.println("Peer ID Cred " + Utils.toHexString(peerKid));
 			CBORObject idCredPeer = org.eclipse.californium.edhoc.Util.buildIdCredKid(peerKid);
 			peerPublicKeys.put(idCredPeer, peerPublicKey);
 			// Build the related CRED

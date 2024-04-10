@@ -106,7 +106,6 @@ public class EdhocClient {
 	// Each element is the ID_CRED_X used for an authentication credential associated to this peer
 	private static Set<CBORObject> ownIdCreds = new HashSet<>();
 	
-	
     // Authentication credentials of the other peers
 	// 
 	// The map label is a CBOR Map used as ID_CRED_X

@@ -34,6 +34,8 @@ import org.eclipse.californium.scandium.DTLSConnector;
 import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig.Builder;
+import org.eclipse.californium.scandium.dtls.pskstore.AdvancedPskStore;
+import org.eclipse.californium.scandium.dtls.pskstore.AdvancedSinglePskStore;
 import org.eclipse.leshan.client.engine.DefaultRegistrationEngineFactory;
 import org.eclipse.leshan.client.engine.RegistrationEngine;
 import org.eclipse.leshan.client.engine.RegistrationEngineFactory;
@@ -288,11 +290,14 @@ public class LeshanClientBuilder {
         }
 
         // handle dtlsConfig
+		DtlsConfig.register();
         if (dtlsConfigBuilder == null) {
         	dtlsConfigBuilder = Configuration.getStandard();
 			
         }
-        DtlsConnectorConfig incompleteConfig = DtlsConnectorConfig.builder(dtlsConfigBuilder).build();
+		Builder myBuilder = DtlsConnectorConfig.builder(dtlsConfigBuilder);
+		myBuilder.setAdvancedPskStore(new AdvancedSinglePskStore("identity", "secret".getBytes()));
+		DtlsConnectorConfig incompleteConfig = myBuilder.build();
 
         // Handle secure address
         if (incompleteConfig.getAddress() == null) {

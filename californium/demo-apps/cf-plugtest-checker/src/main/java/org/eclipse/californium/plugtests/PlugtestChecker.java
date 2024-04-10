@@ -314,7 +314,7 @@ public class PlugtestChecker {
 		try {
 			ctx = new OSCoreCtx(master_secret, false, alg, sid, rid, kdf, 32, master_salt, id_context,
 					MAX_UNFRAGMENTED_SIZE);
-			ctx.setContextRederivationEnabled(true);
+			ctx.setContextRederivationEnabled(false);
 			ctx.setContextRederivationPhase(PHASE.CLIENT_INITIATE);
 			db.addContext(config.uri, ctx);
 		} catch (OSException e) {

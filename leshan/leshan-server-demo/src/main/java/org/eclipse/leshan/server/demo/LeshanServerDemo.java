@@ -68,6 +68,7 @@ import org.eclipse.californium.elements.util.SslContextUtil;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.californium.oscore.OSCoreCoapStackFactory;
 import org.eclipse.californium.oscore.OSCoreCtxDB;
+import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.SingleNodeConnectionIdGenerator;
 import org.eclipse.jetty.server.Server;
@@ -454,6 +455,7 @@ public class LeshanServerDemo {
         OSCoreCoapStackFactory.useAsDefault(OscoreHandler.getContextDB());
 
         // Create CoAP Config
+		DtlsConfig.register();
         Configuration coapConfig;
 		File configFile = new File(Configuration.DEFAULT_FILE_NAME);
         if (configFile.isFile()) {

@@ -628,7 +628,7 @@ public class PlugtestServer extends AbstractTestServer {
 		try {
 			ctx = new OSCoreCtx(master_secret, false, alg, sid, rid, kdf, 32, master_salt, id_context,
 					MAX_UNFRAGMENTED_SIZE);
-			ctx.setContextRederivationEnabled(true);
+			ctx.setContextRederivationEnabled(false);
 		} catch (OSException e) {
 			LOGGER.error("Failed to derive OSCORE context");
 			e.printStackTrace();

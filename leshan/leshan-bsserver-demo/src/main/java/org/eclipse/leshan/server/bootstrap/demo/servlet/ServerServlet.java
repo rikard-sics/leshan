@@ -89,6 +89,8 @@ public class ServerServlet extends HttpServlet {
             return;
         }
 
+        System.out.println("Port1: " + server.getSecuredAddress());
+		System.out.println("Port2: " + server.getUnsecuredAddress());
         if ("endpoint".equals(path[0])) {
             resp.setStatus(HttpServletResponse.SC_OK);
             resp.setContentType("application/json");
