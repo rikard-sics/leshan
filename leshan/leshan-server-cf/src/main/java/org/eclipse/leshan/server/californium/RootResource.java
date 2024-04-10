@@ -41,7 +41,6 @@ public class RootResource extends CoapResource {
         exchange.respond(ResponseCode.NOT_FOUND);
     }
 
-    @Override
     public List<Endpoint> getEndpoints() {
         return coapServer.getEndpoints();
     }

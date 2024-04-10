@@ -37,12 +37,11 @@ import org.eclipse.californium.core.Utils;
 import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.cose.KeyKeys;
 import org.eclipse.californium.cose.OneKey;
-import org.eclipse.californium.edhoc.AppStatement;
+import org.eclipse.californium.edhoc.AppProfile;
 import org.eclipse.californium.edhoc.Constants;
 import org.eclipse.californium.edhoc.EdhocClient;
 import org.eclipse.californium.edhoc.EdhocEndpointInfo;
 import org.eclipse.californium.edhoc.EdhocSession;
-import org.eclipse.californium.edhoc.KissEDP;
 import org.eclipse.californium.edhoc.SharedSecretCalculation;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.leshan.client.OscoreHandler;
@@ -141,7 +140,7 @@ public class Edhoc extends BaseInstanceEnabler {
 			// Utils.printPause("Running EDHOC with Device Manager");
 			
 			// Install crypto provider
-			EdhocClient.installCryptoProvider();
+			Utils.installCryptoProvider();
 
 			// Set params
 			setupEdhocParameters();
@@ -175,7 +174,7 @@ public class Edhoc extends BaseInstanceEnabler {
 			// Set Authentication Method
 			Set<Integer> authMethods = new HashSet<Integer>();
 			authMethods.add(authenticationMethod.intValue());
-			AppStatement appStatement = new AppStatement(true, authMethods, false, false);
+			AppProfile appStatement = new AppProfile(true, authMethods, false, false);
 			appStatements.put(edhocURI, appStatement);
 
 			EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(idCred, cred, keyPair, peerPublicKeys,
@@ -345,7 +344,7 @@ public class Edhoc extends BaseInstanceEnabler {
 	// RH: Variables for initializing EdhocEndpointInfo
 	// Set in setupIdentityKeys() or setupSupportedCipherSuites()
 	static OneKey keyPair = null;
-	static int credType = Constants.CRED_TYPE_RPK;
+	static int credType = Constants.CRED_TYPE_CCS;
 	static byte[] cred = null;
 	static CBORObject idCred = null;
 	static String subjectName = "";
@@ -358,7 +357,7 @@ public class Edhoc extends BaseInstanceEnabler {
 	static List<Set<Integer>> usedConnectionIds = OscoreHandler.getUsedConnectionIds();
 	static String uriLocal = "coap://localhost";
 	static final int OSCORE_REPLAY_WINDOW = 32;
-	static Map<String, AppStatement> appStatements = new HashMap<String, AppStatement>();
+	static Map<String, AppProfile> appStatements = new HashMap<String, AppProfile>();
 	static KissEDP edp;
 	final static int keyFormat = 0; //
 
@@ -369,7 +368,7 @@ public class Edhoc extends BaseInstanceEnabler {
 	private static void setupEdhocParameters() {
 		// Set<Integer> authMethods = new HashSet<Integer>();
 		// authMethods.add(Constants.EDHOC_AUTH_METHOD_0);
-		// AppStatement appStatement = new AppStatement(true, authMethods,
+		// AppProfile appStatement = new AppProfile(true, authMethods,
 		// false, true);
 
 		// appStatements.put(uriLocal + "/.well-known/edhoc", appStatement);
@@ -382,7 +381,6 @@ public class Edhoc extends BaseInstanceEnabler {
 //			usedConnectionIds.add(new HashSet<Integer>());
 //		}
 
-		edp = new KissEDP();
 	}
 
 	/**
@@ -494,14 +492,14 @@ public class Edhoc extends BaseInstanceEnabler {
 		}
 
 		switch (credType) {
-		case Constants.CRED_TYPE_RPK:
+		case Constants.CRED_TYPE_CCS:
 			// Build the related ID_CRED
 			// Use 0x07 as kid for this peer, i.e. the serialized ID_CRED_X
 			// is 0xa1, 0x04, 0x41, 0x07
 			// byte[] idCredKid = new byte[] { (byte) 0x07 };
 			idCred = org.eclipse.californium.edhoc.Util.buildIdCredKid(idCredKid);
 			// Build the related CRED
-			cred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKey(keyPair, subjectName);
+			cred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKeyCcs(keyPair, subjectName, idCred);
 			System.out.println("Adding key");
 			break;
 
@@ -559,7 +557,7 @@ public class Edhoc extends BaseInstanceEnabler {
 		byte[] peerCred = null;
 
 		switch (credType) {
-		case Constants.CRED_TYPE_RPK:
+		case Constants.CRED_TYPE_CCS:
 			// Build the related ID_CRED
 			// Use 0x24 as kid for the other peer, i.e. the serialized
 			// ID_CRED_X is 0xa1, 0x04, 0x41, 0x24
@@ -567,7 +565,7 @@ public class Edhoc extends BaseInstanceEnabler {
 			CBORObject idCredPeer = org.eclipse.californium.edhoc.Util.buildIdCredKid(peerKid);
 			peerPublicKeys.put(idCredPeer, peerPublicKey);
 			// Build the related CRED
-			peerCred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKey(peerPublicKey, "");
+			peerCred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKeyCcs(peerPublicKey, "", idCredPeer);
 			peerCredentials.put(idCredPeer, CBORObject.FromObject(peerCred));
 			System.out.println("Adding peer key");
 			break;

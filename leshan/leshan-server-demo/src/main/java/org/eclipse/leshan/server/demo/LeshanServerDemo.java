@@ -52,13 +52,13 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.eclipse.californium.core.CoapResource;
-import org.eclipse.californium.core.network.config.NetworkConfig;
+
 import org.eclipse.californium.core.network.config.NetworkConfig.Keys;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.cose.KeyKeys;
 import org.eclipse.californium.cose.OneKey;
-import org.eclipse.californium.edhoc.AppStatement;
+import org.eclipse.californium.edhoc.AppProfile;
 import org.eclipse.californium.edhoc.Constants;
 import org.eclipse.californium.edhoc.EdhocEndpointInfo;
 import org.eclipse.californium.edhoc.EdhocResource;
@@ -455,7 +455,7 @@ public class LeshanServerDemo {
         OSCoreCoapStackFactory.useAsDefault(OscoreHandler.getContextDB());
 
         // Create CoAP Config
-        NetworkConfig coapConfig;
+        Configuration coapConfig;
         File configFile = new File(NetworkConfig.DEFAULT_FILE_NAME);
         if (configFile.isFile()) {
             coapConfig = new NetworkConfig();
@@ -742,7 +742,7 @@ public class LeshanServerDemo {
     // RH: Variables for initializing EdhocEndpointInfo
     // Set in setupIdentityKeys() or setupSupportedCipherSuites()
 	// static OneKey keyPair = null;
-	// static int credType = Constants.CRED_TYPE_RPK;
+	// static int credType = Constants.CRED_TYPE_CCS;
 	// static byte[] cred = null;
 	// static CBORObject idCred = null;
 	// static String subjectName = "";
@@ -759,8 +759,8 @@ public class LeshanServerDemo {
 	// ArrayList<Set<Integer>>();
 	// static String uriLocal = "coap://localhost";
 	// static final int OSCORE_REPLAY_WINDOW = 32;
-	// static Map<String, AppStatement> appStatements = new HashMap<String,
-	// AppStatement>();
+	// static Map<String, AppProfile> appStatements = new HashMap<String,
+	// AppProfile>();
 	// static KissEDP edp;
 	//
 	// /**
@@ -771,7 +771,7 @@ public class LeshanServerDemo {
 	// Set<Integer> authMethods = new HashSet<Integer>();
 	// for (int i = 0; i <= Constants.EDHOC_AUTH_METHOD_3; i++)
 	// authMethods.add(i);
-	// AppStatement appStatement = new AppStatement(true, authMethods, false,
+	// AppProfile appStatement = new AppProfile(true, authMethods, false,
 	// false);
 	//
 	// appStatements.put(uriLocal + "/.well-known/edhoc", appStatement);
@@ -879,14 +879,14 @@ public class LeshanServerDemo {
 	// }
 	//
 	// switch (credType) {
-	// case Constants.CRED_TYPE_RPK:
+	// case Constants.CRED_TYPE_CCS:
 	// // Build the related ID_CRED
 	// // Use 0x07 as kid for this peer, i.e. the serialized ID_CRED_X is 0xa1,
 	// 0x04, 0x41, 0x07
 	// byte[] idCredKid = new byte[] { (byte) 0x07 };
 	// idCred = org.eclipse.californium.edhoc.Util.buildIdCredKid(idCredKid);
 	// // Build the related CRED
-	// cred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKey(keyPair,
+	// cred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKeyCcs(keyPair,
 	// subjectName);
 	// break;
 	//
@@ -930,7 +930,7 @@ public class LeshanServerDemo {
 	// byte[] peerCred = null;
 	//
 	// switch (credType) {
-	// case Constants.CRED_TYPE_RPK:
+	// case Constants.CRED_TYPE_CCS:
 	// // Build the related ID_CRED
 	// // Use 0x24 as kid for the other peer, i.e. the serialized ID_CRED_X is
 	// 0xa1, 0x04, 0x41, 0x24
@@ -940,7 +940,7 @@ public class LeshanServerDemo {
 	// peerPublicKeys.put(idCredPeer, peerPublicKey);
 	// // Build the related CRED
 	// peerCred =
-	// org.eclipse.californium.edhoc.Util.buildCredRawPublicKey(peerPublicKey,
+	// org.eclipse.californium.edhoc.Util.buildCredRawPublicKeyCcs(peerPublicKey,
 	// "");
 	// peerCredentials.put(idCredPeer, CBORObject.FromObject(peerCred));
 	// break;

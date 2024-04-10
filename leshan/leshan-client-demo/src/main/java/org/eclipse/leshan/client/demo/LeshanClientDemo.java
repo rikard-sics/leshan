@@ -50,10 +50,11 @@ import org.apache.commons.cli.Option.Builder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.eclipse.californium.core.Utils;
-import org.eclipse.californium.core.network.config.NetworkConfig;
+
 import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.elements.Connector;
+import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.util.SslContextUtil;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.californium.oscore.OSCoreCoapStackFactory;
@@ -835,10 +836,10 @@ public class LeshanClientDemo {
         List<LwM2mObjectEnabler> enablers = initializer.createAll();
 
         // Create CoAP Config
-        NetworkConfig coapConfig;
-        File configFile = new File(NetworkConfig.DEFAULT_FILE_NAME);
+		Configuration coapConfig;
+		File configFile = new File(Configuration.DEFAULT_FILE_NAME);
         if (configFile.isFile()) {
-            coapConfig = new NetworkConfig();
+			coapConfig = new Configuration();
             coapConfig.load(configFile);
         } else {
             coapConfig = LeshanClientBuilder.createDefaultNetworkConfig();
@@ -887,7 +888,6 @@ public class LeshanClientDemo {
                                 }
                             }
 
-                            @Override
                             public void sessionEstablished(Handshaker handshaker, DTLSSession establishedSession)
                                     throws HandshakeException {
                                 if (handshaker instanceof ResumingServerHandshaker) {

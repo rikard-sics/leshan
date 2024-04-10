@@ -21,8 +21,9 @@ import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.CoapServer;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.Endpoint;
-import org.eclipse.californium.core.network.config.NetworkConfig;
+
 import org.eclipse.californium.core.server.resources.Resource;
+import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.leshan.core.model.LwM2mModel;
 import org.eclipse.leshan.core.node.codec.LwM2mNodeDecoder;
 import org.eclipse.leshan.core.node.codec.LwM2mNodeEncoder;
@@ -78,7 +79,7 @@ public class LeshanBootstrapServer {
     public LeshanBootstrapServer(CoapEndpoint unsecuredEndpoint, CoapEndpoint securedEndpoint,
             BootstrapConfigurationStore bsStore, BootstrapSecurityStore bsSecurityStore,
             BootstrapSessionManager bsSessionManager, BootstrapHandlerFactory bsHandlerFactory, LwM2mModel model,
-            NetworkConfig coapConfig, LwM2mNodeEncoder encoder, LwM2mNodeDecoder decoder) {
+            Configuration coapConfig, LwM2mNodeEncoder encoder, LwM2mNodeDecoder decoder) {
 
         Validate.notNull(bsStore, "bootstrap store must not be null");
         Validate.notNull(bsSessionManager, "session manager must not be null");
@@ -110,7 +111,7 @@ public class LeshanBootstrapServer {
         coapServer.add(bsResource);
     }
 
-    protected CoapServer createCoapServer(NetworkConfig coapConfig) {
+    protected CoapServer createCoapServer(Configuration coapConfig) {
         return new CoapServer(coapConfig) {
             @Override
             protected Resource createRoot() {

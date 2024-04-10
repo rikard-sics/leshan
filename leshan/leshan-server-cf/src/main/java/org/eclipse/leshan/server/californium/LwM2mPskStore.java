@@ -20,6 +20,7 @@ import java.net.InetSocketAddress;
 import javax.crypto.SecretKey;
 
 import org.eclipse.californium.scandium.dtls.ConnectionId;
+import org.eclipse.californium.scandium.dtls.HandshakeResultHandler;
 import org.eclipse.californium.scandium.dtls.PskPublicInformation;
 import org.eclipse.californium.scandium.dtls.PskSecretResult;
 import org.eclipse.californium.scandium.dtls.pskstore.AdvancedPskStore;
@@ -52,7 +53,6 @@ public class LwM2mPskStore implements AdvancedPskStore {
         return true;
     }
 
-    @Override
     public PskSecretResult requestPskSecretResult(ConnectionId cid, ServerNames serverName,
             PskPublicInformation identity, String hmacAlgorithm, SecretKey otherSecret, byte[] seed) {
         if (securityStore == null)
@@ -67,10 +67,6 @@ public class LwM2mPskStore implements AdvancedPskStore {
         }
     }
 
-    @Override
-    public void setResultHandler(org.eclipse.californium.scandium.dtls.PskSecretResultHandler resultHandler) {
-        // we don't use async mode.
-    }
 
     @Override
     public PskPublicInformation getIdentity(InetSocketAddress peerAddress, ServerNames virtualHost) {
@@ -87,4 +83,18 @@ public class LwM2mPskStore implements AdvancedPskStore {
         }
         return null;
     }
+
+	@Override
+	public PskSecretResult requestPskSecretResult(ConnectionId cid, ServerNames serverName,
+			PskPublicInformation identity, String hmacAlgorithm, SecretKey otherSecret, byte[] seed,
+			boolean useExtendedMasterSecret) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void setResultHandler(HandshakeResultHandler resultHandler) {
+		// TODO Auto-generated method stub
+
+	}
 }

@@ -44,7 +44,7 @@ import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.cose.KeyKeys;
 import org.eclipse.californium.cose.OneKey;
-import org.eclipse.californium.edhoc.AppStatement;
+import org.eclipse.californium.edhoc.AppProfile;
 import org.eclipse.californium.edhoc.Constants;
 import org.eclipse.californium.edhoc.EdhocClient;
 import org.eclipse.californium.edhoc.EdhocEndpointInfo;
@@ -284,7 +284,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 	// RH: Variables for initializing EdhocEndpointInfo
 	// Set in setupIdentityKeys() or setupSupportedCipherSuites()
 	static OneKey keyPair = null;
-	static int credType = Constants.CRED_TYPE_RPK;
+	static int credType = Constants.CRED_TYPE_CCS;
 	static byte[] cred = null;
 	static CBORObject idCred = null;
 	static String subjectName = "";
@@ -297,7 +297,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 	static List<Set<Integer>> usedConnectionIds = new ArrayList<Set<Integer>>();
 	static String uriLocal = "coap://localhost";
 	static final int OSCORE_REPLAY_WINDOW = 32;
-	static Map<String, AppStatement> appStatements = new HashMap<String, AppStatement>();
+	static Map<String, AppProfile> appStatements = new HashMap<String, AppProfile>();
 	static KissEDP edp;
 
 	/**
@@ -307,7 +307,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 	private static void setupEdhocParameters() {
 		Set<Integer> authMethods = new HashSet<Integer>();
 		authMethods.add(Constants.EDHOC_AUTH_METHOD_0);
-		AppStatement appStatement = new AppStatement(true, authMethods, false, false);
+		AppProfile appStatement = new AppProfile(true, authMethods, false, false);
 
 		appStatements.put(uriLocal + "/.well-known/edhoc", appStatement);
 
@@ -319,7 +319,6 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 			usedConnectionIds.add(new HashSet<Integer>());
 		}
 
-		edp = new KissEDP();
 	}
 
 	/**
@@ -425,14 +424,14 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 		}
 
 		switch (credType) {
-		case Constants.CRED_TYPE_RPK:
+		case Constants.CRED_TYPE_CCS:
 			// Build the related ID_CRED
 			// Use 0x07 as kid for this peer, i.e. the serialized ID_CRED_X
 			// is 0xa1, 0x04, 0x41, 0x07
 			// byte[] idCredKid = new byte[] { (byte) 0x24 };
 			idCred = org.eclipse.californium.edhoc.Util.buildIdCredKid(idCredKid);
 			// Build the related CRED
-			cred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKey(keyPair, subjectName);
+			cred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKeyCcs(keyPair, subjectName);
 			System.out.println("Adding key");
 			break;
 
@@ -492,7 +491,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 		byte[] peerCred = null;
 
 		switch (credType) {
-		case Constants.CRED_TYPE_RPK:
+		case Constants.CRED_TYPE_CCS:
 			// Build the related ID_CRED
 			// Use 0x24 as kid for the other peer, i.e. the serialized
 			// ID_CRED_X is 0xa1, 0x04, 0x41, 0x24
@@ -500,7 +499,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 			CBORObject idCredPeer = org.eclipse.californium.edhoc.Util.buildIdCredKid(peerKid);
 			peerPublicKeys.put(idCredPeer, peerPublicKey);
 			// Build the related CRED
-			peerCred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKey(peerPublicKey, "");
+			peerCred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKeyCcs(peerPublicKey, "");
 			peerCredentials.put(idCredPeer, CBORObject.FromObject(peerCred));
 			System.out.println("Adding peer key");
 			break;

@@ -224,7 +224,7 @@ public class InMemoryBootstrapConfigStore implements EditableBootstrapConfigStor
                 int replayWindow = 32;
 
                 OSCoreCtx ctx = new OSCoreCtx(masterSecret, false, aeadAlg, senderId, recipientId, hkdfAlg,
-                        replayWindow, masterSalt, idContext);
+						replayWindow, masterSalt, idContext, 2048);
                 // Support Appendix B.2 functionality
                 ctx.setContextRederivationEnabled(true);
 

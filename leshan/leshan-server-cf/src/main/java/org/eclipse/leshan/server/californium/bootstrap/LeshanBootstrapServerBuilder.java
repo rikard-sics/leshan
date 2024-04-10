@@ -24,7 +24,7 @@ import java.security.cert.X509Certificate;
 import java.util.Arrays;
 
 import org.eclipse.californium.core.network.CoapEndpoint;
-import org.eclipse.californium.core.network.config.NetworkConfig;
+
 import org.eclipse.californium.core.network.config.NetworkConfig.Keys;
 import org.eclipse.californium.elements.UDPConnector;
 import org.eclipse.californium.scandium.DTLSConnector;
@@ -75,7 +75,7 @@ public class LeshanBootstrapServerBuilder {
     private BootstrapHandlerFactory bootstrapHandlerFactory;
 
     private LwM2mModel model;
-    private NetworkConfig coapConfig;
+    private Configuration coapConfig;
     private Builder dtlsConfigBuilder;
 
     private LwM2mNodeEncoder encoder;
@@ -325,7 +325,7 @@ public class LeshanBootstrapServerBuilder {
      * @param coapConfig the CoAP configuration.
      * @return the builder for fluent Bootstrap Server creation.
      */
-    public LeshanBootstrapServerBuilder setCoapConfig(NetworkConfig coapConfig) {
+    public LeshanBootstrapServerBuilder setCoapConfig(Configuration coapConfig) {
         this.coapConfig = coapConfig;
         return this;
     }
@@ -599,7 +599,7 @@ public class LeshanBootstrapServerBuilder {
     protected LeshanBootstrapServer createBootstrapServer(CoapEndpoint unsecuredEndpoint, CoapEndpoint securedEndpoint,
             BootstrapConfigurationStore bsStore, BootstrapSecurityStore bsSecurityStore,
             BootstrapSessionManager bsSessionManager, BootstrapHandlerFactory bsHandlerFactory, LwM2mModel model,
-            NetworkConfig coapConfig, LwM2mNodeEncoder encoder, LwM2mNodeDecoder decoder) {
+            Configuration coapConfig, LwM2mNodeEncoder encoder, LwM2mNodeDecoder decoder) {
         return new LeshanBootstrapServer(unsecuredEndpoint, securedEndpoint, bsStore, bsSecurityStore, bsSessionManager,
                 bsHandlerFactory, model, coapConfig, encoder, decoder);
     }

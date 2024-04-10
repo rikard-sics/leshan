@@ -1160,7 +1160,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 	private static void setupEdhocParameters() {
 		// Set<Integer> authMethods = new HashSet<Integer>();
 		// authMethods.add(Constants.EDHOC_AUTH_METHOD_0);
-		// AppStatement appStatement = new AppStatement(true, authMethods,
+		// AppProfile appStatement = new AppProfile(true, authMethods,
 		// false, true);
 
 		// appStatements.put(uriLocal + "/.well-known/edhoc", appStatement);
@@ -1297,7 +1297,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 			idCred = org.eclipse.californium.edhoc.Util.buildIdCredKid(idCredKid);
 			// Build the related CRED
 			cred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKeyCcs(keyPair, subjectName,
-					CBORObject.FromObject(idCredKid));
+					idCred);
 			System.out.println("Adding key");
 			break;
 
@@ -1364,7 +1364,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 			peerPublicKeys.put(idCredPeer, peerPublicKey);
 			// Build the related CRED
 			peerCred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKeyCcs(peerPublicKey, "",
-					CBORObject.FromObject(idCredKid));
+					idCredPeer);
 			peerCredentials.put(idCredPeer, CBORObject.FromObject(peerCred));
 			System.out.println("Adding peer key");
 			break;

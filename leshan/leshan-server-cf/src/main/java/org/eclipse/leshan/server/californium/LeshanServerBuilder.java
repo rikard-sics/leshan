@@ -24,17 +24,20 @@ import java.security.PublicKey;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
+import org.eclipse.californium.core.config.CoapConfig;
+import org.eclipse.californium.core.config.CoapConfig.TrackerMode;
 import org.eclipse.californium.core.network.CoapEndpoint;
-import org.eclipse.californium.core.network.config.NetworkConfig;
+
 import org.eclipse.californium.core.network.config.NetworkConfig.Keys;
 import org.eclipse.californium.elements.DtlsEndpointContext;
 import org.eclipse.californium.elements.UDPConnector;
+import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.scandium.DTLSConnector;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig.Builder;
 import org.eclipse.californium.scandium.dtls.CertificateType;
-import org.eclipse.californium.scandium.dtls.x509.BridgeCertificateVerifier;
 import org.eclipse.leshan.core.LwM2m;
 import org.eclipse.leshan.core.californium.DefaultEndpointFactory;
 import org.eclipse.leshan.core.californium.EndpointFactory;
@@ -90,7 +93,7 @@ public class LeshanServerBuilder {
     private X509Certificate[] certificateChain;
     private Certificate[] trustedCertificates;
 
-    private NetworkConfig coapConfig;
+    private Configuration coapConfig;
     private DtlsConnectorConfig.Builder dtlsConfigBuilder;
 
     private EndpointFactory endpointFactory;
@@ -281,7 +284,7 @@ public class LeshanServerBuilder {
     /**
      * Set the Californium/CoAP {@link NetworkConfig}.
      */
-    public LeshanServerBuilder setCoapConfig(NetworkConfig config) {
+	public LeshanServerBuilder setCoapConfig(Configuration config) {
         this.coapConfig = config;
         return this;
     }
@@ -388,9 +391,9 @@ public class LeshanServerBuilder {
     /**
      * The default Californium/CoAP {@link NetworkConfig} used by the builder.
      */
-    public static NetworkConfig createDefaultNetworkConfig() {
-        NetworkConfig networkConfig = new NetworkConfig();
-        networkConfig.set(Keys.MID_TRACKER, "NULL");
+	public static Configuration createDefaultNetworkConfig() {
+		Configuration networkConfig = new Configuration();
+		networkConfig.set(CoapConfig.MID_TRACKER, TrackerMode.NULL);
         return networkConfig;
     }
 
@@ -418,7 +421,8 @@ public class LeshanServerBuilder {
         if (coapConfig == null)
             coapConfig = createDefaultNetworkConfig();
         if (awakeTimeProvider == null) {
-            int maxTransmitWait = coapConfig.getInt(Keys.MAX_TRANSMIT_WAIT);
+			long maxTransmitWaitLong = coapConfig.get(CoapConfig.MAX_TRANSMIT_WAIT, TimeUnit.SECONDS);
+			int maxTransmitWait = Math.toIntExact(maxTransmitWaitLong);
             if (maxTransmitWait == 0) {
                 LOG.warn(
                         "No value available for MAX_TRANSMIT_WAIT in CoAP NetworkConfig. Fallback with a default 93s value.");
@@ -615,7 +619,7 @@ public class LeshanServerBuilder {
     protected LeshanServer createServer(CoapEndpoint unsecuredEndpoint, CoapEndpoint securedEndpoint,
             CaliforniumRegistrationStore registrationStore, SecurityStore securityStore, Authorizer authorizer,
             LwM2mModelProvider modelProvider, LwM2mNodeEncoder encoder, LwM2mNodeDecoder decoder,
-            NetworkConfig coapConfig, boolean noQueueMode, ClientAwakeTimeProvider awakeTimeProvider,
+            Configuration coapConfig, boolean noQueueMode, ClientAwakeTimeProvider awakeTimeProvider,
             RegistrationIdProvider registrationIdProvider) {
         return new LeshanServer(unsecuredEndpoint, securedEndpoint, registrationStore, securityStore, authorizer,
                 modelProvider, encoder, decoder, coapConfig, noQueueMode, awakeTimeProvider, registrationIdProvider,
