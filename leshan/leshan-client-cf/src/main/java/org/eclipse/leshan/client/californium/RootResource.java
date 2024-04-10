@@ -181,7 +181,6 @@ public class RootResource extends LwM2mClientCoapResource {
         exchange.respond(toCoapResponseCode(response.getCode()), response.getErrorMessage());
     }
 
-    @Override
     public List<Endpoint> getEndpoints() {
         return coapServer.getEndpoints();
     }

@@ -1812,6 +1812,11 @@ public class CoapEndpoint implements Endpoint, Executor {
 			return new CoapEndpoint(connector, config, tokenGenerator, observationStore, exchangeStore,
 					endpointContextMatcher, serializer, parser, tag, coapStackFactory, customStackArgument);
 		}
+
+		public void setNetworkConfig(Configuration coapConfig) {
+			this.config = coapConfig;
+
+		}
 	}
 
 	/**

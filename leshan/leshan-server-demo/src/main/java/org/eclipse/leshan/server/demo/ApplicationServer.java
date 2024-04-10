@@ -15,6 +15,7 @@ import java.util.Set;
 
 import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.CoapServer;
+import org.eclipse.californium.core.Utils;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
@@ -30,7 +31,6 @@ import org.eclipse.californium.edhoc.EdhocClient;
 import org.eclipse.californium.edhoc.EdhocEndpointInfo;
 import org.eclipse.californium.edhoc.EdhocResource;
 import org.eclipse.californium.edhoc.EdhocSession;
-import org.eclipse.californium.edhoc.KissEDP;
 import org.eclipse.californium.edhoc.SharedSecretCalculation;
 import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.oscore.HashMapCtxDB;
@@ -105,13 +105,13 @@ public class ApplicationServer {
 		try {
 			ctx = new OSCoreCtx(Bytes.EMPTY, true, AlgorithmID.AES_CCM_16_64_128, Bytes.EMPTY,
 					new byte[] { 0x11, 0x22, 0x33, 0x44 },
-					AlgorithmID.HKDF_HMAC_SHA_256, 32, null, null);
+					AlgorithmID.HKDF_HMAC_SHA_256, 32, null, null, 2048);
 		} catch (OSException e) {
 			throw new JsonParseException("Failed to generate placeholder OSCORE context", e);
 		}
 
 		// Install crypto provider
-		EdhocClient.installCryptoProvider();
+		Utils.installCryptoProvider();
 
 		// Build EDHOC endpoint info
 		setupEdhocParameters();
@@ -127,15 +127,67 @@ public class ApplicationServer {
 		setupIdentityKeys(serverCredentialIdentifier, credentialIdentifier, serverPrivateKey, serverPublicKey,
 				publicCredential);
 
+		// New
+		// Set Authentication Method
+		Set<Integer> authMethods = new HashSet<Integer>();
+		authMethods.add(authenticationMethod.intValue());
+		AppProfile appStatement = new AppProfile(authMethods, false, true, false);
+		appStatements.put(uriLocal,   appStatement); appStatements.put(uriLocal + "/.well-known/edhoc", appStatement);
+
+		Set<Integer> supportedEads = new HashSet<Integer>();
+		HashMap<Integer, List<CBORObject>> eadProductionInput = null;
+
+		// TODO
+		// The asymmetric key pairs of this peer (one per supported curve)
+		HashMap<Integer, HashMap<Integer, OneKey>> keyPairs = new HashMap<Integer, HashMap<Integer, OneKey>>();
+
+		// The identifiers of the authentication credentials of this peer
+		HashMap<Integer, HashMap<Integer, CBORObject>> idCreds = new HashMap<Integer, HashMap<Integer, CBORObject>>();
+
+		// The authentication credentials of this peer (one per supported curve)
+		HashMap<Integer, HashMap<Integer, CBORObject>> creds = new HashMap<Integer, HashMap<Integer, CBORObject>>();
+
+		// Each element is the ID_CRED_X used for an authentication credential
+		// associated to this peer
+		Set<CBORObject> ownIdCreds = new HashSet<>();
+
+		// Build an integer
+		// Key Pairs
+		HashMap<Integer, OneKey> inner = keyPairs.get(Constants.ECDH_KEY);
+		inner.put(Constants.CURVE_Ed25519, keyPair);
+		inner.put(Constants.CURVE_X25519, keyPair);
+		inner = keyPairs.get(Constants.SIGNATURE_KEY);
+		inner.put(Constants.CURVE_Ed25519, keyPair);
+		inner.put(Constants.CURVE_X25519, keyPair);
+
+		// Creds
+		HashMap<Integer, CBORObject> innerC = creds.get(Constants.ECDH_KEY);
+		innerC.put(Constants.CURVE_Ed25519, CBORObject.FromObject(cred));
+		innerC.put(Constants.CURVE_X25519, CBORObject.FromObject(cred));
+		innerC = creds.get(Constants.SIGNATURE_KEY);
+		innerC.put(Constants.CURVE_Ed25519, CBORObject.FromObject(cred));
+		innerC.put(Constants.CURVE_X25519, CBORObject.FromObject(cred));
+
+		// ID Creds
+		HashMap<Integer, CBORObject> innerD = idCreds.get(Constants.ECDH_KEY);
+		innerD.put(Constants.ID_CRED_TYPE_KID, idCred);
+		innerD = idCreds.get(Constants.SIGNATURE_KEY);
+		innerD.put(Constants.ID_CRED_TYPE_KID, idCred);
+
+		// Complete map
+		ownIdCreds.add(idCred);
+
 		HashMapCtxDB db = OscoreHandler.getContextDB();
-		OSCoreCoapStackFactory.useAsDefault(db);
-		EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(idCred, cred, keyPair, peerPublicKeys,
-				peerCredentials, edhocSessions, usedConnectionIds, supportedCiphersuites, db, uriLocal,
-				OSCORE_REPLAY_WINDOW, appStatements, edp);
+
+		EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(idCreds, creds, keyPairs, peerPublicKeys,
+				peerCredentials, edhocSessions, usedConnectionIds, supportedCiphersuites, supportedEads,
+				eadProductionInput, Constants.TRUST_MODEL_STRICT, db, uriLocal, OSCORE_REPLAY_WINDOW, 2048,
+				appStatements);
+		// New
 
 		// Build well-known and EDHOC resource
 		// provide an instance of a .well-known/edhoc resource
-		CoapResource edhocResource = new EdhocResource("edhoc", edhocEndpointInfo);
+		CoapResource edhocResource = new EdhocResource("edhoc", edhocEndpointInfo, ownIdCreds);
 		CoapResource wellKnownResource = new WellKnown();
 		wellKnownResource.add(edhocResource);
 		
@@ -164,17 +216,16 @@ public class ApplicationServer {
 	static byte[] cred = null;
 	static CBORObject idCred = null;
 	static String subjectName = "";
-	static Map<CBORObject, OneKey> peerPublicKeys = new HashMap<CBORObject, OneKey>();
-	static Map<CBORObject, CBORObject> peerCredentials = new HashMap<CBORObject, CBORObject>();
+	static HashMap<CBORObject, OneKey> peerPublicKeys = new HashMap<CBORObject, OneKey>();
+	static HashMap<CBORObject, CBORObject> peerCredentials = new HashMap<CBORObject, CBORObject>();
 	static List<Integer> supportedCiphersuites = new ArrayList<Integer>();
 	// Other variables needed
 	static final int keyCurve = KeyKeys.EC2_P256.AsInt32(); // ECDSA
-	static Map<CBORObject, EdhocSession> edhocSessions = new HashMap<CBORObject, EdhocSession>();
-	static List<Set<Integer>> usedConnectionIds = new ArrayList<Set<Integer>>();
+	static HashMap<CBORObject, EdhocSession> edhocSessions = new HashMap<CBORObject, EdhocSession>();
+	static Set<CBORObject> usedConnectionIds = new HashSet<CBORObject>();
 	static String uriLocal = "coap://localhost";
 	static final int OSCORE_REPLAY_WINDOW = 32;
-	static Map<String, AppProfile> appStatements = new HashMap<String, AppProfile>();
-	static KissEDP edp;
+	static HashMap<String, AppProfile> appStatements = new HashMap<String, AppProfile>();
 
 	/**
 	 * RH: General method for setting up all EDHOC parameters needed to build
@@ -183,19 +234,12 @@ public class ApplicationServer {
 	private static void setupEdhocParameters() {
 		Set<Integer> authMethods = new HashSet<Integer>();
 		authMethods.add(Constants.EDHOC_AUTH_METHOD_0);
-		AppProfile appStatement = new AppProfile(true, authMethods, false, false);
+
+		AppProfile appStatement = new AppProfile(authMethods, false, true, false);
+		appStatements.put(uriLocal,   appStatement); appStatements.put(uriLocal + "/.well-known/edhoc", appStatement);
 
 		appStatements.put(uriLocal + "/.well-known/edhoc", appStatement);
 
-		for (int i = 0; i < 4; i++) {
-			// Empty sets of assigned Connection Identifiers; one set for each
-			// possible size in bytes.
-			// The set with index 0 refers to Connection Identifiers with size 1
-			// byte
-			usedConnectionIds.add(new HashSet<Integer>());
-		}
-
-		edp = new KissEDP();
 	}
 
 	/**
@@ -308,7 +352,7 @@ public class ApplicationServer {
 			// byte[] idCredKid = new byte[] { (byte) 0x24 };
 			idCred = org.eclipse.californium.edhoc.Util.buildIdCredKid(idCredKid);
 			// Build the related CRED
-			cred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKeyCcs(keyPair, subjectName);
+			cred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKeyCcs(keyPair, subjectName, idCred);
 			System.out.println("Adding key");
 			break;
 
@@ -376,7 +420,7 @@ public class ApplicationServer {
 			CBORObject idCredPeer = org.eclipse.californium.edhoc.Util.buildIdCredKid(peerKid);
 			peerPublicKeys.put(idCredPeer, peerPublicKey);
 			// Build the related CRED
-			peerCred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKeyCcs(peerPublicKey, "");
+			peerCred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKeyCcs(peerPublicKey, "", idCredPeer);
 			peerCredentials.put(idCredPeer, CBORObject.FromObject(peerCred));
 			System.out.println("Adding peer key");
 			break;

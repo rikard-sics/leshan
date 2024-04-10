@@ -145,7 +145,7 @@ public class DefaultEndpointFactory implements EndpointFactory {
      * @return the {@link Connector} used for unsecured {@link CoapEndpoint}
      */
     protected Connector createUnsecuredConnector(InetSocketAddress address) {
-        return new UDPConnector(address);
+		return new UDPConnector(address, Configuration.getStandard());
     }
 
     @Override

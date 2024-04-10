@@ -23,12 +23,15 @@ import java.security.PublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import javax.security.auth.x500.X500Principal;
 
 import org.eclipse.californium.elements.AddressEndpointContext;
+import org.eclipse.californium.elements.Definition;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.MapBasedEndpointContext;
+import org.eclipse.californium.elements.MapBasedEndpointContext.Attributes;
 import org.eclipse.californium.elements.auth.PreSharedKeyIdentity;
 import org.eclipse.californium.elements.auth.RawPublicKeyIdentity;
 import org.eclipse.californium.elements.auth.X509CertPath;
@@ -67,11 +70,11 @@ public class EndpointContextSerDes {
             }
         }
         /** copy the attributes **/
-        Map<String, String> attributes = context.entries();
+		Map<Definition<?>, Object> attributes = context.entries();
         if (!attributes.isEmpty()) {
             JsonObject attContext = Json.object();
-            for (String key : attributes.keySet()) {
-                attContext.set(key, attributes.get(key));
+			for (Entry<Definition<?>, Object> key : attributes.entrySet()) {
+				attContext.set(key.toString(), (int) attributes.get(key));
             }
             peer.set(KEY_ATTRIBUTES, attContext);
         }
@@ -107,10 +110,10 @@ public class EndpointContextSerDes {
             endpointContext = new AddressEndpointContext(socketAddress, principal);
         } else {
             int index = 0;
-            String attributes[] = new String[value.asObject().size() * 2];
+			Attributes attributes = new Attributes();
             for (Member member : value.asObject()) {
-                attributes[index++] = member.getName();
-                attributes[index++] = member.getValue().asString();
+            	Definition<String> def = new Definition<String>(member.getName(), null);
+				attributes.add(def, member.getValue().asString());
             }
             endpointContext = new MapBasedEndpointContext(socketAddress, principal, attributes);
         }

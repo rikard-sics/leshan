@@ -116,6 +116,14 @@ public class MapBasedEndpointContext extends AddressEndpointContext {
 		this.hasCriticalEntries = findCriticalEntries(entries);
 	}
 
+	public MapBasedEndpointContext(InetSocketAddress peerAddress, Principal peerIdentity,
+			Definition<String> keyHandshakeMode, String handshakeModeAuto) {
+		super(peerAddress, null, peerIdentity);
+
+		this.entries = null;
+		this.hasCriticalEntries = findCriticalEntries(entries);
+	}
+
 	/**
 	 * Check, if at least one critical attribute is contained in the provided
 	 * map.

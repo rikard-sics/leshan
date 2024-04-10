@@ -52,8 +52,7 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.eclipse.californium.core.CoapResource;
-
-import org.eclipse.californium.core.network.config.NetworkConfig.Keys;
+import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.cose.KeyKeys;
@@ -63,8 +62,8 @@ import org.eclipse.californium.edhoc.Constants;
 import org.eclipse.californium.edhoc.EdhocEndpointInfo;
 import org.eclipse.californium.edhoc.EdhocResource;
 import org.eclipse.californium.edhoc.EdhocSession;
-import org.eclipse.californium.edhoc.KissEDP;
 import org.eclipse.californium.edhoc.SharedSecretCalculation;
+import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.util.SslContextUtil;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.californium.oscore.OSCoreCoapStackFactory;
@@ -456,9 +455,9 @@ public class LeshanServerDemo {
 
         // Create CoAP Config
         Configuration coapConfig;
-        File configFile = new File(NetworkConfig.DEFAULT_FILE_NAME);
+		File configFile = new File(Configuration.DEFAULT_FILE_NAME);
         if (configFile.isFile()) {
-            coapConfig = new NetworkConfig();
+			coapConfig = new Configuration();
             coapConfig.load(configFile);
         } else {
             coapConfig = LeshanServerBuilder.createDefaultNetworkConfig();
@@ -466,12 +465,25 @@ public class LeshanServerDemo {
         }
         builder.setCoapConfig(coapConfig);
 
-        // ports from CoAP Config if needed
-        builder.setLocalAddress(localAddress,
-                localPort == null ? coapConfig.getInt(Keys.COAP_PORT, LwM2m.DEFAULT_COAP_PORT) : localPort);
-        builder.setLocalSecureAddress(secureLocalAddress,
-                secureLocalPort == null ? coapConfig.getInt(Keys.COAP_SECURE_PORT, LwM2m.DEFAULT_COAP_SECURE_PORT)
-                        : secureLocalPort);
+		// ports from CoAP Config if needed
+		if (localPort == null) {
+			localPort = coapConfig.get(CoapConfig.COAP_PORT);
+
+			if (localPort == null) {
+				localPort = LwM2m.DEFAULT_COAP_PORT;
+			}
+		}
+
+		if (secureLocalPort == null) {
+			secureLocalPort = coapConfig.get(CoapConfig.COAP_SECURE_PORT);
+
+			if (secureLocalPort == null) {
+				secureLocalPort = LwM2m.DEFAULT_COAP_SECURE_PORT;
+			}
+		}
+
+		builder.setLocalAddress(localAddress, localPort);
+		builder.setLocalSecureAddress(secureLocalAddress, secureLocalPort);
 
         // Connect to redis if needed
         Pool<Jedis> jedis = null;
@@ -481,8 +493,7 @@ public class LeshanServerDemo {
         }
 
         // Create DTLS Config
-        DtlsConnectorConfig.Builder dtlsConfig = new DtlsConnectorConfig.Builder();
-        dtlsConfig.setRecommendedCipherSuitesOnly(!supportDeprecatedCiphers);
+		DtlsConnectorConfig.Builder dtlsConfig = new DtlsConnectorConfig.Builder(coapConfig);
         if (cid != null) {
             dtlsConfig.setConnectionIdGenerator(new SingleNodeConnectionIdGenerator(cid));
         }

@@ -30,7 +30,6 @@ import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.config.CoapConfig.TrackerMode;
 import org.eclipse.californium.core.network.CoapEndpoint;
 
-import org.eclipse.californium.core.network.config.NetworkConfig.Keys;
 import org.eclipse.californium.elements.DtlsEndpointContext;
 import org.eclipse.californium.elements.UDPConnector;
 import org.eclipse.californium.elements.config.Configuration;
@@ -440,129 +439,7 @@ public class LeshanServerBuilder {
         // handle dtlsConfig
         DtlsConnectorConfig dtlsConfig = null;
         if (!noSecuredEndpoint && shouldTryToCreateSecureEndpoint()) {
-            if (dtlsConfigBuilder == null) {
-                dtlsConfigBuilder = new DtlsConnectorConfig.Builder();
-            }
-            // Set default DTLS setting for Leshan unless user change it.
-            DtlsConnectorConfig incompleteConfig = dtlsConfigBuilder.getIncompleteConfig();
-
-            // Handle PSK Store
-            if (incompleteConfig.getAdvancedPskStore() != null) {
-                LOG.warn(
-                        "PskStore should be automatically set by Leshan. Using a custom implementation is not advised.");
-            } else if (securityStore != null) {
-                dtlsConfigBuilder.setAdvancedPskStore(new LwM2mPskStore(this.securityStore, registrationStore));
-            }
-
-            // Handle secure address
-            if (incompleteConfig.getAddress() == null) {
-                if (localSecureAddress == null) {
-                    localSecureAddress = new InetSocketAddress(LwM2m.DEFAULT_COAP_SECURE_PORT);
-                }
-                dtlsConfigBuilder.setAddress(localSecureAddress);
-            } else if (localSecureAddress != null && !localSecureAddress.equals(incompleteConfig.getAddress())) {
-                throw new IllegalStateException(String.format(
-                        "Configuration conflict between LeshanBuilder and DtlsConnectorConfig.Builder for secure address: %s != %s",
-                        localSecureAddress, incompleteConfig.getAddress()));
-            }
-
-            // Handle active peers
-            if (incompleteConfig.getMaxConnections() == null)
-                dtlsConfigBuilder.setMaxConnections(coapConfig.getInt(Keys.MAX_ACTIVE_PEERS));
-            if (incompleteConfig.getStaleConnectionThreshold() == null)
-                dtlsConfigBuilder.setStaleConnectionThreshold(coapConfig.getLong(Keys.MAX_PEER_INACTIVITY_PERIOD));
-
-            // check conflict for private key
-            if (privateKey != null) {
-                if (incompleteConfig.getPrivateKey() != null && !incompleteConfig.getPrivateKey().equals(privateKey)) {
-                    throw new IllegalStateException(String.format(
-                            "Configuration conflict between LeshanBuilder and DtlsConnectorConfig.Builder for private key: %s != %s",
-                            privateKey, incompleteConfig.getPrivateKey()));
-                }
-
-                // if in raw key mode and not in X.509 set the raw keys
-                if (certificateChain == null && publicKey != null) {
-                    if (incompleteConfig.getPublicKey() != null && !incompleteConfig.getPublicKey().equals(publicKey)) {
-                        throw new IllegalStateException(String.format(
-                                "Configuration conflict between LeshanBuilder and DtlsConnectorConfig.Builder for public key: %s != %s",
-                                publicKey, incompleteConfig.getPublicKey()));
-                    }
-
-                    dtlsConfigBuilder.setIdentity(privateKey, publicKey);
-                }
-                // if in X.509 mode set the private key, certificate chain, public key is extracted from the certificate
-                if (certificateChain != null && certificateChain.length > 0) {
-                    if (incompleteConfig.getCertificateChain() != null
-                            && !Arrays.asList(certificateChain).equals(incompleteConfig.getCertificateChain())) {
-                        throw new IllegalStateException(String.format(
-                                "Configuration conflict between LeshanBuilder and DtlsConnectorConfig.Builder for certificate chain: %s != %s",
-                                Arrays.toString(certificateChain), incompleteConfig.getCertificateChain()));
-                    }
-
-                    dtlsConfigBuilder.setIdentity(privateKey, certificateChain, CertificateType.X_509,
-                            CertificateType.RAW_PUBLIC_KEY);
-                }
-
-                // handle trusted certificates or RPK
-                if (incompleteConfig.getAdvancedCertificateVerifier() != null) {
-                    if (trustedCertificates != null) {
-                        throw new IllegalStateException(
-                                "Configuration conflict between LeshanBuilder and DtlsConnectorConfig.Builder: if a AdvancedCertificateVerifier is set, trustedCertificates must not be set.");
-                    }
-                } else {
-                    BridgeCertificateVerifier.Builder verifierBuilder = new BridgeCertificateVerifier.Builder();
-                    if (incompleteConfig.getRpkTrustStore() != null) {
-                        verifierBuilder.setTrustedRPKs(incompleteConfig.getRpkTrustStore());
-                    } else {
-                        // by default trust all RPK
-                        verifierBuilder.setTrustAllRPKs();
-                    }
-                    if (incompleteConfig.getTrustStore() != null) {
-                        if (trustedCertificates != null
-                                && !Arrays.equals(trustedCertificates, incompleteConfig.getTrustStore())) {
-                            throw new IllegalStateException(String.format(
-                                    "Configuration conflict between LeshanBuilder and DtlsConnectorConfig.Builder for trusted Certificates (trustStore) : \n%s != \n%s",
-                                    Arrays.toString(trustedCertificates),
-                                    Arrays.toString(incompleteConfig.getTrustStore())));
-                        }
-                        verifierBuilder.setTrustedCertificates(incompleteConfig.getTrustStore());
-                    } else {
-                        if (trustedCertificates != null) {
-                            verifierBuilder.setTrustedCertificates(trustedCertificates);
-                        }
-                    }
-                    if (incompleteConfig.getCertificateVerifier() != null) {
-                        if (trustedCertificates != null) {
-                            throw new IllegalStateException(
-                                    "Configuration conflict between LeshanBuilder and DtlsConnectorConfig.Builder: if a CertificateVerifier is set, trustedCertificates must not be set.");
-                        }
-                        verifierBuilder.setCertificateVerifier(incompleteConfig.getCertificateVerifier());
-                    }
-                    dtlsConfigBuilder.setAdvancedCertificateVerifier(verifierBuilder.build());
-                }
-            }
-
-            // Deactivate SNI by default
-            // TODO should we support SNI ?
-            if (incompleteConfig.isSniEnabled() == null) {
-                dtlsConfigBuilder.setSniEnabled(false);
-            }
-
-            // Do no allow Server to initiated Handshake by default, for U device request will be allowed to initiate
-            // handshake (see Registration.shouldInitiateConnection())
-            Boolean serverOnly = incompleteConfig.isServerOnly();
-            if (serverOnly == null || !serverOnly) {
-                if (incompleteConfig.getDefaultHandshakeMode() == null) {
-                    dtlsConfigBuilder.setDefaultHandshakeMode(DtlsEndpointContext.HANDSHAKE_MODE_NONE);
-                }
-            }
-
-            // we try to build the dtlsConfig, if it fail we will just not create the secured endpoint
-            try {
-                dtlsConfig = dtlsConfigBuilder.build();
-            } catch (IllegalStateException e) {
-                LOG.warn("Unable to create DTLS config and so secured endpoint.", e);
-            }
+			System.err.println("Attempted to create secure endpoints");
         }
 
         // create endpoints

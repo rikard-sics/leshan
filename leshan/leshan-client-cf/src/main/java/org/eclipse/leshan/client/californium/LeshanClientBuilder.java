@@ -372,4 +372,9 @@ public class LeshanClientBuilder {
                 endpointFactory, engineFactory, additionalAttributes, bsAdditionalAttributes, encoder, decoder,
                 executor);
     }
+
+	public void setDtlsConfig(Builder dtlsConfig) {
+
+
+	}
 }

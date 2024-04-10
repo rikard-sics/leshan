@@ -847,11 +847,8 @@ public class LeshanClientDemo {
         }
 
         // Create DTLS Config
-        DtlsConnectorConfig.Builder dtlsConfig = new DtlsConnectorConfig.Builder();
-        dtlsConfig.setRecommendedCipherSuitesOnly(!supportDeprecatedCiphers);
-        if (ciphers != null) {
-            dtlsConfig.setSupportedCipherSuites(ciphers);
-        }
+		DtlsConnectorConfig.Builder dtlsConfig = new DtlsConnectorConfig.Builder(coapConfig);
+
         if (cid != null) {
             dtlsConfig.setConnectionIdGenerator(new SingleNodeConnectionIdGenerator(cid));
         }
