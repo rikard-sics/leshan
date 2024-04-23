@@ -51,10 +51,7 @@ import org.eclipse.leshan.core.node.LwM2mObjectInstance;
 import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.node.ObjectLink;
 import org.eclipse.leshan.core.request.BindingMode;
-import org.eclipse.leshan.core.request.BootstrapWriteRequest;
-import org.eclipse.leshan.core.request.ContentFormat;
 import org.eclipse.leshan.core.request.ReadRequest;
-import org.eclipse.leshan.core.request.WriteRequest;
 import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.util.Hex;
 import org.eclipse.leshan.core.util.SecurityUtil;
@@ -186,19 +183,24 @@ public class ServersInfoExtractor {
                                 .getValue();
                         if (oscoreObjLink != null && !oscoreObjLink.isNullLink()) {
                             if (oscoreObjLink.getObjectId() != OSCORE) {
-                                LOG.warn(
-                                        "Invalid Security info for bootstrap server : 'OSCORE Security Mode' does not link to OSCORE Object but to {} object.",
-                                        oscoreObjLink.getObjectId());
+								// LOG.warn(
+								// "Invalid Security info for bootstrap server :
+								// 'OSCORE Security Mode' does not link to
+								// OSCORE Object but to {} object.",
+								// oscoreObjLink.getObjectId());
                             } else {
                                 if (oscores == null) {
-                                    LOG.warn(
-                                            "Invalid Security info for bootstrap server : OSCORE object enabler is not available.");
+									// LOG.warn(
+									// "Invalid Security info for bootstrap
+									// server : OSCORE object enabler is not
+									// available.");
                                 } else {
                                     oscoreInstance = oscores.getInstance(oscoreObjLink.getObjectInstanceId());
                                     if (oscoreInstance == null) {
-                                        LOG.warn(
-                                                "Invalid Security info for bootstrap server : OSCORE instance {} does not exist.",
-                                                oscoreObjLink.getObjectInstanceId());
+										// LOG.warn("Invalid Security info for
+										// bootstrap server : OSCORE instance {}
+										// does not
+										// exist.",oscoreObjLink.getObjectInstanceId());
                                     }
                                 }
                             }

@@ -143,6 +143,7 @@ public class RequestSender implements Destroyable {
         // TODO OSCORE : this should be added in CoapRequestBuilder
         HashMapCtxDB db = OscoreHandler.getContextDB();
         try {
+			System.out.println("Looking for Context with string: " + coapRequest.getURI());
             if (db.getContext(coapRequest.getURI()) != null) {
                 coapRequest.getOptions().setOscore(Bytes.EMPTY);
             }
@@ -231,6 +232,7 @@ public class RequestSender implements Destroyable {
         // TODO OSCORE : this should be added in CoapRequestBuilder
         HashMapCtxDB db = OscoreHandler.getContextDB();
         try {
+			System.out.println("Looking for Context with string: " + coapRequest.getURI());
             if (db.getContext(coapRequest.getURI()) != null) {
                 coapRequest.getOptions().setOscore(Bytes.EMPTY);
             }

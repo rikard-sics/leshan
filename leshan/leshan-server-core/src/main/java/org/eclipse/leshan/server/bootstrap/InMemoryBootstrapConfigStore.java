@@ -226,7 +226,7 @@ public class InMemoryBootstrapConfigStore implements EditableBootstrapConfigStor
                 OSCoreCtx ctx = new OSCoreCtx(masterSecret, false, aeadAlg, senderId, recipientId, hkdfAlg,
 						replayWindow, masterSalt, idContext, 2048);
                 // Support Appendix B.2 functionality
-                ctx.setContextRederivationEnabled(false);
+				ctx.setContextRederivationEnabled(true);
 
                 db.addContext(ctx);
 

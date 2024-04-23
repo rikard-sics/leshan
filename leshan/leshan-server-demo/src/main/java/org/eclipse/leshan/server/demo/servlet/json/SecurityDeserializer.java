@@ -193,7 +193,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 							masterSalt, idContext, 2048);
 
                     // Support Appendix B.2 functionality
-                    ctx.setContextRederivationEnabled(false);
+					ctx.setContextRederivationEnabled(true);
                 } catch (OSException e) {
                     throw new JsonParseException("Failed to generate OSCORE context", e);
                 }

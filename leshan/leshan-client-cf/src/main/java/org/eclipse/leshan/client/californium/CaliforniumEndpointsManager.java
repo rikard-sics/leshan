@@ -259,13 +259,11 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
                 String serverIP = InetAddress.getByName(serverInfo.getFullUri().getHost()).getHostAddress();
                 // Support Appendix B.2 functionality
 				if (serverInfo.builtFromEdhoc == false) {
-					ctx.setContextRederivationEnabled(false);
+					ctx.setContextRederivationEnabled(true);
 
 					// Set to initiate Appendix B.2 procedure on first sent
-					// request
-					// To either server or bs server
-					// FIXME
-					// ctx.setContextRederivationPhase(PHASE.CLIENT_INITIATE);
+					// request. To either server or bs server
+					ctx.setContextRederivationPhase(PHASE.CLIENT_INITIATE);
 				}
 
                 db.addContext("coap://" + serverIP, ctx);
