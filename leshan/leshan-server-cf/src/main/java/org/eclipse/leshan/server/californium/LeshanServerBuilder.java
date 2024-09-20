@@ -445,7 +445,7 @@ public class LeshanServerBuilder {
 			coapConfig = createDefaultNetworkConfig();
 		if (awakeTimeProvider == null) {
 			long maxTransmitWaitLong = coapConfig.get(CoapConfig.MAX_TRANSMIT_WAIT, TimeUnit.SECONDS);
-			int maxTransmitWait = Math.toIntExact(maxTransmitWaitLong);
+			int maxTransmitWait = (int) maxTransmitWaitLong;
 			if (maxTransmitWait == 0) {
 				LOG.warn(
 						"No value available for MAX_TRANSMIT_WAIT in CoAP NetworkConfig. Fallback with a default 93s value.");

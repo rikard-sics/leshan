@@ -32,7 +32,6 @@ import java.security.spec.ECPublicKeySpec;
 import java.security.spec.KeySpec;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -324,7 +323,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 
 				EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(idCreds, creds, keyPairs, peerPublicKeys,
 						peerCredentials, edhocSessions, usedConnectionIds, supportedCiphersuites, supportedEads,
-						eadProductionInput, Constants.TRUST_MODEL_STRICT, db, uriLocal, OSCORE_REPLAY_WINDOW, 2048,
+						eadProductionInput, Constants.TRUST_MODEL_NO_LEARNING, db, uriLocal, OSCORE_REPLAY_WINDOW, 2048,
 						appStatements);
 				// NEW
 

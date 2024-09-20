@@ -1094,7 +1094,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 
 		EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(idCreds, creds, keyPairs, peerPublicKeys,
 				peerCredentials, edhocSessions, usedConnectionIds, supportedCiphersuites, supportedEads,
-				eadProductionInput, Constants.TRUST_MODEL_STRICT, db, edhocURI, OSCORE_REPLAY_WINDOW, 2048,
+				eadProductionInput, Constants.TRUST_MODEL_NO_LEARNING, db, edhocURI, OSCORE_REPLAY_WINDOW, 2048,
 				appStatements);
 
 		// Possibly specify external authorization data for EAD_1, or null
