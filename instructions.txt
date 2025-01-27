@@ -1,4 +1,4 @@
-*General steps
+* General steps
 
 1. Run "mvn eclipse:eclipse" in the leshan and californium subfolders
 
@@ -25,3 +25,21 @@ leshan-bsserver-demo
 To change Java version:
 Right click project->Properties->Java Build Path->Libraries->Edit...
 Edit the JRE System Library to be Java 1.8.
+
+* Start applications
+
+Bootstrap Server with
+-lh 127.0.0.3 -slh 127.0.0.3 -wh 127.0.0.3
+
+Leshan Server with
+-lh 127.0.0.2 -slh 127.0.0.2 -wh 127.0.0.2
+
+Leshan Client with
+-b -n Test -msec AAAA -sid BB -rid CC -u 127.0.0.3
+
+* Setup in applications
+
+Navigate to 127.0.0.2:8080 and 127.0.0.3:8080 in a browser.
+
+Set the EDHOC config custom or using the pre-defined configs by pressing the special buttons.
+

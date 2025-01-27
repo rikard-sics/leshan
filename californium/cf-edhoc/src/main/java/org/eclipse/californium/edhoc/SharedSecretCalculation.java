@@ -1829,4 +1829,3 @@ public class SharedSecretCalculation {
 	}
 
 }
-

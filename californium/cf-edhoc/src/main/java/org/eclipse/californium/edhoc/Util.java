@@ -353,7 +353,6 @@ public class Util {
 		List<CBORObject> serializationList = new ArrayList<CBORObject>();
 		
 		for (int i = 0; i < objectList.size(); i++) {
-			System.out.println("Element ID: " + i);
 			byte[] objBytes = objectList.get(i).EncodeToBytes();			
 			serializationList.add(CBORObject.FromObject(objBytes));
 			sequenceLength += objBytes.length;
@@ -788,8 +787,7 @@ public class Util {
     				
     				// Rollback
     				usedConnectionIds.remove(identifierCbor);
-    				if (ctx != null)
-    				{
+    				if (ctx != null) {
     					db.removeContext(ctx);
     				}
     				
@@ -857,8 +855,10 @@ public class Util {
 		    releaseConnectionId(connectionIdentifier, usedConnectionIds, session.getOscoreDb());
 		    
 		    session.deleteTemporaryMaterial();
-		    if(session.getSideProcessor() != null)
+		    if(session.getSideProcessor() != null) {
+		    	session.getSideProcessor().removeResults();
 		    	session.getSideProcessor().setEdhocSession(null);
+		    }
 		    
 		    session = null;
 		}
@@ -1157,13 +1157,13 @@ public class Util {
      * Build an ID_CRED to use with 'kid2', with value a CWT Claims Set (CCS) 
      *  
      * @param identityKey   The identity key to encode as CRED
-     * @param subjectName   The subject name associated to this key, it can be an empty string
+     * @param subjectName   The subject name associated to this key. It can also be an empty string, or null if none is provided
      * @param kid   The key identifier associated to this key
      * @return The CRED, as a byte serialization of a CBOR map
      */
 	public static byte[] buildCredRawPublicKeyCcs(OneKey identityKey, String subjectName, CBORObject kid) {
 		
-		if (identityKey  == null || subjectName == null)
+		if (identityKey  == null)
 			return null;
 		
 		CBORObject coseKeyMap = CBORObject.NewOrderedMap();
@@ -1186,7 +1186,11 @@ public class Util {
 		cnfMap.Add(Constants.CWT_CNF_COSE_KEY, coseKeyMap);
 		
 		CBORObject claimSetMap = CBORObject.NewOrderedMap();
-		claimSetMap.Add(Constants.CWT_CLAIMS_SUB, subjectName);
+		
+		if (subjectName != null) {
+			claimSetMap.Add(Constants.CWT_CLAIMS_SUB, subjectName);
+		}
+		
 		claimSetMap.Add(Constants.CWT_CLAIMS_CNF, cnfMap);
 
 		System.out.println("CCS serialization: " + StringUtil.byteArray2HexString(claimSetMap.EncodeToBytes()));

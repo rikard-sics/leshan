@@ -261,13 +261,8 @@ public class EdhocSession {
 		
 		this.keyPair = this.keyPairs.get(Integer.valueOf(keyUsage)).
 									 get(Integer.valueOf(curve));
-
-		System.out.println("## Key usage: " + keyUsage);
-		System.out.println("## Curve: " + curve);
-
 		this.cred = this.creds.get(Integer.valueOf(keyUsage)).
 							   get(Integer.valueOf(curve)).GetByteString();
-
 		this.idCred = this.idCreds.get(Integer.valueOf(keyUsage)).
 								   get(Integer.valueOf(curve));
 				

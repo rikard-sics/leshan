@@ -198,6 +198,7 @@ public class ClientEdhocExecutor {
 																		 edhocEndpointInfo.getOscoreDb());
 		
 		SideProcessor sideProcessor = new SideProcessor(edhocEndpointInfo.getTrustModel(),
+														edhocEndpointInfo.getPeerPublicKeys(),
 														edhocEndpointInfo.getPeerCredentials(),
 														edhocEndpointInfo.getEadProductionInput());
 		
@@ -789,4 +790,3 @@ public class ClientEdhocExecutor {
 	}
 		
 }
-

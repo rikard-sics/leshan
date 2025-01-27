@@ -1484,6 +1484,7 @@ public class MessageProcessor {
     	byte[] peerCredential = peerCredentialCBOR.GetByteString(); // CRED_I
     	    	
     	session.setPeerIdCred(idCredI); // Store ID_CRED_I
+    	session.setPeerCred(peerCredential); // Store CRED_I
     	
     	// Compute MAC_3
     	byte[] mac3 = computeMAC3(session, prk4e3m, th3, idCredI, peerCredential, ead3);
@@ -3187,7 +3188,7 @@ public class MessageProcessor {
 		connectionId = Util.getConnectionId(usedConnectionIds, oscoreDB, null);
 		// Forced for testing
 		// connectionId = new byte[] {(byte) 0x1c};
-		
+
         EdhocSession mySession = new EdhocSession(true, true, method, connectionId, keyPairs, idCreds, creds,
         										  supportedCipherSuites, peerSupportedCipherSuites, supportedEADs,
         										  appProfile, trustModel, oscoreDB);
@@ -3237,10 +3238,13 @@ public class MessageProcessor {
 		// Selected cipher suites from SUITES_I
 		index++;
 		int selectedCipherSuite = -1;
-		if (objectListMessage1[index].getType() == CBORType.Integer)
+		if (objectListMessage1[index].getType() == CBORType.Integer) {
 			selectedCipherSuite = objectListMessage1[index].AsInt32();
-		else if (objectListMessage1[index].getType() == CBORType.Array)
-			selectedCipherSuite = objectListMessage1[index].get(0).AsInt32();
+		}
+		else if (objectListMessage1[index].getType() == CBORType.Array) {
+			int lastElementIndex = objectListMessage1[index].size() - 1;
+			selectedCipherSuite = objectListMessage1[index].get(lastElementIndex).AsInt32();
+		}
 		
 		// G_X
 		index++;

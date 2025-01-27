@@ -149,8 +149,17 @@ public class RegisterResource extends LwM2mCoapResource {
 			OSCoreCtx clientCtx = db.getContext(rid);
 
             try {
+				System.out.println("Added context with string: " + request.getScheme() + "://"
+						+ request.getSourceContext().getPeerAddress().getHostString().toString() + ":"
+						+ request.getSourceContext().getPeerAddress().getPort());
+
+				// db.addContext(request.getScheme() + "://"
+				// +
+				// request.getSourceContext().getPeerAddress().getHostString().toString(),
+				// clientCtx);
                 db.addContext(request.getScheme() + "://"
-                        + request.getSourceContext().getPeerAddress().getHostString().toString(), clientCtx);
+						+ request.getSourceContext().getPeerAddress().getHostString().toString() + ":"
+						+ request.getSourceContext().getPeerAddress().getPort(), clientCtx);
             } catch (OSException e) {
                 LOG.error("Failed to update OSCORE Context for registering client.", request, e);
             }

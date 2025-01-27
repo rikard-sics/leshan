@@ -46,6 +46,46 @@ public static final int APPLICATION_CID_EDHOC_CBOR_SEQ = 65; // application/cid-
 
 
 /**
+ * COSE Header Parameters
+ * 
+ * https://www.iana.org/assignments/cose/cose.xhtml#header-parameters
+ */
+public static final int COSE_HEADER_PARAM_KID     =  4;
+public static final int COSE_HEADER_PARAM_KCWT    = 13;
+public static final int COSE_HEADER_PARAM_KCCS    = 14;
+public static final int COSE_HEADER_PARAM_X5CHAIN = 33;
+public static final int COSE_HEADER_PARAM_X5T     = 34;
+public static final int COSE_HEADER_PARAM_X5U     = 35;
+
+/**
+ * COSE Key Common Parameters
+ * 
+ * https://www.iana.org/assignments/cose/cose.xhtml#key-common-parameters
+ */
+public static final int COSE_KEY_COMMON_PARAM_KTY     = 1;
+public static final int COSE_KEY_COMMON_PARAM_KID     = 2;
+public static final int COSE_KEY_COMMON_PARAM_ALG     = 3;
+public static final int COSE_KEY_COMMON_PARAM_KEY_OPS = 4;
+public static final int COSE_KEY_COMMON_PARAM_BASE_IV = 5;
+
+/**
+ * COSE Key Type Parameters
+ * 
+ * https://www.iana.org/assignments/cose/cose.xhtml#key-type-parameters
+ */
+public static final int COSE_KEY_TYPE_PARAM_CRV = -1;
+public static final int COSE_KEY_TYPE_PARAM_X   = -2;
+public static final int COSE_KEY_TYPE_PARAM_Y   = -3;
+
+/**
+ * COSE Key Types
+ * 
+ * https://www.iana.org/assignments/cose/cose.xhtml#key-type
+ */
+public static final int COSE_KEY_TYPE_OKP = 1;
+public static final int COSE_KEY_TYPE_EC2 = 2;
+
+/**
  * COSE Elliptic Curves
  * 
  * https://www.iana.org/assignments/cose/cose.xhtml#elliptic-curves
@@ -55,22 +95,12 @@ public static final int CURVE_X25519  = KeyKeys.OKP_X25519.AsInt32();  // X25519
 public static final int CURVE_Ed25519 = KeyKeys.OKP_Ed25519.AsInt32(); // Ed25519 (6)
 
 /**
- * COSE Header Parameters
- * 
- * https://www.iana.org/assignments/cose/cose.xhtml#header-parameters
- */
-public static final int COSE_HEADER_PARAM_KCWT    = 13;
-public static final int COSE_HEADER_PARAM_KCCS    = 14;
-public static final int COSE_HEADER_PARAM_X5CHAIN = 33;
-public static final int COSE_HEADER_PARAM_X5T     = 34;
-public static final int COSE_HEADER_PARAM_X5U     = 35;
-
-/**
  * CBOR Web Token (CWT) Claims
  * 
  * https://www.iana.org/assignments/cwt/cwt.xhtml#claims-registry
  */
 public static final int CWT_CLAIMS_SUB = 2;
+public static final int CWT_CLAIMS_EXP = 4;
 public static final int CWT_CLAIMS_CNF = 8;
 
 /**
@@ -359,20 +389,19 @@ public static final int TRUST_MODEL_LEARNING    = 1; // Trust and use any (new) 
  * 
  */
 
-// Outer map keys used for the results of an EAD item consumption
+//Results of an EAD item consumption (TODO:redundant to remove?) 
 public static final int SIDE_PROCESSOR_CONSUMPTION_ERROR    = -1;
 public static final int SIDE_PROCESSOR_CONSUMPTION_SUCCESS  =  0;
 
-// Result labels not associated with EAD labels
+//Result maps: outer map keys not associated with EAD labels
 public static final int SIDE_PROCESSOR_OUTER_ERROR = -1;
 public static final int SIDE_PROCESSOR_OUTER_CRED  =  0;
 
-// Result content for result label -1
+//Result maps: inner map keys for outer map key -1
 public static final int SIDE_PROCESSOR_INNER_ERROR_DESCRIPTION = 0; // Value: the text string to use in the EDHOC error message
 public static final int SIDE_PROCESSOR_INNER_ERROR_RESP_CODE =   1; // Value: the response code to use if EDHOC error message is a response
 
-// Result content for result label 0
+//Result maps: inner map keys for outer map key 0
 public static final int SIDE_PROCESSOR_INNER_CRED_VALUE = 0;        // Value: the authentication credential of the other peer
 
 }
-

@@ -155,13 +155,10 @@ public class EdhocServer extends CoapServer {
 		
 		// Set up the authentication credentials for this peer and the other peer
 		setupOwnAuthenticationCredentials();
-		
-		// Set up the authentication credentials for this peer and the other peer
-		setupOwnAuthenticationCredentials();
-		
+
 		// Set up the authentication credentials for the other peers 
 		setupPeerAuthenticationCredentials();
-				
+		
 		// Set the application profile
 		// - Supported authentication methods
 		// - Use of message_4 as expected to be sent by the Responder
@@ -191,7 +188,7 @@ public class EdhocServer extends CoapServer {
 		} catch (SocketException e) {
 			System.err.println("Failed to initialize server: " + e.getMessage());
 		}
-		
+				
 		// Use to dynamically generate a key pair
 		// keyPair = Util.generateKeyPair(keyCurve);
 		    	

@@ -1030,4 +1030,3 @@ public class SharedSecretCalculationTest {
 	/* End testing */
 
 }
-
