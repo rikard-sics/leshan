@@ -236,6 +236,9 @@ public class LeshanServerDemo {
         HelpFormatter formatter = new HelpFormatter();
         formatter.setWidth(120);
         formatter.setOptionComparator(null);
+        
+        // Startup message
+        System.out.println("Starting EDHOC-enabled Server Demo Application");
 
         // Parse arguments
         CommandLine cl;

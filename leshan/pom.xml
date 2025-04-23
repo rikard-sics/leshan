@@ -39,6 +39,13 @@ Contributors:
         </license>
     </licenses>
 
+<repositories>
+    <repository>
+        <id>local-californium-repo</id>
+        <url>file://${project.basedir}/local-maven-repo</url>
+    </repository>
+</repositories>
+
     <modules>
         <module>leshan-core</module>
         <module>leshan-core-cf</module>
@@ -108,7 +115,7 @@ Contributors:
         <test.exclusion.pattern>**/Redis*.java</test.exclusion.pattern>
 
         <!-- dependencies version -->
-        <californium.version>2.6.3</californium.version>
+        <californium.version>3.11.0-SNAPSHOT</californium.version>
         <logback.version>1.2.3</logback.version>
         <slf4j.api.version>1.7.30</slf4j.api.version>
         <jetty.version>9.4.34.v20201102</jetty.version>
@@ -281,6 +288,40 @@ Contributors:
     <build>
         <pluginManagement>
             <plugins>
+            
+            			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<version>3.5.0</version>
+				<executions>
+					<execution>
+						<id>copy-dependencies</id>
+						<phase>prepare-package</phase>
+						<goals>
+							<goal>copy-dependencies</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${project.basedir}/lib</outputDirectory>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<version>3.3.0</version>
+				<configuration>
+					<finalName>${jarName}</finalName>
+					<archive>
+						<manifest>
+							<addClasspath>true</addClasspath>
+							<classpathPrefix>lib/</classpathPrefix>
+							<mainClass>${fully.qualified.main.class}</mainClass>
+						</manifest>
+					</archive>
+				</configuration>
+			</plugin>
+            
                 <plugin>
                     <artifactId>maven-clean-plugin</artifactId>
                     <version>3.1.0</version>
@@ -296,10 +337,6 @@ Contributors:
                 <plugin>
                     <artifactId>maven-site-plugin</artifactId>
                     <version>3.8.2</version>
-                </plugin>
-                <plugin>
-                    <artifactId>maven-dependency-plugin</artifactId>
-                    <version>3.1.1</version>
                 </plugin>
                 <plugin>
                     <artifactId>maven-source-plugin</artifactId>
@@ -364,17 +401,6 @@ Contributors:
                         <excludes>
                             <exclude>**/*$*</exclude>
                         </excludes>
-                    </configuration>
-                </plugin>
-                <plugin>
-                    <artifactId>maven-jar-plugin</artifactId>
-                    <version>3.2.0</version>
-                    <configuration>
-                        <archive>
-                            <manifestEntries>
-                                <Implementation-Version>${project.version}</Implementation-Version>
-                            </manifestEntries>
-                        </archive>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -681,7 +707,8 @@ Contributors:
                 <artifactId>slf4j-api</artifactId>
                 <version>${slf4j.api.version}</version>
             </dependency>
-            <!-- RH: Commented out these dependencies.
+            
+            <!-- Californium dependencies -->
             <dependency>
                 <groupId>org.eclipse.californium</groupId>
                 <artifactId>californium-core</artifactId>
@@ -697,7 +724,17 @@ Contributors:
                 <artifactId>scandium</artifactId>
                 <version>${californium.version}</version>
             </dependency>
-            -->
+            <dependency>
+                <groupId>org.eclipse.californium</groupId>
+                <artifactId>cf-edhoc</artifactId>
+                <version>${californium.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.eclipse.californium</groupId>
+                <artifactId>cf-oscore</artifactId>
+                <version>${californium.version}</version>
+            </dependency>
+            
             <dependency>
                 <groupId>com.eclipsesource.minimal-json</groupId>
                 <artifactId>minimal-json</artifactId>

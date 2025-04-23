@@ -223,6 +223,9 @@ public class LeshanBootstrapServerDemo {
             }
         }
 
+        // Startup message
+        System.out.println("Starting EDHOC-enabled Bootstrap Server Demo Application");
+
         // Get local address
         String localAddress = cl.getOptionValue("lh");
 		System.out.println("Local address in demo: " + localAddress);

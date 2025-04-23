@@ -42,6 +42,31 @@ Contributors:
             <groupId>com.eclipsesource.minimal-json</groupId>
             <artifactId>minimal-json</artifactId>
         </dependency>
+        
+                <!-- Californium dependencies -->
+                <dependency>
+            <groupId>org.eclipse.californium</groupId>
+            <artifactId>californium-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.californium</groupId>
+            <artifactId>scandium</artifactId>
+        </dependency>
+        <dependency>
+                <groupId>org.eclipse.californium</groupId>
+                <artifactId>element-connector</artifactId>
+                <version>${californium.version}</version>
+        </dependency>
+      <dependency>
+                <groupId>org.eclipse.californium</groupId>
+                <artifactId>cf-oscore</artifactId>
+                <version>${californium.version}</version>
+        </dependency>
+      <dependency>
+                <groupId>org.eclipse.californium</groupId>
+                <artifactId>cf-edhoc</artifactId>
+                <version>${californium.version}</version>
+        </dependency>
 
         <!-- test dependencies -->
         <dependency>

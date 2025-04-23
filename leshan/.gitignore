@@ -40,4 +40,4 @@ bin/
 
 # Temp files #
 *~
-
+local-maven-repo/

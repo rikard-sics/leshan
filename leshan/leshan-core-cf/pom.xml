@@ -33,7 +33,8 @@ Contributors:
             <groupId>org.eclipse.leshan</groupId>
             <artifactId>leshan-core</artifactId>
         </dependency>
-        <!-- RH: Commented out these dependencies.
+
+<!-- Californium dependencies -->
         <dependency>
             <groupId>org.eclipse.californium</groupId>
             <artifactId>californium-core</artifactId>
@@ -44,10 +45,20 @@ Contributors:
         </dependency>
         <dependency>
                 <groupId>org.eclipse.californium</groupId>
+                <artifactId>element-connector</artifactId>
+                <version>${californium.version}</version>
+        </dependency>
+      <dependency>
+                <groupId>org.eclipse.californium</groupId>
                 <artifactId>cf-oscore</artifactId>
                 <version>${californium.version}</version>
         </dependency>
-        -->
+      <dependency>
+                <groupId>org.eclipse.californium</groupId>
+                <artifactId>cf-edhoc</artifactId>
+                <version>${californium.version}</version>
+        </dependency>
+
 
         <!-- test dependencies -->
         <dependency>
