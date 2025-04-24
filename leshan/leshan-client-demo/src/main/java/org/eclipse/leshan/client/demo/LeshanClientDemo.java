@@ -295,6 +295,7 @@ public class LeshanClientDemo {
         
         // Startup message
         System.out.println("Starting EDHOC-enabled Client Demo Application");
+        System.out.println("Loading EDHOC client code from: " + org.eclipse.californium.edhoc.EdhocClient.toString());
 
         // Parse arguments
         CommandLine cl;
