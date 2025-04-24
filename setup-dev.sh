@@ -3,7 +3,7 @@
 # Set up the code for development work in Eclipse
 
 cp leshan/leshan-server-redis/pom.dev leshan/leshan-server-redis/pom.xml
-cp leshan/leshan-server-core/pom.dev /leshan-server-core/pom.xml
+cp leshan/leshan-server-core/pom.dev leshan/leshan-server-core/pom.xml
 cp leshan/pom.dev leshan/pom.xml
 cp leshan/leshan-integration-tests/pom.dev leshan/leshan-integration-tests/pom.xml
 cp leshan/leshan-server-cf/pom.dev leshan/leshan-server-cf/pom.xml
@@ -18,6 +18,7 @@ cp leshan/leshan-server-demo/pom.dev leshan/leshan-server-demo/pom.xml
 cd californium
 mvn eclipse:eclipse
 
-cd..
+cd ..
 cd leshan
 mvn eclipse:eclipse
+cd ..
