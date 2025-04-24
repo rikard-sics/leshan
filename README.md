@@ -10,7 +10,7 @@ Ready-made Jar files can be found and downloaded under the Releases-section of t
 
 (Skip if development or changing the code is not desired)
 
-1. Run "mvn eclipse:eclipse" in the leshan and californium subfolders  
+1. Run the script "setup-dev.sh"  
 (Maven version 3.9.9 or higher is recommended)
 
 3. Start Eclipse, then import the following projects:

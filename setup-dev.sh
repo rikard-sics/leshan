@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Set up the code for development work in Eclipse
+# Note: Do not commit the local pom.xml files used when developing
 
 cp leshan/leshan-server-redis/pom.dev leshan/leshan-server-redis/pom.xml
 cp leshan/leshan-server-core/pom.dev leshan/leshan-server-core/pom.xml

@@ -41,9 +41,3 @@ bin/
 # Temp files #
 *~
 local-maven-repo/
-
-# pom.xml files
-pom.xml
-*/pom.xml
-**/pom.xml
-
