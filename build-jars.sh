@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Build standalone Jar files for Leshan applications:
+# Server, Bootstrap Server, and Client
+
 # Fail script with error if any command fails
 set -e
 

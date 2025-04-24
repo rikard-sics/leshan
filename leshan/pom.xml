@@ -39,12 +39,13 @@ Contributors:
         </license>
     </licenses>
 
-<repositories>
-    <repository>
-        <id>local-californium-repo</id>
-        <url>file://${project.basedir}/local-maven-repo</url>
-    </repository>
-</repositories>
+    <!-- RH: Californium dependencies taken from local folder with jar files -->
+    <repositories>
+        <repository>
+            <id>local-californium-repo</id>
+            <url>file://${project.basedir}/local-maven-repo</url>
+        </repository>
+    </repositories>
 
     <modules>
         <module>leshan-core</module>
@@ -708,7 +709,7 @@ Contributors:
                 <version>${slf4j.api.version}</version>
             </dependency>
             
-            <!-- Californium dependencies -->
+            <!-- RH: Californium dependencies -->
             <dependency>
                 <groupId>org.eclipse.californium</groupId>
                 <artifactId>californium-core</artifactId>

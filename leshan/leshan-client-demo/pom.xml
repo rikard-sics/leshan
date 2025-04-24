@@ -37,7 +37,7 @@ Contributors:
             <artifactId>commons-cli</artifactId>
         </dependency>
 
-<!-- Californium dependencies -->
+        <!-- RH: Californium dependencies -->
         <dependency>
             <groupId>org.eclipse.californium</groupId>
             <artifactId>californium-core</artifactId>
@@ -47,19 +47,19 @@ Contributors:
             <artifactId>scandium</artifactId>
         </dependency>
         <dependency>
-                <groupId>org.eclipse.californium</groupId>
-                <artifactId>element-connector</artifactId>
-                <version>${californium.version}</version>
+           <groupId>org.eclipse.californium</groupId>
+           <artifactId>element-connector</artifactId>
+           <version>${californium.version}</version>
         </dependency>
-      <dependency>
-                <groupId>org.eclipse.californium</groupId>
-                <artifactId>cf-oscore</artifactId>
-                <version>${californium.version}</version>
+        <dependency>
+            <groupId>org.eclipse.californium</groupId>
+            <artifactId>cf-oscore</artifactId>
+            <version>${californium.version}</version>
         </dependency>
-      <dependency>
-                <groupId>org.eclipse.californium</groupId>
-                <artifactId>cf-edhoc</artifactId>
-                <version>${californium.version}</version>
+        <dependency>
+            <groupId>org.eclipse.californium</groupId>
+            <artifactId>cf-edhoc</artifactId>
+            <version>${californium.version}</version>
         </dependency>
 
         <!-- runtime dependencies -->
