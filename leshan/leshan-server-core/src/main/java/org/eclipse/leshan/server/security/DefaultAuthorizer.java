@@ -54,7 +54,14 @@ public class DefaultAuthorizer implements Authorizer {
 
 			System.out.println("Checking rights for client that started by using EDHOC: " + senderIdentity);
 			String[] identityParts = senderIdentity.toString().split("rid=");
-			// System.out.println("identityParts[1]: " + identityParts[1]);
+			
+			// Added extra debug printing
+			System.out.println("senderIdentity.toString(): " + senderIdentity.toString());
+			System.out.println("identityParts.length: " + identityParts.length);
+			for (int i = 0; i < identityParts.length; i++) {
+			    System.out.println("identityParts[" + i + "]: " + identityParts[i]);
+			}
+			
 			byte[] clientRid = Hex.decodeHex(identityParts[1].replace("]", "").toCharArray());
 			OSCoreCtx clientCtx = OscoreHandler.getContextDB().getContext(clientRid);
 
