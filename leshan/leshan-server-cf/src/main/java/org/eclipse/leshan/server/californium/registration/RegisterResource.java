@@ -131,35 +131,37 @@ public class RegisterResource extends LwM2mCoapResource {
         // TODO OSCORE : should we really need to do this ?
         // Check if this incoming request is using OSCORE
         if (exchange.advanced().getRequest().getOptions().getOscore() != null) {
+            System.out.println("Client registering using OSCORE");
+        } else {
+            System.out.println("Client registering NOT using OSCORE");
+        } 
+        
+        if (exchange.advanced().getRequest().getOptions().getOscore() != null) {
             LOG.trace("Client registered using OSCORE");
 
             // Update the URI of the associated OSCORE Context with the client's URI
             // So the server can send requests to the client
             HashMapCtxDB db = OscoreHandler.getContextDB();
 
-			OscoreOptionDecoder dec = null;
-			try {
-				dec = new OscoreOptionDecoder(exchange.advanced().getCryptographicContextID());
-			} catch (CoapOSException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
-			}
-			byte rid[] = dec.getKid();
+		OscoreOptionDecoder dec = null;
+		try {
+			dec = new OscoreOptionDecoder(exchange.advanced().getCryptographicContextID());
+		} catch (CoapOSException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		byte rid[] = dec.getKid();
 
-			OSCoreCtx clientCtx = db.getContext(rid);
+		OSCoreCtx clientCtx = db.getContext(rid);
 
             try {
-				System.out.println("Added context with string: " + request.getScheme() + "://"
-						+ request.getSourceContext().getPeerAddress().getHostString().toString() + ":"
-						+ request.getSourceContext().getPeerAddress().getPort());
+		String contextUri = request.getScheme() + "://"
+				+ request.getSourceContext().getPeerAddress().getHostString().toString() + ":"
+				+ request.getSourceContext().getPeerAddress().getPort();
+				
+		System.out.println("Added context with string: " + contextUri);
 
-				// db.addContext(request.getScheme() + "://"
-				// +
-				// request.getSourceContext().getPeerAddress().getHostString().toString(),
-				// clientCtx);
-                db.addContext(request.getScheme() + "://"
-						+ request.getSourceContext().getPeerAddress().getHostString().toString() + ":"
-						+ request.getSourceContext().getPeerAddress().getPort(), clientCtx);
+		db.addContext(contextUri, clientCtx);
             } catch (OSException e) {
                 LOG.error("Failed to update OSCORE Context for registering client.", request, e);
             }

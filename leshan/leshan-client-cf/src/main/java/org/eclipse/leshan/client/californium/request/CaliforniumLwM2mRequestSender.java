@@ -81,6 +81,7 @@ public class CaliforniumLwM2mRequestSender implements LwM2mRequestSender {
         // Toggle OSCORE use in the request if the target URI of the request has an OSCORE context registered
         HashMapCtxDB db = OscoreHandler.getContextDB();
         try {
+        	System.out.println("Looking for Context with string: " + coapRequest.getURI());
             if (db.getContext(coapRequest.getURI()) != null) {
                 coapRequest.getOptions().setOscore(Bytes.EMPTY);
             }
@@ -120,6 +121,7 @@ public class CaliforniumLwM2mRequestSender implements LwM2mRequestSender {
         // Toggle OSCORE use in the request if the target URI of the request has an OSCORE context registered
         HashMapCtxDB db = OscoreHandler.getContextDB();
         try {
+                System.out.println("Looking for Context with string: " + coapRequest.getURI());
             if (db.getContext(coapRequest.getURI()) != null) {
                 coapRequest.getOptions().setOscore(Bytes.EMPTY);
             }

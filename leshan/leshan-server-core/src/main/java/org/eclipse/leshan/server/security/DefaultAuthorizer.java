@@ -53,6 +53,11 @@ public class DefaultAuthorizer implements Authorizer {
 			// System.out.println("class " + securityStore.getClass());
 
 			System.out.println("Checking rights for client that started by using EDHOC: " + senderIdentity);
+			
+			if(senderIdentity.toString().contains("rid=") == false) {
+				System.err.println("Error: Client using EDHOC has no Recipient ID in its Sender Identity");
+			}
+			
 			String[] identityParts = senderIdentity.toString().split("rid=");
 			
 			// Added extra debug printing

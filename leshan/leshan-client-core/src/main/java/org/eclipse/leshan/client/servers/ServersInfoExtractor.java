@@ -274,6 +274,7 @@ public class ServersInfoExtractor {
 						String lwServerUri = OscoreHandler.getlwServerUri();
 						OSCoreCtx ctx = null;
 						try {
+							System.out.println("Looking for Context with string: " + lwServerUri);
 							ctx = OscoreHandler.getContextDB().getContext(lwServerUri);
 						} catch (OSException e) {
 							System.err.println("Failed to retrieve OSCORE context established by EDHOC");

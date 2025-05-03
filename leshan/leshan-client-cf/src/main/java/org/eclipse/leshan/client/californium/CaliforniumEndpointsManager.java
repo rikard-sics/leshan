@@ -253,6 +253,8 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
                 byte[] idContext = null;
                 OSCoreCtx ctx = new OSCoreCtx(serverInfo.masterSecret, true, aeadAlg, serverInfo.senderId,
 						serverInfo.recipientId, hkdfAlg, 32, serverInfo.masterSalt, idContext, MAX_UNFRAGMENTED_SIZE);
+                
+                System.out.println("Added context with string: " + serverInfo.getFullUri().toASCIIString());
                 db.addContext(serverInfo.getFullUri().toASCIIString(), ctx);
 
                 // Also add the context by the IP of the server since requests may use that
@@ -266,6 +268,7 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
 					ctx.setContextRederivationPhase(PHASE.CLIENT_INITIATE);
 				}
 
+                System.out.println("Added context with string: " + "coap://" + serverIP);
                 db.addContext("coap://" + serverIP, ctx);
 
             } catch (OSException | UnknownHostException e) {
@@ -280,6 +283,7 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
             String ridString = Utils.toHexString(serverInfo.recipientId).replace("[", "").replace("]", "")
                     .toLowerCase();
             String oscoreIdentity = "sid=" + sidString + ",rid=" + ridString;
+            System.out.println("Building OSCORE identity: " + oscoreIdentity);
             serverIdentity = Identity.oscoreOnly(serverInfo.getAddress(), oscoreIdentity);
         } else {
             currentEndpoint = endpointFactory.createUnsecuredEndpoint(localAddress, coapConfig, null, null);

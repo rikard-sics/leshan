@@ -53,6 +53,8 @@ public class EndpointContextUtil {
     public static Identity extractIdentity(EndpointContext context) {
         InetSocketAddress peerAddress = context.getPeerAddress();
         Principal senderIdentity = context.getPeerIdentity();
+        System.out.println("senderIdentity when entering extractIdentity(): " + senderIdentity.toString());
+        
         if (senderIdentity != null) {
             if (senderIdentity instanceof PreSharedKeyIdentity) {
                 return Identity.psk(peerAddress, ((PreSharedKeyIdentity) senderIdentity).getIdentity());
@@ -69,9 +71,14 @@ public class EndpointContextUtil {
                             senderIdentity.getClass(), senderIdentity.toString()));
         } else {
             // Build identity for OSCORE if it is used
+            if (context.get(OSCoreEndpointContextInfo.OSCORE_SENDER_ID) == null) {
+            	System.out.println("Client not using OSCORE! No OSCORE identity built");
+            }
+            
             if (context.get(OSCoreEndpointContextInfo.OSCORE_SENDER_ID) != null) {
                 String oscoreIdentity = "sid=" + context.get(OSCoreEndpointContextInfo.OSCORE_SENDER_ID) + ",rid="
                         + context.get(OSCoreEndpointContextInfo.OSCORE_RECIPIENT_ID);
+                System.out.println("Building OSCORE identity: " + oscoreIdentity);
                 return Identity.oscoreOnly(peerAddress, oscoreIdentity.toLowerCase());
             }
         }

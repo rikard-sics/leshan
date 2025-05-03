@@ -138,6 +138,7 @@ public class SecurityInfo implements Serializable {
 
         String oscoreIdentity = "sid=" + Hex.encodeHexString(oscoreCtx.getSenderId()) + ",rid="
                 + Hex.encodeHexString(oscoreCtx.getRecipientId());
+        System.out.println("Building OSCORE identity: " + oscoreIdentity);
         return oscoreIdentity;
     }
 

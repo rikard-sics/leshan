@@ -87,14 +87,13 @@ public class BootstrapResource extends LwM2mCoapResource {
 			OSCoreCtx clientCtx = db.getContext(rid);
 
             try {
-				System.out.println("Added context with string: " + request.getScheme() + "://"
-						+ request.getSourceContext().getPeerAddress().getHostString().toString() + ":"
-						+ request.getSourceContext().getPeerAddress().getPort());
+		String contextUri = request.getScheme() + "://"
+					+ request.getSourceContext().getPeerAddress().getHostString().toString() + ":"
+					+ request.getSourceContext().getPeerAddress().getPort();
+					
+		System.out.println("Added context with string: " + contextUri);
 
-                db.addContext(request.getScheme() + "://"
-						+ request.getSourceContext().getPeerAddress().getHostString().toString() + ":"
-						+ request.getSourceContext().getPeerAddress().getPort(), clientCtx);
-
+		db.addContext(contextUri, clientCtx);
             } catch (OSException e) {
                 LOG.error("Failed to update OSCORE Context for registering client.", request, e);
             }
