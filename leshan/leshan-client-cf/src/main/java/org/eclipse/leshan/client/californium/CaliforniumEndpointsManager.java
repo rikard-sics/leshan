@@ -61,6 +61,7 @@ import org.eclipse.leshan.core.CertificateUsage;
 import org.eclipse.leshan.core.SecurityMode;
 import org.eclipse.leshan.core.californium.EndpointFactory;
 import org.eclipse.leshan.core.request.Identity;
+import org.eclipse.leshan.core.LwM2m;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
