@@ -37,7 +37,8 @@ jobs:
         run: |
           ARCHIVE_NAME="leshan-edhoc-${{ steps.tagName.outputs.tag }}"
           ARCHIVE_FILE="${ARCHIVE_NAME}.zip"
-          zip -r ${ARCHIVE_FILE} leshan/*.jar
+          cp ./VERSION leshan/
+          zip -r ${ARCHIVE_FILE} leshan/*.jar leshan/VERSION
 
       - name: Create a release
         uses: softprops/action-gh-release@v1
