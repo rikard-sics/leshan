@@ -259,6 +259,8 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
 
                 // Also add the context by the IP of the server since requests may use that
                 String serverIP = InetAddress.getByName(serverInfo.getFullUri().getHost()).getHostAddress();
+                int serverPort = serverInfo.getFullUri().getPort();
+                
                 // Support Appendix B.2 functionality
 		if (serverInfo.builtFromEdhoc == false) {
 			ctx.setContextRederivationEnabled(true);
@@ -268,8 +270,15 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
 			ctx.setContextRederivationPhase(PHASE.CLIENT_INITIATE);
 		}
 
-                System.out.println("[CaliforniumEndpointsManager L271] Added context with string: " + "coap://" + serverIP);
-                db.addContext("coap://" + serverIP, ctx);
+                String contextUri;
+                if(serverPort == CoAP.DEFAULT_COAP_PORT || serverPort == -1) {
+                      contextUri = "coap://" + serverIP;
+                } else {
+                      contextUri = "coap://" + serverIP + ":" + serverPort;
+                }
+                
+                System.out.println("[CaliforniumEndpointsManager L271] Added context with string: " + contextUri);
+                db.addContext(contextUri, ctx);
 
             } catch (OSException | UnknownHostException e) {
                 LOG.error("Failed to generate OSCORE context information");
