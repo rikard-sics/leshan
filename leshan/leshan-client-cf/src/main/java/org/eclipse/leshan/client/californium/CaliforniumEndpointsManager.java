@@ -272,7 +272,7 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
 		}
 
                 String contextUri;
-                if(serverPort == CoAP.DEFAULT_COAP_PORT || serverPort == -1) {
+                if(serverPort == LwM2m.DEFAULT_COAP_PORT || serverPort == -1) {
                       contextUri = "coap://" + serverIP;
                 } else {
                       contextUri = "coap://" + serverIP + ":" + serverPort;
