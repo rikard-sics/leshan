@@ -137,7 +137,11 @@ public class HashMapCtxDB implements OSCoreCtxDB {
 	@Override
 	public synchronized OSCoreCtx getContext(String uri) throws OSException {
 		if (uri != null) {
-			return uriMap.get(normalizeServerUri(uri));
+			OSCoreCtx ret = uriMap.get(normalizeServerUri(uri));
+			if(ret == null) {
+				System.err.println("Warning: Failed to retrieve OSCORE Security Context using URI: " + uri);
+			}
+			return ret;
 		} else {
 			LOGGER.error(ErrorDescriptions.STRING_NULL);
 			throw new NullPointerException(ErrorDescriptions.STRING_NULL);
