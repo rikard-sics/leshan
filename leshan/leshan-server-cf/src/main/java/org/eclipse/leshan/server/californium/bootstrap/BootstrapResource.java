@@ -91,7 +91,7 @@ public class BootstrapResource extends LwM2mCoapResource {
 					+ request.getSourceContext().getPeerAddress().getHostString().toString() + ":"
 					+ request.getSourceContext().getPeerAddress().getPort();
 					
-		System.out.println("Added context with string: " + contextUri);
+		System.out.println("[BootstrapResource] Added context with string: " + contextUri);
 
 		db.addContext(contextUri, clientCtx);
             } catch (OSException e) {

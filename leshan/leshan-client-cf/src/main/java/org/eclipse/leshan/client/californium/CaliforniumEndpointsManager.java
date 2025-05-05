@@ -254,21 +254,21 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
                 OSCoreCtx ctx = new OSCoreCtx(serverInfo.masterSecret, true, aeadAlg, serverInfo.senderId,
 						serverInfo.recipientId, hkdfAlg, 32, serverInfo.masterSalt, idContext, MAX_UNFRAGMENTED_SIZE);
                 
-                System.out.println("Added context with string: " + serverInfo.getFullUri().toASCIIString());
+                System.out.println("[CaliforniumEndpointsManager L257] Added context with string: " + serverInfo.getFullUri().toASCIIString());
                 db.addContext(serverInfo.getFullUri().toASCIIString(), ctx);
 
                 // Also add the context by the IP of the server since requests may use that
                 String serverIP = InetAddress.getByName(serverInfo.getFullUri().getHost()).getHostAddress();
                 // Support Appendix B.2 functionality
-				if (serverInfo.builtFromEdhoc == false) {
-					ctx.setContextRederivationEnabled(true);
+		if (serverInfo.builtFromEdhoc == false) {
+			ctx.setContextRederivationEnabled(true);
 
-					// Set to initiate Appendix B.2 procedure on first sent
-					// request. To either server or bs server
-					ctx.setContextRederivationPhase(PHASE.CLIENT_INITIATE);
-				}
+			// Set to initiate Appendix B.2 procedure on first sent
+			// request. To either server or bs server
+			ctx.setContextRederivationPhase(PHASE.CLIENT_INITIATE);
+		}
 
-                System.out.println("Added context with string: " + "coap://" + serverIP);
+                System.out.println("[CaliforniumEndpointsManager L271] Added context with string: " + "coap://" + serverIP);
                 db.addContext("coap://" + serverIP, ctx);
 
             } catch (OSException | UnknownHostException e) {

@@ -159,7 +159,7 @@ public class RegisterResource extends LwM2mCoapResource {
 				+ request.getSourceContext().getPeerAddress().getHostString().toString() + ":"
 				+ request.getSourceContext().getPeerAddress().getPort();
 				
-		System.out.println("Added context with string: " + contextUri);
+		System.out.println("[RegisterResource] Added context with string: " + contextUri);
 
 		db.addContext(contextUri, clientCtx);
             } catch (OSException e) {
