@@ -53,13 +53,7 @@ public class EndpointContextUtil {
     public static Identity extractIdentity(EndpointContext context) {
         InetSocketAddress peerAddress = context.getPeerAddress();
         Principal senderIdentity = context.getPeerIdentity();
-
-        if(senderIdentity != null) {
-            System.out.println("senderIdentity when entering extractIdentity(): " + senderIdentity.toString());
-        } else {
-            System.out.println("senderIdentity when entering extractIdentity(): " + "NULL");
-        } 
-        
+ 
         if (senderIdentity != null) {
             if (senderIdentity instanceof PreSharedKeyIdentity) {
                 return Identity.psk(peerAddress, ((PreSharedKeyIdentity) senderIdentity).getIdentity());
