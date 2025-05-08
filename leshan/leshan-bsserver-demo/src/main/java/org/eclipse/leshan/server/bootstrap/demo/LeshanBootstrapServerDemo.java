@@ -543,7 +543,7 @@ public class LeshanBootstrapServerDemo {
     
     static void printVersion() {
         Properties props = new Properties();
-                try (InputStream in = LeshanBootstrapServerDemo.class.getClassLoader().getResourceAsStream("version.properties")) {
+                try (InputStream in = LeshanBootstrapServerDemo.class.getClassLoader().getResourceAsStream("app-version.properties")) {
                     if (in != null) {
                         props.load(in);
                         String version = props.getProperty("version");

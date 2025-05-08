@@ -979,7 +979,7 @@ public class LeshanServerDemo {
 	// }
     static void printVersion() {
         Properties props = new Properties();
-                try (InputStream in = LeshanServerDemo.class.getClassLoader().getResourceAsStream("version.properties")) {
+                try (InputStream in = LeshanServerDemo.class.getClassLoader().getResourceAsStream("app-version.properties")) {
                     if (in != null) {
                         props.load(in);
                         String version = props.getProperty("version");
