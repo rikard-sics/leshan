@@ -6,6 +6,12 @@
 # Fail script with error if any command fails
 set -e
 
+# Set properties files with current version
+VERSION=$(cat VERSION)
+echo "version=$VERSION" > leshan/leshan-server-demo/src/main/resources/version.properties
+echo "version=$VERSION" > leshan/leshan-client-demo/src/main/resources/version.properties
+echo "version=$VERSION" > leshan/leshan-bsserver-demo/src/main/resources/version.properties
+
 # Build Californium (if needed)
 FILE1=californium/cf-oscore/target/cf-oscore-3.11.0-SNAPSHOT.jar
 FILE2=californium/californium-core/target/californium-core-3.11.0-SNAPSHOT.jar

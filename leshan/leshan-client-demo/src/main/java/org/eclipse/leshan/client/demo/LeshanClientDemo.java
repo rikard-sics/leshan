@@ -24,6 +24,7 @@ import static org.eclipse.leshan.client.object.Security.*;
 import static org.eclipse.leshan.core.LwM2mId.*;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.PrivateKey;
@@ -94,6 +95,8 @@ import org.eclipse.leshan.core.util.Hex;
 import org.eclipse.leshan.core.util.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.util.Properties;
+import java.io.InputStream;
 
 import com.upokecenter.cbor.CBORObject;
 
@@ -152,6 +155,8 @@ public class LeshanClientDemo {
     private static MyLocation locationInstance;
 
     public static void main(final String[] args) {
+    
+        printVersion();
 
         // Define options for command line tools
         Options options = new Options();
@@ -1120,4 +1125,19 @@ public class LeshanClientDemo {
             this.hkdfAlgorithm = hkdfAlgorithm;
         }
     }
+
+    static void printVersion() {
+        Properties props = new Properties();
+                try (InputStream in = LeshanClientDemo.class.getClassLoader().getResourceAsStream("version.properties")) {
+                    if (in != null) {
+                        props.load(in);
+                        String version = props.getProperty("version");
+                        System.out.println("Version: " + (version != null ? version : "SNAPSHOT"));
+                    } else {
+                        System.out.println("Version: SNAPSHOT");
+                    }
+                } catch (IOException e) {
+                    System.out.println("Version: SNAPSHOT");
+                }
+        }
 }

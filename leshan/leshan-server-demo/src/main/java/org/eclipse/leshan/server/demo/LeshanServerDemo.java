@@ -97,6 +97,8 @@ import org.eclipse.leshan.server.security.EditableSecurityStore;
 import org.eclipse.leshan.server.security.FileSecurityStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.util.Properties;
+import java.io.InputStream;
 
 import com.upokecenter.cbor.CBORObject;
 
@@ -123,6 +125,8 @@ public class LeshanServerDemo {
     private final static String DEFAULT_KEYSTORE_ALIAS = "leshan";
 
     public static void main(String[] args) {
+    	
+    	printVersion();
     	
     	// Delete old config files
     	String serverData = "/home/segrid-1/Leshan-Critisec2/leshan/leshan/leshan-server-demo/data/security.data";
@@ -973,4 +977,18 @@ public class LeshanServerDemo {
 	// }
 	//
 	// }
+    static void printVersion() {
+        Properties props = new Properties();
+                try (InputStream in = LeshanServerDemo.class.getClassLoader().getResourceAsStream("version.properties")) {
+                    if (in != null) {
+                        props.load(in);
+                        String version = props.getProperty("version");
+                        System.out.println("Version: " + (version != null ? version : "SNAPSHOT"));
+                    } else {
+                        System.out.println("Version: SNAPSHOT");
+                    }
+                } catch (IOException e) {
+                    System.out.println("Version: SNAPSHOT");
+                }
+        }
 }
