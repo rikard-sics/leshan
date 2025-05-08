@@ -60,6 +60,7 @@ import org.eclipse.leshan.server.californium.bootstrap.LeshanBootstrapServer;
 import org.eclipse.leshan.server.californium.bootstrap.LeshanBootstrapServerBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.util.Properties;
 
 public class LeshanBootstrapServerDemo {
 
@@ -76,6 +77,8 @@ public class LeshanBootstrapServerDemo {
     private final static String USAGE = "java -jar leshan-bsserver-demo.jar [OPTION]";
 
     public static void main(String[] args) {
+    
+        printVersion();
     	
     	// Delete old config files
     	String serverData = "/home/segrid-1/Leshan-Critisec2/leshan/leshan/leshan-server-demo/data/security.data";
@@ -535,4 +538,18 @@ public class LeshanBootstrapServerDemo {
         server.start();
         LOG.info("Web server started at {}.", server.getURI());
     }
+    
+    static void printVersion() {
+        Properties props = new Properties();
+                try (InputStream in = Main.class.getClassLoader().getResourceAsStream("version.properties")) {
+                    if (in != null) {
+                        props.load(in);
+                        System.out.println("Version: " + props.getProperty("version"));
+                    } else {
+                        System.out.println("Version: SNAPSHOT");
+                    }
+                } catch (IOException e) {
+                    System.out.println("Version: Unknown (SNAPSHOT)");
+                }
+        }
 }
