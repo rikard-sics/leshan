@@ -95,6 +95,7 @@ import org.eclipse.leshan.core.util.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.Properties;
+import java.io.InputStream;
 
 import com.upokecenter.cbor.CBORObject;
 
@@ -1126,15 +1127,16 @@ public class LeshanClientDemo {
 
     static void printVersion() {
         Properties props = new Properties();
-                try (InputStream in = Main.class.getClassLoader().getResourceAsStream("version.properties")) {
+                try (InputStream in = LeshanClientDemo.class.getClassLoader().getResourceAsStream("version.properties")) {
                     if (in != null) {
                         props.load(in);
-                        System.out.println("Version: " + props.getProperty("version"));
+                        String version = props.getProperty("version");
+                        System.out.println("Version: " + (version != null ? version : "SNAPSHOT"));
                     } else {
                         System.out.println("Version: SNAPSHOT");
                     }
                 } catch (IOException e) {
-                    System.out.println("Version: Unknown (SNAPSHOT)");
+                    System.out.println("Version: SNAPSHOT");
                 }
         }
 }

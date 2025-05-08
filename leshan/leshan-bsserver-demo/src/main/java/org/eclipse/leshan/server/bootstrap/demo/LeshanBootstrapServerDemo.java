@@ -61,6 +61,7 @@ import org.eclipse.leshan.server.californium.bootstrap.LeshanBootstrapServerBuil
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.Properties;
+import java.io.InputStream;
 
 public class LeshanBootstrapServerDemo {
 
@@ -541,15 +542,16 @@ public class LeshanBootstrapServerDemo {
     
     static void printVersion() {
         Properties props = new Properties();
-                try (InputStream in = Main.class.getClassLoader().getResourceAsStream("version.properties")) {
+                try (InputStream in = LeshanBootstrapServerDemo.class.getClassLoader().getResourceAsStream("version.properties")) {
                     if (in != null) {
                         props.load(in);
-                        System.out.println("Version: " + props.getProperty("version"));
+                        String version = props.getProperty("version");
+                        System.out.println("Version: " + (version != null ? version : "SNAPSHOT"));
                     } else {
                         System.out.println("Version: SNAPSHOT");
                     }
                 } catch (IOException e) {
-                    System.out.println("Version: Unknown (SNAPSHOT)");
+                    System.out.println("Version: SNAPSHOT");
                 }
         }
 }
