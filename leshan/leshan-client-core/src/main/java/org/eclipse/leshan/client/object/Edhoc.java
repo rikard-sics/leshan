@@ -162,6 +162,7 @@ public class Edhoc extends BaseInstanceEnabler {
 			// String edhocURI = identity.getUri() + "/.well-known/edhoc";
 			String edhocURI = OscoreHandler.getlwServerUri() + "/.well-known/edhoc";
 			// String edhocURI = "coap://127.0.0.2" + "/.well-known/edhoc";
+			System.out.println("Running EDHOC with DM at: " + edhocURI);
 
 			URI uri = null;
 			try {
