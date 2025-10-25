@@ -23,7 +23,6 @@ import java.math.BigInteger;
 import java.security.AlgorithmParameters;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
-import java.security.Provider;
 import java.security.PublicKey;
 import java.security.spec.ECGenParameterSpec;
 import java.security.spec.ECParameterSpec;
@@ -35,7 +34,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.eclipse.californium.core.CoapResource;
@@ -46,7 +44,6 @@ import org.eclipse.californium.cose.KeyKeys;
 import org.eclipse.californium.cose.OneKey;
 import org.eclipse.californium.edhoc.AppProfile;
 import org.eclipse.californium.edhoc.Constants;
-import org.eclipse.californium.edhoc.EdhocClient;
 import org.eclipse.californium.edhoc.EdhocEndpointInfo;
 import org.eclipse.californium.edhoc.EdhocResource;
 import org.eclipse.californium.edhoc.EdhocSession;
@@ -246,8 +243,8 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				// Build EDHOC endpoint info
 				setupEdhocParameters();
 
-				// Set ciphersuite
-				setupSupportedCipherSuites(ciphersuite.intValue());
+				// Set ciphersuites
+				setupSupportedCipherSuites();
 
 				// Set cred(s) (Credential Identifier and Server Credential
 				// Identifier). Set also my public and private key, and the
@@ -394,9 +391,15 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 	/**
 	 * RH: Imported from the EDHOC code EdhocServer.
 	 */
-	private static void setupSupportedCipherSuites(int suite) {
+	private static void setupSupportedCipherSuites() {
 
-		supportedCiphersuites.add(suite);
+		supportedCiphersuites.add(0);
+		supportedCiphersuites.add(1);
+		supportedCiphersuites.add(2);
+		supportedCiphersuites.add(3);
+		supportedCiphersuites.add(4);
+		supportedCiphersuites.add(5);
+		supportedCiphersuites.add(6);
 
 		// if (keyCurve == KeyKeys.EC2_P256.AsInt32()) {
 		// supportedCiphersuites.add(Constants.EDHOC_CIPHER_SUITE_2);
