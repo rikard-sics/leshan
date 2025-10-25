@@ -300,23 +300,31 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				HashMap<Integer, OneKey> inner = keyPairs.get(Constants.ECDH_KEY);
 				inner.put(Constants.CURVE_P256, keyPair);
 				inner.put(Constants.CURVE_X25519, keyPair);
+				inner.put(Constants.CURVE_Ed25519, keyPair);
 				inner = keyPairs.get(Constants.SIGNATURE_KEY);
 				inner.put(Constants.CURVE_P256, keyPair);
 				inner.put(Constants.CURVE_X25519, keyPair);
+				inner.put(Constants.CURVE_Ed25519, keyPair);
 
 				// Creds
 				HashMap<Integer, CBORObject> innerC = creds.get(Constants.ECDH_KEY);
 				innerC.put(Constants.CURVE_P256, CBORObject.FromObject(cred));
 				innerC.put(Constants.CURVE_X25519, CBORObject.FromObject(cred));
+				innerC.put(Constants.CURVE_Ed25519, CBORObject.FromObject(cred));
 				innerC = creds.get(Constants.SIGNATURE_KEY);
 				innerC.put(Constants.CURVE_P256, CBORObject.FromObject(cred));
 				innerC.put(Constants.CURVE_X25519, CBORObject.FromObject(cred));
+				innerC.put(Constants.CURVE_Ed25519, CBORObject.FromObject(cred));
 
 				// ID Creds
 				HashMap<Integer, CBORObject> innerD = idCreds.get(Constants.ECDH_KEY);
 				innerD.put(Constants.CURVE_P256, idCred);
+				innerD.put(Constants.CURVE_X25519, idCred);
+				innerD.put(Constants.CURVE_Ed25519, idCred);
 				innerD = idCreds.get(Constants.SIGNATURE_KEY);
 				innerD.put(Constants.CURVE_P256, idCred);
+				innerD.put(Constants.CURVE_X25519, idCred);
+				innerD.put(Constants.CURVE_Ed25519, idCred);
 
 				// Complete map
 				ownIdCreds.add(idCred);
