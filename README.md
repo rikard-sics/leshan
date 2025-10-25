@@ -56,3 +56,11 @@ Leshan Client with
 Navigate to 127.0.0.2:8080 and 127.0.0.3:8080 in a browser.
 
 Set the EDHOC config custom or using the pre-defined configs by pressing the special buttons.
+
+## Possible isuses with newer Java versions
+  
+If the following error is encountered:  
+*java.lang.reflect.InaccessibleObjectException: Unable to make private java.util.Collections$EmptyMap() accessible: module java.base does not "opens java.util" to unnamed module @25c3d16*  
+  
+Ensure that reflection is properly enabled (it was limited in later Java versions). To do this add the following as argument to the *java* command (before *-jar*):  
+*--add-opens java.base/java.util=ALL-UNNAMED*
