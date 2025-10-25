@@ -58,6 +58,7 @@ import org.eclipse.californium.oscore.OSException;
 import org.eclipse.leshan.core.util.Hex;
 import org.eclipse.leshan.core.util.SecurityUtil;
 import org.eclipse.leshan.server.OscoreHandler;
+import org.eclipse.leshan.server.EdhocHandler;
 import org.eclipse.leshan.server.security.SecurityInfo;
 
 import com.google.gson.JsonDeserializationContext;
@@ -334,14 +335,17 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 					System.out.println(key + " " + value);
 				}
 				
-				// Build well-known and EDHOC resource
-				// provide an instance of a .well-known/edhoc resource
-				CoapResource edhocResource = new EdhocResource("edhoc", edhocEndpointInfo, ownIdCreds);
-				CoapResource wellKnownResource = new WellKnown();
-				wellKnownResource.add(edhocResource);
+				if (EdhocHandler.getEndpointAdded() == false) {
+					// Build well-known and EDHOC resource
+					// provide an instance of a .well-known/edhoc resource
+					CoapResource edhocResource = new EdhocResource("edhoc", edhocEndpointInfo, ownIdCreds);
+					CoapResource wellKnownResource = new WellKnown();
+					wellKnownResource.add(edhocResource);
 
-				// Add resource to the CoapServer
-				OscoreHandler.getLwServer().add(wellKnownResource);
+					// Add resource to the CoapServer
+					OscoreHandler.getLwServer().add(wellKnownResource);
+					EdhocHandler.setEndpointAdded(true);
+				}
 
             } else {
                 throw new JsonParseException("Invalid security info content");

@@ -19,26 +19,16 @@ package org.eclipse.leshan.server;
 import org.eclipse.californium.core.CoapServer;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 
-public class OscoreHandler {
+public class EdhocHandler {
 
-	private static HashMapCtxDB db;
+	private static boolean endpointAdded = false;
 
-	private static CoapServer lwServer;
-
-	public static HashMapCtxDB getContextDB() {
-		if (db == null) {
-			db = new HashMapCtxDB();
-		}
-		return db;
+	public static boolean getEndpointAdded() {
+		return endpointAdded;
 	}
 
-	// RH: TODO: Move this to other handler?
-	public static void setLwServer(CoapServer toSetlwServer) {
-		lwServer = toSetlwServer;
-	}
-
-	public static CoapServer getLwServer() {
-		return lwServer;
+	public static void setEndpointAdded(boolean b) {
+		endpointAdded = b;
 	}
 
 }
