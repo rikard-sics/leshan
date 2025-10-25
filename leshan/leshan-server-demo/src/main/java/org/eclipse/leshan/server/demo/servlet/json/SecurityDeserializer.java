@@ -302,53 +302,89 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 
 				// --- Key Pairs ---
 				HashMap<Integer, OneKey> inner = EdhocHandler.keyPairs.get(Constants.ECDH_KEY);
-				if (ciphersuite == 2 || ciphersuite == 3) {
-					inner.put(Constants.CURVE_P256, keyPair);
+				if ((ciphersuite == 2 || ciphersuite == 3) && (method == 1 || method == 3)) {
+					OneKey old = inner.put(Constants.CURVE_P256, keyPair);
+					if (old != null) {
+    						System.err.println("Warning: Overwriting existing ECDH key pair for P256");
+					}
 				}
 				if ((ciphersuite == 0 || ciphersuite == 1) && (method == 1 || method == 3)) {
-					inner.put(Constants.CURVE_X25519, keyPair);
+					OneKey old = inner.put(Constants.CURVE_X25519, keyPair);
+					if (old != null) {
+    						System.err.println("Warning: Overwriting existing ECDH key pair for X25519");
+					}
 				}
 
 				inner = EdhocHandler.keyPairs.get(Constants.SIGNATURE_KEY);
-				if (ciphersuite == 2 || ciphersuite == 3) {
-					inner.put(Constants.CURVE_P256, keyPair);
+				if ((ciphersuite == 2 || ciphersuite == 3) && (method == 0 || method == 2)) {
+					OneKey old = inner.put(Constants.CURVE_P256, keyPair);
+					if (old != null) {
+    						System.err.println("Warning: Overwriting existing signature key pair for P256");
+					}
 				}
 				if ((ciphersuite == 0 || ciphersuite == 1) && (method == 0 || method == 2)) {
-					inner.put(Constants.CURVE_Ed25519, keyPair);
+					OneKey old = inner.put(Constants.CURVE_Ed25519, keyPair);
+					if (old != null) {
+    						System.err.println("Warning: Overwriting existing signature key pair for Ed25519");
+					}
 				}
 
 				// --- Creds ---
 				HashMap<Integer, CBORObject> innerC = EdhocHandler.creds.get(Constants.ECDH_KEY);
-				if (ciphersuite == 2 || ciphersuite == 3) {
-					innerC.put(Constants.CURVE_P256, CBORObject.FromObject(cred));
+				if ((ciphersuite == 2 || ciphersuite == 3) && (method == 1 || method == 3)) {
+					CBORObject old = innerC.put(Constants.CURVE_P256, CBORObject.FromObject(cred));
+					if (old != null) {
+    						System.err.println("Warning: Overwriting existing ECDH credentials for P256");
+					}
 				}
 				if ((ciphersuite == 0 || ciphersuite == 1) && (method == 1 || method == 3)) {
-					innerC.put(Constants.CURVE_X25519, CBORObject.FromObject(cred));
+					CBORObject old = innerC.put(Constants.CURVE_X25519, CBORObject.FromObject(cred));
+					if (old != null) {
+    						System.err.println("Warning: Overwriting existing ECDH credentials for X25519");
+					}
 				}
 
 				innerC = EdhocHandler.creds.get(Constants.SIGNATURE_KEY);
-				if (ciphersuite == 2 || ciphersuite == 3) {
-					innerC.put(Constants.CURVE_P256, CBORObject.FromObject(cred));
+				if ((ciphersuite == 2 || ciphersuite == 3) && (method == 0 || method == 2)) {
+					CBORObject old = innerC.put(Constants.CURVE_P256, CBORObject.FromObject(cred));
+					if (old != null) {
+    						System.err.println("Warning: Overwriting existing signature credentials for P256");
+					}
 				}
 				if ((ciphersuite == 0 || ciphersuite == 1) && (method == 0 || method == 2)) {
-					innerC.put(Constants.CURVE_Ed25519, CBORObject.FromObject(cred));
+					CBORObject old = innerC.put(Constants.CURVE_Ed25519, CBORObject.FromObject(cred));
+					if (old != null) {
+    						System.err.println("Warning: Overwriting existing signature credentials for Ed25519");
+					}
 				}
 
 				// --- ID Creds ---
 				HashMap<Integer, CBORObject> innerD = EdhocHandler.idCreds.get(Constants.ECDH_KEY);
-				if (ciphersuite == 2 || ciphersuite == 3) {
-					innerD.put(Constants.CURVE_P256, idCred);
+				if ((ciphersuite == 2 || ciphersuite == 3) && (method == 1 || method == 3)) {
+					CBORObject old = innerD.put(Constants.CURVE_P256, idCred);
+					if (old != null) {
+    						System.err.println("Warning: Overwriting existing ECDH 'ID Cred' for P256");
+					}
 				}
 				if ((ciphersuite == 0 || ciphersuite == 1) && (method == 1 || method == 3)) {
-					innerD.put(Constants.CURVE_X25519, idCred);
+					CBORObject old = innerD.put(Constants.CURVE_X25519, idCred);
+					if (old != null) {
+    						System.err.println("Warning: Overwriting existing ECDH 'ID Cred' for X25519");
+					}
 				}
 
 				innerD = EdhocHandler.idCreds.get(Constants.SIGNATURE_KEY);
-				if (ciphersuite == 2 || ciphersuite == 3) {
-					innerD.put(Constants.CURVE_P256, idCred);
+				if ((ciphersuite == 2 || ciphersuite == 3) && (method == 0 || method == 2)) {
+					CBORObject old = innerD.put(Constants.CURVE_P256, idCred);
+					if (old != null) {
+    						System.err.println("Warning: Overwriting existing signature 'ID Cred' for P256");
+					}
 				}
 				if ((ciphersuite == 0 || ciphersuite == 1) && (method == 0 || method == 2)) {
-					innerD.put(Constants.CURVE_Ed25519, idCred);
+					CBORObject old = innerD.put(Constants.CURVE_Ed25519, idCred);
+					if (old != null) {
+    						System.err.println("Warning: Overwriting existing signature 'ID Cred' for Ed25519");
+					}
 				}
 
 				// Complete map with own ID creds
