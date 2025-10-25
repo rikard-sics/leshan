@@ -40,7 +40,6 @@ import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.Utils;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.cose.AlgorithmID;
-import org.eclipse.californium.cose.KeyKeys;
 import org.eclipse.californium.cose.OneKey;
 import org.eclipse.californium.edhoc.AppProfile;
 import org.eclipse.californium.edhoc.Constants;
@@ -240,9 +239,6 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				// Install crypto provider
 				Utils.installCryptoProvider();
 
-				// Build EDHOC endpoint info
-				setupEdhocParameters();
-
 				// Set ciphersuites
 				setupSupportedCipherSuites();
 
@@ -408,7 +404,6 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 	// HashMap<CBORObject, CBORObject>();
 	static List<Integer> supportedCiphersuites = new ArrayList<Integer>();
 	// Other variables needed
-	static final int keyCurve = KeyKeys.EC2_P256.AsInt32(); // ECDSA
 	static HashMap<CBORObject, EdhocSession> edhocSessions = new HashMap<CBORObject, EdhocSession>();
 	static Set<CBORObject> usedConnectionIds = new HashSet<CBORObject>();
 	static String uriLocal = "coap://localhost";
@@ -419,14 +414,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 	 * RH: General method for setting up all EDHOC parameters needed to build
 	 * the EdhocEndpointInfo
 	 */
-	private static void setupEdhocParameters() {
-		Set<Integer> authMethods = new HashSet<Integer>();
-		authMethods.add(Constants.EDHOC_AUTH_METHOD_0);
 
-		AppProfile appStatement = new AppProfile(authMethods, false, true, false);
-		appStatements.put(uriLocal + "/.well-known/edhoc", appStatement);
-
-	}
 
 	/**
 	 * RH: Imported from the EDHOC code EdhocServer.
@@ -458,42 +446,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 	private static void setupIdentityKeys(byte[] idCredKid, byte[] peerKid, byte[] myPrivateKey, byte[] myPublicKey,
 			byte[] thePeerPublicKey) {
 
-		final int keyFormat = 0; // 0 is for Base64; 1 is for binary encoding
-
-		String keyPairBase64 = null;
-		String peerPublicKeyBase64 = null;
-		byte[] privateKeyBinary = null;
-		byte[] publicKeyBinary = null;
-		byte[] publicKeyBinaryY = null;
-		byte[] peerPublicKeyBinary = null;
-		byte[] peerPublicKeyBinaryY = null;
-
-		switch (keyFormat) {
-
-		/* For stand-alone testing, as base64 encoding of OneKey objects */
-		case 0:
-			if (keyCurve == KeyKeys.EC2_P256.AsInt32()) {
-				// keyPairBase64 =
-				// "pgMmAQIgASFYIPWSTdB9SCF/+CGXpy7gty8qipdR30t6HgdFGQo8ViiAIlggXvJCtXVXBJwmjMa4YdRbcdgjpXqM57S2CZENPrUGQnMjWCDXCb+hy1ybUu18KTAJMvjsmXch4W3Hd7Rw7mTF3ocbLQ==";
-				// peerPublicKeyBase64 =
-				// "pQMmAQIgASFYIGdZmgAlZDXB6FGfVVxHrB2LL8JMZag4JgK4ZcZ/+GBUIlgguZsSChh5hecy3n4Op+lZZJ2xXdbsz8DY7qRmLdIVavk=";
-			}
-			else if (keyCurve == KeyKeys.OKP_Ed25519.AsInt32()) {
-				// keyPairBase64 =
-				// "pQMnAQEgBiFYIDzQyFH694a7CcXQasH9RcqnmwQAy2FIX97dGGGy+bpSI1gg5aAfgdGCH2/2KFsQH5lXtDc8JUn1a+OkF0zOG6lIWXQ=";
-				// peerPublicKeyBase64 =
-				// "pAMnAQEgBiFYIEPgltbaO4rEBSYv3Lhs09jLtrOdihHUxLdc9pRoR/W9";
-			} else if (keyCurve == KeyKeys.OKP_X25519.AsInt32()) {
-				// keyPairBase64 =
-				// "pQMnAQEgBiFYIKOjK/y+4psOGi9zdnJBqTLThdpEj6Qygg4Voc10NYGSI1ggn/quL33vMaN9Rp4LKWCXVnaIRSgeeCJlU0Mv/y6zHlQ=";
-				// peerPublicKeyBase64 =
-				// "pAMnAQEgBiFYIGt2OynWjaQY4cE9OhPQrwcrZYNg8lRJ+MwXIYMjeCtr";
-			}
-			break;
-		default:
-			System.err.println("ERROR in key format switch!");
-			break;
-		}
+		final int keyFormat = 0;
 
 		switch (keyFormat) {
 		/* For stand-alone testing, as base64 encoding of OneKey objects */
