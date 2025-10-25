@@ -81,6 +81,7 @@ import org.eclipse.leshan.core.node.codec.DefaultLwM2mNodeDecoder;
 import org.eclipse.leshan.core.node.codec.DefaultLwM2mNodeEncoder;
 import org.eclipse.leshan.core.node.codec.LwM2mNodeDecoder;
 import org.eclipse.leshan.core.util.SecurityUtil;
+import org.eclipse.leshan.server.EdhocHandler;
 import org.eclipse.leshan.server.OscoreHandler;
 import org.eclipse.leshan.server.californium.LeshanServer;
 import org.eclipse.leshan.server.californium.LeshanServerBuilder;
@@ -125,9 +126,10 @@ public class LeshanServerDemo {
     private final static String DEFAULT_KEYSTORE_ALIAS = "leshan";
 
     public static void main(String[] args) {
-    	
-    	printVersion();
-    	
+
+		printVersion();
+		EdhocHandler.init();
+
     	// Delete old config files
     	String serverData = "/home/segrid-1/Leshan-Critisec2/leshan/leshan/leshan-server-demo/data/security.data";
     	String bsServerData = "/home/segrid-1/Leshan-Critisec2/leshan/leshan/leshan-bsserver-demo/data/bootstrap.json";
