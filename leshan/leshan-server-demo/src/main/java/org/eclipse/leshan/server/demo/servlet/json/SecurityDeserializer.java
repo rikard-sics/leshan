@@ -237,7 +237,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				info.setBuiltFromEdhoc(true); // Started from EDHOC
 
 				// Install crypto provider
-				Utils.installCryptoProvider();
+				org.eclipse.californium.edhoc.Util.installCryptoProvider();
 
 				// Set ciphersuites
 				setupSupportedCipherSuites();

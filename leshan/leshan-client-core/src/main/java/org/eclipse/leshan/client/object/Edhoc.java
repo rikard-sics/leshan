@@ -141,7 +141,7 @@ public class Edhoc extends BaseInstanceEnabler {
 			// Utils.printPause("Running EDHOC with Device Manager");
 			
 			// Install crypto provider
-			Utils.installCryptoProvider();
+			org.eclipse.californium.edhoc.Util.installCryptoProvider();
 
 			// Set params
 			setupEdhocParameters();

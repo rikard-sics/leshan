@@ -1323,4 +1323,9 @@ public class Util {
 		
 	}
 	
+	public static void installCryptoProvider() {
+		System.out.println("Installing crypto provider for EdDSA");
+		Provider EdDSA = new EdDSASecurityProvider();
+		Security.insertProviderAt(EdDSA, 1);
+	}
 }

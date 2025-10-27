@@ -26,6 +26,9 @@ package org.eclipse.californium.core;
 
 import java.security.Principal;
 import java.util.concurrent.TimeUnit;
+import java.security.NoSuchAlgorithmException;
+import java.security.Provider;
+import java.security.Security;
 
 import org.eclipse.californium.core.coap.CoAP.Code;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
@@ -36,6 +39,12 @@ import org.eclipse.californium.elements.DtlsEndpointContext;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.TlsEndpointContext;
 import org.eclipse.californium.elements.util.StringUtil;
+
+import net.i2p.crypto.eddsa.EdDSASecurityProvider;
+import net.i2p.crypto.eddsa.math.Field;
+import net.i2p.crypto.eddsa.math.FieldElement;
+import net.i2p.crypto.eddsa.math.bigint.BigIntegerFieldElement;
+import net.i2p.crypto.eddsa.math.bigint.BigIntegerLittleEndianEncoding;
 
 /**
  * Auxiliary helper methods for Californium.
@@ -185,9 +194,5 @@ public final class Utils {
 
 	public static void printPause(String str) {
 		System.out.println(str);
-	}
-
-	public static void installCryptoProvider() {
-		System.out.println("FIXME: Crypto providers");
 	}
 }

@@ -111,7 +111,7 @@ public class ApplicationServer {
 		}
 
 		// Install crypto provider
-		Utils.installCryptoProvider();
+		org.eclipse.californium.edhoc.Util.installCryptoProvider();
 
 		// Build EDHOC endpoint info
 		setupEdhocParameters();

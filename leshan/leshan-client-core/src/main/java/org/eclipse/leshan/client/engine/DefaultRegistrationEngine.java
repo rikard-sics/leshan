@@ -1013,7 +1013,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
         System.out.println("edhocURI: " + OscoreHandler.getAsServerUri() + "/.well-known/edhoc");
 
 		// Install crypto provider
-		Utils.installCryptoProvider();
+		org.eclipse.californium.edhoc.Util.installCryptoProvider();
 
 		// Set params
 		setupEdhocParameters();
