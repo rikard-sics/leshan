@@ -40,12 +40,6 @@ import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.TlsEndpointContext;
 import org.eclipse.californium.elements.util.StringUtil;
 
-import net.i2p.crypto.eddsa.EdDSASecurityProvider;
-import net.i2p.crypto.eddsa.math.Field;
-import net.i2p.crypto.eddsa.math.FieldElement;
-import net.i2p.crypto.eddsa.math.bigint.BigIntegerFieldElement;
-import net.i2p.crypto.eddsa.math.bigint.BigIntegerLittleEndianEncoding;
-
 /**
  * Auxiliary helper methods for Californium.
  */
