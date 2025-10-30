@@ -205,59 +205,60 @@ public class Edhoc extends BaseInstanceEnabler {
 			idCreds.put(Integer.valueOf(Constants.ECDH_KEY), new HashMap<Integer, CBORObject>());
 
 			// Build an integer
-			int method = authenticationMethod;
+			int method = authenticationMethod.intValue();
+			int suite = ciphersuite.intValue();
 			// Key Pairs
-			HashMap<Integer, OneKey> inner = EdhocHandler.keyPairs.get(Constants.ECDH_KEY);
-			if ((ciphersuite == 2 || ciphersuite == 3) && (method == 1 || method == 3)) {
+			HashMap<Integer, OneKey> inner = keyPairs.get(Constants.ECDH_KEY);
+			if ((suite == 2 || suite == 3) && (method == 1 || method == 3)) {
 			    inner.put(Constants.CURVE_P256, keyPair);
 			}
-			if ((ciphersuite == 0 || ciphersuite == 1) && (method == 1 || method == 3)) {
+			if ((suite == 0 || suite == 1) && (method == 1 || method == 3)) {
 			    inner.put(Constants.CURVE_X25519, keyPair);
 			}
 			
-			inner = EdhocHandler.keyPairs.get(Constants.SIGNATURE_KEY);
-			if ((ciphersuite == 2 || ciphersuite == 3) && (method == 0 || method == 2)) {
+			inner = keyPairs.get(Constants.SIGNATURE_KEY);
+			if ((suite == 2 || suite == 3) && (method == 0 || method == 2)) {
 			    inner.put(Constants.CURVE_P256, keyPair);
 			}
-			if ((ciphersuite == 0 || ciphersuite == 1) && (method == 0 || method == 2)) {
+			if ((suite == 0 || suite == 1) && (method == 0 || method == 2)) {
 			    inner.put(Constants.CURVE_Ed25519, keyPair);
 			}
 			
 			// --- Creds ---
-			HashMap<Integer, CBORObject> innerC = EdhocHandler.creds.get(Constants.ECDH_KEY);
-			if ((ciphersuite == 2 || ciphersuite == 3) && (method == 1 || method == 3)) {
+			HashMap<Integer, CBORObject> innerC = creds.get(Constants.ECDH_KEY);
+			if ((suite == 2 || suite == 3) && (method == 1 || method == 3)) {
 			    CBORObject newCred = CBORObject.FromObject(cred);
 			    innerC.put(Constants.CURVE_P256, newCred);
 			}
-			if ((ciphersuite == 0 || ciphersuite == 1) && (method == 1 || method == 3)) {
+			if ((suite == 0 || suite == 1) && (method == 1 || method == 3)) {
 			    CBORObject newCred = CBORObject.FromObject(cred);
 			    innerC.put(Constants.CURVE_X25519, newCred);
 			}
 			
-			innerC = EdhocHandler.creds.get(Constants.SIGNATURE_KEY);
-			if ((ciphersuite == 2 || ciphersuite == 3) && (method == 0 || method == 2)) {
+			innerC = creds.get(Constants.SIGNATURE_KEY);
+			if ((suite == 2 || suite == 3) && (method == 0 || method == 2)) {
 			    CBORObject newCred = CBORObject.FromObject(cred);
 			    innerC.put(Constants.CURVE_P256, newCred);
 			}
-			if ((ciphersuite == 0 || ciphersuite == 1) && (method == 0 || method == 2)) {
+			if ((suite == 0 || suite == 1) && (method == 0 || method == 2)) {
 			    CBORObject newCred = CBORObject.FromObject(cred);
 			    innerC.put(Constants.CURVE_Ed25519, newCred);
 			}
 			
 			// --- ID Creds ---
-			HashMap<Integer, CBORObject> innerD = EdhocHandler.idCreds.get(Constants.ECDH_KEY);
-			if ((ciphersuite == 2 || ciphersuite == 3) && (method == 1 || method == 3)) {
+			HashMap<Integer, CBORObject> innerD = idCreds.get(Constants.ECDH_KEY);
+			if ((suite == 2 || suite == 3) && (method == 1 || method == 3)) {
 			    innerD.put(Constants.CURVE_P256, idCred);
 			}
-			if ((ciphersuite == 0 || ciphersuite == 1) && (method == 1 || method == 3)) {
+			if ((suite == 0 || suite == 1) && (method == 1 || method == 3)) {
 			    innerD.put(Constants.CURVE_X25519, idCred);
 			}
 			
-			innerD = EdhocHandler.idCreds.get(Constants.SIGNATURE_KEY);
-			if ((ciphersuite == 2 || ciphersuite == 3) && (method == 0 || method == 2)) {
+			innerD = idCreds.get(Constants.SIGNATURE_KEY);
+			if ((suite == 2 || suite == 3) && (method == 0 || method == 2)) {
 			    innerD.put(Constants.CURVE_P256, idCred);
 			}
-			if ((ciphersuite == 0 || ciphersuite == 1) && (method == 0 || method == 2)) {
+			if ((suite == 0 || suite == 1) && (method == 0 || method == 2)) {
 			    innerD.put(Constants.CURVE_Ed25519, idCred);
 			}
 			
