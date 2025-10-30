@@ -205,7 +205,7 @@ public class Edhoc extends BaseInstanceEnabler {
 			idCreds.put(Integer.valueOf(Constants.ECDH_KEY), new HashMap<Integer, CBORObject>());
 
 			// Build an integer
-			long method = authenticationMethod;
+			int method = authenticationMethod;
 			// Key Pairs
 			HashMap<Integer, OneKey> inner = EdhocHandler.keyPairs.get(Constants.ECDH_KEY);
 			if ((ciphersuite == 2 || ciphersuite == 3) && (method == 1 || method == 3)) {
