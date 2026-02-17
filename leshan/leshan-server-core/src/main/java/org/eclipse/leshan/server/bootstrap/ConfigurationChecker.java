@@ -89,7 +89,7 @@ public class ConfigurationChecker {
     protected void checkNoSec(ServerSecurity sec) throws InvalidConfigurationException {
         assertIf(!isEmpty(sec.secretKey), "NO-SEC mode, secret key must be empty");
         assertIf(!isEmpty(sec.publicKeyOrId), "NO-SEC mode, public key or ID must be empty");
-        assertIf(!isEmpty(sec.peerPublicKey), "NO-SEC mode, server public key must be empty");
+        assertIf(!isEmpty(sec.serverPublicKey), "NO-SEC mode, server public key must be empty");
     }
 
     protected void checkPSK(ServerSecurity sec) throws InvalidConfigurationException {
@@ -108,8 +108,8 @@ public class ConfigurationChecker {
         assertIf(isEmpty(sec.publicKeyOrId), "raw-public-key mode, public key or id must not be empty");
         assertIf(decodeRfc7250PublicKey(sec.publicKeyOrId) == null,
                 "raw-public-key mode, public key or id must be RFC7250 encoded public key");
-        assertIf(isEmpty(sec.peerPublicKey), "raw-public-key mode, server public key must not be empty");
-        assertIf(decodeRfc7250PublicKey(sec.peerPublicKey) == null,
+        assertIf(isEmpty(sec.serverPublicKey), "raw-public-key mode, server public key must not be empty");
+        assertIf(decodeRfc7250PublicKey(sec.serverPublicKey) == null,
                 "raw-public-key mode, server public key must be RFC7250 encoded public key");
     }
 
@@ -120,8 +120,8 @@ public class ConfigurationChecker {
         assertIf(isEmpty(sec.publicKeyOrId), "x509 mode, public key or id must not be empty");
         assertIf(decodeCertificate(sec.publicKeyOrId) == null,
                 "x509 mode, public key or id must be DER encoded X.509 certificate");
-        assertIf(isEmpty(sec.peerPublicKey), "x509 mode, server public key must not be empty");
-        assertIf(decodeCertificate(sec.peerPublicKey) == null,
+        assertIf(isEmpty(sec.serverPublicKey), "x509 mode, server public key must not be empty");
+        assertIf(decodeCertificate(sec.serverPublicKey) == null,
                 "x509 mode, server public key must be DER encoded X.509 certificate");
     }
 

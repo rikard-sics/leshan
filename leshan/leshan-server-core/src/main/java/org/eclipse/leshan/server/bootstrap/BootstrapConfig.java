@@ -171,7 +171,7 @@ public class BootstrapConfig implements Serializable {
          * <p>
          * The format is defined in Section E.1.1 of the LwM2M version 1.0 specification.
          */
-        public byte[] peerPublicKey = new byte[] {};
+        public byte[] serverPublicKey = new byte[] {};
         /**
          * Stores the secret key or private key of the security mode.
          * <p>
@@ -259,9 +259,9 @@ public class BootstrapConfig implements Serializable {
         public String toString() {
             // Note : secretKey and smsBindingKeySecret are explicitly excluded from the display for security purposes
             return String.format(
-                    "ServerSecurity [uri=%s, bootstrapServer=%s, securityMode=%s, publicKeyOrId=%s, peerPublicKey=%s, smsSecurityMode=%s, smsBindingKeySecret=%s, serverSmsNumber=%s, serverId=%s, clientOldOffTime=%s, bootstrapServerAccountTimeout=%s, certificateUsage=%s]",
+                    "ServerSecurity [uri=%s, bootstrapServer=%s, securityMode=%s, publicKeyOrId=%s, serverPublicKey=%s, smsSecurityMode=%s, smsBindingKeySecret=%s, serverSmsNumber=%s, serverId=%s, clientOldOffTime=%s, bootstrapServerAccountTimeout=%s, certificateUsage=%s]",
                     uri, bootstrapServer, securityMode, Arrays.toString(publicKeyOrId),
-                    Arrays.toString(peerPublicKey), smsSecurityMode, Arrays.toString(smsBindingKeyParam),
+                    Arrays.toString(serverPublicKey), smsSecurityMode, Arrays.toString(smsBindingKeyParam),
                     serverSmsNumber, serverId, clientOldOffTime, bootstrapServerAccountTimeout, certificateUsage);
         }
     }

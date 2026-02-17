@@ -114,12 +114,12 @@ export default {
         case "rpk":
           s.publicKeyOrId = this.fromHex(c.details.client_pub_key);
           s.secretKey = this.fromHex(c.details.client_pri_key);
-          s.peerPublicKey = this.fromHex(c.details.server_pri_key);
+          s.serverPublicKey = this.fromHex(c.details.server_pri_key);
           break;
         case "x509":
           s.publicKeyOrId = this.fromHex(c.details.client_certificate);
           s.secretKey = this.fromHex(c.details.client_pri_key);
-          s.peerPublicKey = this.fromHex(c.details.server_certificate);
+          s.serverPublicKey = this.fromHex(c.details.server_certificate);
           s.certificateUsage = c.certificate_usage;
           break;
       }
@@ -145,7 +145,7 @@ export default {
               secretKey: dmServer.secretKey,
               securityMode: dmServer.securityMode,
               serverId: 123,
-              peerPublicKey: dmServer.peerPublicKey,
+              serverPublicKey: dmServer.serverPublicKey,
               serverSmsNumber: "",
               smsBindingKeyParam: [],
               smsBindingKeySecret: [],
@@ -163,7 +163,7 @@ export default {
               publicKeyOrId: bsServer.publicKeyOrId,
               secretKey: bsServer.secretKey,
               securityMode: bsServer.securityMode,
-              peerPublicKey: bsServer.peerPublicKey,
+              serverPublicKey: bsServer.serverPublicKey,
               serverSmsNumber: "",
               smsBindingKeyParam: [],
               smsBindingKeySecret: [],

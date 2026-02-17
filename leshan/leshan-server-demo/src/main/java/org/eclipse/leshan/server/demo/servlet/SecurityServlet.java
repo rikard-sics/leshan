@@ -53,7 +53,7 @@ public class SecurityServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
 
     private final EditableSecurityStore store;
-    private final PublicKey peerPublicKey;
+    private final PublicKey serverPublicKey;
     private final X509Certificate serverCertificate;
 
     private final X509CertificateSerDes certificateSerDes;
@@ -66,14 +66,14 @@ public class SecurityServlet extends HttpServlet {
         this(store, null, serverCertificate);
     }
 
-    public SecurityServlet(EditableSecurityStore store, PublicKey peerPublicKey) {
-        this(store, peerPublicKey, null);
+    public SecurityServlet(EditableSecurityStore store, PublicKey serverPublicKey) {
+        this(store, serverPublicKey, null);
     }
 
-    protected SecurityServlet(EditableSecurityStore store, PublicKey peerPublicKey,
+    protected SecurityServlet(EditableSecurityStore store, PublicKey serverPublicKey,
             X509Certificate serverCertificate) {
         this.store = store;
-        this.peerPublicKey = peerPublicKey;
+        this.serverPublicKey = serverPublicKey;
         this.serverCertificate = serverCertificate;
         certificateSerDes = new X509CertificateSerDes();
         publicKeySerDes = new PublicKeySerDes();
@@ -145,8 +145,8 @@ public class SecurityServlet extends HttpServlet {
 
         if ("server".equals(path[0])) {
             JsonObject security = new JsonObject();
-            if (peerPublicKey != null) {
-                security.add("pubkey", publicKeySerDes.jSerialize(peerPublicKey));
+            if (serverPublicKey != null) {
+                security.add("pubkey", publicKeySerDes.jSerialize(serverPublicKey));
             } else if (serverCertificate != null) {
                 security.add("certificate", certificateSerDes.jSerialize(serverCertificate));
             }

@@ -53,8 +53,8 @@ public class BootstrapUtil {
             resources.add(LwM2mSingleResource.newIntegerResource(2, securityConfig.securityMode.code));
         if (securityConfig.publicKeyOrId != null)
             resources.add(LwM2mSingleResource.newBinaryResource(3, securityConfig.publicKeyOrId));
-        if (securityConfig.peerPublicKey != null)
-            resources.add(LwM2mSingleResource.newBinaryResource(4, securityConfig.peerPublicKey));
+        if (securityConfig.serverPublicKey != null)
+            resources.add(LwM2mSingleResource.newBinaryResource(4, securityConfig.serverPublicKey));
         if (securityConfig.secretKey != null)
             resources.add(LwM2mSingleResource.newBinaryResource(5, securityConfig.secretKey));
         if (securityConfig.smsSecurityMode != null)

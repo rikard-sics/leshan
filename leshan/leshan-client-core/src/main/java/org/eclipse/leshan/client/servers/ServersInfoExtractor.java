@@ -220,7 +220,7 @@ public class ServersInfoExtractor {
                         } else if (info.secureMode == SecurityMode.RPK) {
                             info.publicKey = getPublicKey(security);
                             info.privateKey = getPrivateKey(security);
-                            info.peerPublicKey = getServerPublicKey(security);
+							info.serverPublicKey = getServerPublicKey(security);
                         } else if (info.secureMode == SecurityMode.X509) {
                             info.clientCertificate = getClientCertificate(security);
                             info.serverCertificate = getServerCertificate(security);
@@ -310,7 +310,7 @@ public class ServersInfoExtractor {
                     } else if (info.secureMode == SecurityMode.RPK) {
                         info.publicKey = getPublicKey(security);
                         info.privateKey = getPrivateKey(security);
-                        info.peerPublicKey = getServerPublicKey(security);
+						info.serverPublicKey = getServerPublicKey(security);
                     } else if (info.secureMode == SecurityMode.X509) {
                         info.clientCertificate = getClientCertificate(security);
                         info.serverCertificate = getServerCertificate(security);

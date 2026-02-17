@@ -138,7 +138,7 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
 						serverInfo.publicKey);
 				newBuilder.setCertificateIdentityProvider(myProv);
                 // set RPK truststore
-                final PublicKey expectedKey = serverInfo.peerPublicKey;
+				final PublicKey expectedKey = serverInfo.serverPublicKey;
                 NewAdvancedCertificateVerifier rpkVerifier = new StaticNewAdvancedCertificateVerifier.Builder()
                         .setTrustedRPKs(new RawPublicKeyIdentity(expectedKey)).build();
                 newBuilder.setAdvancedCertificateVerifier(rpkVerifier);
