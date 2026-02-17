@@ -6,77 +6,77 @@
     <button type="button" onclick="
          document.getElementById('initiator').value = 'True';
          document.getElementById('authenticationMethod').value = '0';
-         document.getElementById('ciphersuite').value = '2';
-         document.getElementById('credentialIdentifier').value = '07';
-         document.getElementById('publicCredential').value = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
+         document.getElementById('selectedCiphersuite').value = '2';
+         document.getElementById('clientKeyIdentifier').value = '07';
+         document.getElementById('clientPublicKey').value = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
          document.getElementById('privateKey').value = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
-         document.getElementById('serverCredentialIdentifier').value = '24';
-         document.getElementById('serverPublicKey').value = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLength').value = '16';
-         document.getElementById('oscoreMasterSaltLength').value = '8';
-         document.getElementById('edhocOscoreCombined').value = 'False';
+         document.getElementById('peerPublicKeyIdentifier').value = '24';
+         document.getElementById('peerPublicKey').value = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('oscoreMasterSecretLengthRemove').value = '16';
+         document.getElementById('oscoreMasterSaltLengthRemove').value = '8';
+         document.getElementById('edhocOscoreCombinedSupport').value = 'False';
          
          document.getElementById('initiator').innerHTML = 'True';
          document.getElementById('authenticationMethod').innerHTML = '0';
-         document.getElementById('ciphersuite').innerHTML = '2';
-         document.getElementById('credentialIdentifier').innerHTML = '07';
-         document.getElementById('publicCredential').innerHTML = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
+         document.getElementById('selectedCiphersuite').innerHTML = '2';
+         document.getElementById('clientKeyIdentifier').innerHTML = '07';
+         document.getElementById('clientPublicKey').innerHTML = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
          document.getElementById('privateKey').innerHTML = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
-         document.getElementById('serverCredentialIdentifier').innerHTML = '24';
-         document.getElementById('serverPublicKey').innerHTML = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLength').innerHTML = '16';
-         document.getElementById('oscoreMasterSaltLength').innerHTML = '8';
-         document.getElementById('edhocOscoreCombined').innerHTML = 'False';
+         document.getElementById('peerPublicKeyIdentifier').innerHTML = '24';
+         document.getElementById('peerPublicKey').innerHTML = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('oscoreMasterSecretLengthRemove').innerHTML = '16';
+         document.getElementById('oscoreMasterSaltLengthRemove').innerHTML = '8';
+         document.getElementById('edhocOscoreCombinedSupport').innerHTML = 'False';
          
          document.getElementById('initiator').innerText = 'True';
          document.getElementById('authenticationMethod').innerText = '0';
-         document.getElementById('ciphersuite').innerText = '2';
-         document.getElementById('credentialIdentifier').innerText = '07';
-         document.getElementById('publicCredential').innerText = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
+         document.getElementById('selectedCiphersuite').innerText = '2';
+         document.getElementById('clientKeyIdentifier').innerText = '07';
+         document.getElementById('clientPublicKey').innerText = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
          document.getElementById('privateKey').innerText = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
-         document.getElementById('serverCredentialIdentifier').innerText = '24';
-         document.getElementById('serverPublicKey').innerText = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLength').innerText = '16';
-         document.getElementById('oscoreMasterSaltLength').innerText = '8';
-         document.getElementById('edhocOscoreCombined').innerText = 'False';
+         document.getElementById('peerPublicKeyIdentifier').innerText = '24';
+         document.getElementById('peerPublicKey').innerText = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('oscoreMasterSecretLengthRemove').innerText = '16';
+         document.getElementById('oscoreMasterSaltLengthRemove').innerText = '8';
+         document.getElementById('edhocOscoreCombinedSupport').innerText = 'False';
     ">Fill Client<->DM config</button> 
          
     <button type="button" onclick="
          document.getElementById('initiator').value = 'True';
          document.getElementById('authenticationMethod').value = '0';
-         document.getElementById('ciphersuite').value = '2';
-         document.getElementById('credentialIdentifier').value = '08';
-         document.getElementById('publicCredential').value = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
+         document.getElementById('selectedCiphersuite').value = '2';
+         document.getElementById('clientKeyIdentifier').value = '08';
+         document.getElementById('clientPublicKey').value = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
          document.getElementById('privateKey').value = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
-         document.getElementById('serverCredentialIdentifier').value = '25';
-         document.getElementById('serverPublicKey').value = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLength').value = '16';
-         document.getElementById('oscoreMasterSaltLength').value = '8';
-         document.getElementById('edhocOscoreCombined').value = 'False';
+         document.getElementById('peerPublicKeyIdentifier').value = '25';
+         document.getElementById('peerPublicKey').value = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('oscoreMasterSecretLengthRemove').value = '16';
+         document.getElementById('oscoreMasterSaltLengthRemove').value = '8';
+         document.getElementById('edhocOscoreCombinedSupport').value = 'False';
          
          document.getElementById('initiator').innerText = 'True';
          document.getElementById('authenticationMethod').innerText = '0';
-         document.getElementById('ciphersuite').innerText = '2';
-         document.getElementById('credentialIdentifier').innerText = '08';
-         document.getElementById('publicCredential').innerText = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
+         document.getElementById('selectedCiphersuite').innerText = '2';
+         document.getElementById('clientKeyIdentifier').innerText = '08';
+         document.getElementById('clientPublicKey').innerText = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
          document.getElementById('privateKey').innerText = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
-         document.getElementById('serverCredentialIdentifier').innerText = '25';
-         document.getElementById('serverPublicKey').innerText = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLength').innerText = '16';
-         document.getElementById('oscoreMasterSaltLength').innerText = '8';
-         document.getElementById('edhocOscoreCombined').innerText = 'False';
+         document.getElementById('peerPublicKeyIdentifier').innerText = '25';
+         document.getElementById('peerPublicKey').innerText = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('oscoreMasterSecretLengthRemove').innerText = '16';
+         document.getElementById('oscoreMasterSaltLengthRemove').innerText = '8';
+         document.getElementById('edhocOscoreCombinedSupport').innerText = 'False';
          
          document.getElementById('initiator').innerHTML = 'True';
          document.getElementById('authenticationMethod').innerHTML = '0';
-         document.getElementById('ciphersuite').innerHTML = '2';
-         document.getElementById('credentialIdentifier').innerHTML = '08';
-         document.getElementById('publicCredential').innerHTML = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
+         document.getElementById('selectedCiphersuite').innerHTML = '2';
+         document.getElementById('clientKeyIdentifier').innerHTML = '08';
+         document.getElementById('clientPublicKey').innerHTML = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
          document.getElementById('privateKey').innerHTML = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
-         document.getElementById('serverCredentialIdentifier').innerHTML = '25';
-         document.getElementById('serverPublicKey').innerHTML = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLength').innerHTML = '16';
-         document.getElementById('oscoreMasterSaltLength').innerHTML = '8';
-         document.getElementById('edhocOscoreCombined').innerHTML = 'False';
+         document.getElementById('peerPublicKeyIdentifier').innerHTML = '25';
+         document.getElementById('peerPublicKey').innerHTML = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('oscoreMasterSecretLengthRemove').innerHTML = '16';
+         document.getElementById('oscoreMasterSaltLengthRemove').innerHTML = '8';
+         document.getElementById('edhocOscoreCombinedSupport').innerHTML = 'False';
     ">Fill Client<->AS config</button> 
     
     <div class={ form-group:true }>
@@ -94,24 +94,24 @@
     </div>
 
     <div class={ form-group:true }>
-        <label for="ciphersuite" class="col-sm-4 control-label">Ciphersuite</label>
+        <label for="selectedCiphersuite" class="col-sm-4 control-label">Ciphersuite</label>
         <div class="col-sm-8">
-            <textarea class="form-control" style="resize:none" rows="1" id="ciphersuite" ref="ciphersuite"></textarea>
+            <textarea class="form-control" style="resize:none" rows="1" id="selectedCiphersuite" ref="selectedCiphersuite"></textarea>
         </div>
     </div>
 
     <div class={ form-group:true }>
-        <label for="credentialIdentifier" class="col-sm-4 control-label">Credential Identifier</label>
+        <label for="clientKeyIdentifier" class="col-sm-4 control-label">Credential Identifier</label>
         <div class="col-sm-8">
-            <textarea class="form-control" style="resize:none" rows="1" id="credentialIdentifier" ref="credentialIdentifier"></textarea>
+            <textarea class="form-control" style="resize:none" rows="1" id="clientKeyIdentifier" ref="clientKeyIdentifier"></textarea>
             <p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
         </div>
     </div>
 
     <div class={ form-group:true }>
-        <label for="publicCredential" class="col-sm-4 control-label">Public Credential</label>
+        <label for="clientPublicKey" class="col-sm-4 control-label">Public Credential</label>
         <div class="col-sm-8">
-            <textarea class="form-control" style="resize:none" rows="4" id="publicCredential" ref="publicCredential"></textarea>
+            <textarea class="form-control" style="resize:none" rows="4" id="clientPublicKey" ref="clientPublicKey"></textarea>
             <p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
         </div>
     </div>
@@ -125,39 +125,39 @@
     </div>
 
     <div class={ form-group:true }>
-        <label for="serverCredentialIdentifier" class="col-sm-4 control-label">Server Credential Identifier</label>
+        <label for="peerPublicKeyIdentifier" class="col-sm-4 control-label">Server Credential Identifier</label>
         <div class="col-sm-8">
-            <textarea class="form-control" style="resize:none" rows="1" id="serverCredentialIdentifier" ref="serverCredentialIdentifier"></textarea>
+            <textarea class="form-control" style="resize:none" rows="1" id="peerPublicKeyIdentifier" ref="peerPublicKeyIdentifier"></textarea>
             <p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
         </div>
     </div>
 
     <div class={ form-group:true }>
-        <label for="serverPublicKey" class="col-sm-4 control-label">Server Public Credential</label>
+        <label for="peerPublicKey" class="col-sm-4 control-label">Server Public Credential</label>
         <div class="col-sm-8">
-            <textarea class="form-control" style="resize:none" rows="4" id="serverPublicKey" ref="serverPublicKey"></textarea>
+            <textarea class="form-control" style="resize:none" rows="4" id="peerPublicKey" ref="peerPublicKey"></textarea>
             <p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
         </div>
     </div>
 
     <div class={ form-group:true }>
-        <label for="oscoreMasterSecretLength" class="col-sm-4 control-label">OSCORE Master Secret Length</label>
+        <label for="oscoreMasterSecretLengthRemove" class="col-sm-4 control-label">OSCORE Master Secret Length</label>
         <div class="col-sm-8">
-            <textarea class="form-control" style="resize:none" rows="1" id="oscoreMasterSecretLength" ref="oscoreMasterSecretLength"></textarea>
+            <textarea class="form-control" style="resize:none" rows="1" id="oscoreMasterSecretLengthRemove" ref="oscoreMasterSecretLengthRemove"></textarea>
         </div>
     </div>
 
     <div class={ form-group:true }>
-        <label for="oscoreMasterSaltLength" class="col-sm-4 control-label">OSCORE Master Salt Length</label>
+        <label for="oscoreMasterSaltLengthRemove" class="col-sm-4 control-label">OSCORE Master Salt Length</label>
         <div class="col-sm-8">
-            <textarea class="form-control" style="resize:none" rows="1" id="oscoreMasterSaltLength" ref="oscoreMasterSaltLength"></textarea>
+            <textarea class="form-control" style="resize:none" rows="1" id="oscoreMasterSaltLengthRemove" ref="oscoreMasterSaltLengthRemove"></textarea>
         </div>
     </div>
 
     <div class={ form-group:true }>
-        <label for="edhocOscoreCombined" class="col-sm-4 control-label">EDHOC OSCORE Combined</label>
+        <label for="edhocOscoreCombinedSupport" class="col-sm-4 control-label">EDHOC OSCORE Combined</label>
         <div class="col-sm-8">
-            <textarea class="form-control" style="resize:none" rows="1" id="edhocOscoreCombined" ref="edhocOscoreCombined"></textarea>
+            <textarea class="form-control" style="resize:none" rows="1" id="edhocOscoreCombinedSupport" ref="edhocOscoreCombinedSupport"></textarea>
         </div>
     </div>
 
@@ -187,15 +187,15 @@
         tag.validate_hkdfAlgorithm = validate_hkdfAlgorithm;
         tag.initiator={};
         tag.authenticationMethod={};
-        tag.ciphersuite={};
-        tag.credentialIdentifier={};
-        tag.publicCredential={};
+        tag.selectedCiphersuite={};
+        tag.clientKeyIdentifier={};
+        tag.clientPublicKey={};
         tag.privateKey={};
-        tag.serverCredentialIdentifier={};
-        tag.serverPublicKey={};
-        tag.oscoreMasterSecretLength={};
-        tag.oscoreMasterSaltLength={};
-        tag.edhocOscoreCombined={};
+        tag.peerPublicKeyIdentifier={};
+        tag.peerPublicKey={};
+        tag.oscoreMasterSecretLengthRemove={};
+        tag.oscoreMasterSaltLengthRemove={};
+        tag.edhocOscoreCombinedSupport={};
         
         // Tag functions
         function validate_masterSecret(e){
@@ -335,15 +335,15 @@
         function get_value(){
             return { initiator:tag.refs.initiator.value,
                 authenticationMethod:tag.refs.authenticationMethod.value,
-                ciphersuite:tag.refs.ciphersuite.value,
-                credentialIdentifier:tag.refs.credentialIdentifier.value,
-                publicCredential:tag.refs.publicCredential.value,
+                selectedCiphersuite:tag.refs.selectedCiphersuite.value,
+                clientKeyIdentifier:tag.refs.clientKeyIdentifier.value,
+                clientPublicKey:tag.refs.clientPublicKey.value,
                 privateKey:tag.refs.privateKey.value,
-                serverCredentialIdentifier:tag.refs.serverCredentialIdentifier.value,
-                serverPublicKey:tag.refs.serverPublicKey.value,
-                oscoreMasterSecretLength:tag.refs.oscoreMasterSecretLength.value,
-                oscoreMasterSaltLength:tag.refs.oscoreMasterSaltLength.value,
-                edhocOscoreCombined:tag.refs.edhocOscoreCombined.value };
+                peerPublicKeyIdentifier:tag.refs.peerPublicKeyIdentifier.value,
+                peerPublicKey:tag.refs.peerPublicKey.value,
+                oscoreMasterSecretLengthRemove:tag.refs.oscoreMasterSecretLengthRemove.value,
+                oscoreMasterSaltLengthRemove:tag.refs.oscoreMasterSaltLengthRemove.value,
+                edhocOscoreCombinedSupport:tag.refs.edhocOscoreCombinedSupport.value };
         }
 
     </script>

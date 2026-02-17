@@ -49,7 +49,7 @@ public class ServerInfo {
     public byte[] pskKey;
 
     public PublicKey publicKey;
-    public PublicKey serverPublicKey;
+    public PublicKey peerPublicKey;
 
     public Certificate clientCertificate;
     public Certificate serverCertificate;

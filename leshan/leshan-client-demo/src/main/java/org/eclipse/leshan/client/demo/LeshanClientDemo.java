@@ -509,12 +509,12 @@ public class LeshanClientDemo {
         // get RPK info
         PublicKey clientPublicKey = null;
         PrivateKey clientPrivateKey = null;
-        PublicKey serverPublicKey = null;
+        PublicKey peerPublicKey = null;
         if (cl.hasOption("cpubk")) {
             try {
                 clientPrivateKey = SecurityUtil.privateKey.readFromFile(cl.getOptionValue("cprik"));
                 clientPublicKey = SecurityUtil.publicKey.readFromFile(cl.getOptionValue("cpubk"));
-                serverPublicKey = SecurityUtil.publicKey.readFromFile(cl.getOptionValue("spubk"));
+                peerPublicKey = SecurityUtil.publicKey.readFromFile(cl.getOptionValue("spubk"));
             } catch (Exception e) {
                 System.err.println("Unable to load RPK files : " + e.getMessage());
                 e.printStackTrace();
@@ -756,7 +756,7 @@ public class LeshanClientDemo {
         try {
             createAndStartClient(endpoint, localAddress, localPort, cl.hasOption("b"), additionalAttributes,
                     bsAdditionalAttributes, lifetime, communicationPeriod, serverURI, pskIdentity, pskKey,
-                    clientPrivateKey, clientPublicKey, serverPublicKey, clientCertificate, serverCertificate,
+                    clientPrivateKey, clientPublicKey, peerPublicKey, clientCertificate, serverCertificate,
                     trustStore, certificateUsage, latitude, longitude, scaleFactor, cl.hasOption("ocf"),
                     cl.hasOption("oc"), cl.hasOption("r"), cl.hasOption("f"), modelsFolderPath, ciphers, cid,
                     oscoreSettings);
@@ -770,7 +770,7 @@ public class LeshanClientDemo {
     public static void createAndStartClient(String endpoint, String localAddress, int localPort, boolean needBootstrap,
             Map<String, String> additionalAttributes, Map<String, String> bsAdditionalAttributes, int lifetime,
             Integer communicationPeriod, String serverURI, byte[] pskIdentity, byte[] pskKey,
-            PrivateKey clientPrivateKey, PublicKey clientPublicKey, PublicKey serverPublicKey,
+            PrivateKey clientPrivateKey, PublicKey clientPublicKey, PublicKey peerPublicKey,
             X509Certificate clientCertificate, X509Certificate serverCertificate, List<Certificate> trustStore,
             CertificateUsage certificateUsage, Float latitude, Float longitude, float scaleFactor,
             boolean supportOldFormat, boolean supportDeprecatedCiphers, boolean reconnectOnUpdate,
@@ -795,7 +795,7 @@ public class LeshanClientDemo {
                 initializer.setClassForObject(SERVER, Server.class);
             } else if (clientPublicKey != null) {
                 initializer.setInstancesForObject(SECURITY, rpkBootstrap(serverURI, clientPublicKey.getEncoded(),
-                        clientPrivateKey.getEncoded(), serverPublicKey.getEncoded()));
+                        clientPrivateKey.getEncoded(), peerPublicKey.getEncoded()));
                 initializer.setClassForObject(SERVER, Server.class);
             } else if (clientCertificate != null) {
                 initializer.setInstancesForObject(SECURITY, x509Bootstrap(serverURI, clientCertificate.getEncoded(),
@@ -820,7 +820,7 @@ public class LeshanClientDemo {
                 initializer.setInstancesForObject(SERVER, new Server(123, lifetime));
             } else if (clientPublicKey != null) {
                 initializer.setInstancesForObject(SECURITY, rpk(serverURI, 123, clientPublicKey.getEncoded(),
-                        clientPrivateKey.getEncoded(), serverPublicKey.getEncoded()));
+                        clientPrivateKey.getEncoded(), peerPublicKey.getEncoded()));
                 initializer.setInstancesForObject(SERVER, new Server(123, lifetime));
             } else if (clientCertificate != null) {
                 initializer.setInstancesForObject(SECURITY, x509(serverURI, 123, clientCertificate.getEncoded(),

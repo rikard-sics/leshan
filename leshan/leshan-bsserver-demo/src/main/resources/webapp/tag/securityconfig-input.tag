@@ -147,15 +147,15 @@
                 
                 config.edhoc.initiator = edhocVals.initiator;
                 config.edhoc.authenticationMethod = edhocVals.authenticationMethod;
-                config.edhoc.ciphersuite = edhocVals.ciphersuite;
-                config.edhoc.credentialIdentifier = fromHex(edhocVals.credentialIdentifier);
-                config.edhoc.publicCredential = fromHex(edhocVals.publicCredential);
+                config.edhoc.selectedCiphersuite = edhocVals.selectedCiphersuite;
+                config.edhoc.clientKeyIdentifier = fromHex(edhocVals.clientKeyIdentifier);
+                config.edhoc.clientPublicKey = fromHex(edhocVals.clientPublicKey);
                 config.edhoc.privateKey = fromHex(edhocVals.privateKey);
-                config.edhoc.serverCredentialIdentifier = fromHex(edhocVals.serverCredentialIdentifier);
-                config.edhoc.serverPublicKey = fromHex(edhocVals.serverPublicKey);
-                config.edhoc.oscoreMasterSecretLength = edhocVals.oscoreMasterSecretLength;
-                config.edhoc.oscoreMasterSaltLength = edhocVals.oscoreMasterSaltLength;
-                config.edhoc.edhocOscoreCombined = edhocVals.edhocOscoreCombined;
+                config.edhoc.peerPublicKeyIdentifier = fromHex(edhocVals.peerPublicKeyIdentifier);
+                config.edhoc.peerPublicKey = fromHex(edhocVals.peerPublicKey);
+                config.edhoc.oscoreMasterSecretLengthRemove = edhocVals.oscoreMasterSecretLengthRemove;
+                config.edhoc.oscoreMasterSaltLengthRemove = edhocVals.oscoreMasterSaltLengthRemove;
+                config.edhoc.edhocOscoreCombinedSupport = edhocVals.edhocOscoreCombinedSupport;
             	
             }
 

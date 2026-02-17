@@ -55,7 +55,7 @@ public class Security extends BaseInstanceEnabler {
     // private SecurityMode securityMode;
     private int securityMode;
     private byte[] publicKeyOrIdentity;
-    private byte[] serverPublicKey;
+    private byte[] peerPublicKey;
     private byte[] secretKey;
 
     private Integer shortServerId;
@@ -69,13 +69,13 @@ public class Security extends BaseInstanceEnabler {
     }
 
     public Security(String serverUri, boolean bootstrapServer, int securityMode, byte[] publicKeyOrIdentity,
-            byte[] serverPublicKey, byte[] secretKey, Integer shortServerId, ULong certificateUsage,
+            byte[] peerPublicKey, byte[] secretKey, Integer shortServerId, ULong certificateUsage,
             ObjectLink oscoreSecurityMode) {
         this.serverUri = serverUri;
         this.bootstrapServer = bootstrapServer;
         this.securityMode = securityMode;
         this.publicKeyOrIdentity = publicKeyOrIdentity;
-        this.serverPublicKey = serverPublicKey;
+        this.peerPublicKey = peerPublicKey;
         this.secretKey = secretKey;
         this.shortServerId = shortServerId;
         this.certificateUsage = certificateUsage;
@@ -111,8 +111,8 @@ public class Security extends BaseInstanceEnabler {
      * Returns a new security instance (RPK) for a bootstrap server.
      */
     public static Security rpkBootstrap(String serverUri, byte[] clientPublicKey, byte[] clientPrivateKey,
-            byte[] serverPublicKey) {
-        return new Security(serverUri, true, SecurityMode.RPK.code, clientPublicKey.clone(), serverPublicKey.clone(),
+            byte[] peerPublicKey) {
+        return new Security(serverUri, true, SecurityMode.RPK.code, clientPublicKey.clone(), peerPublicKey.clone(),
                 clientPrivateKey.clone(), null, CertificateUsage.DOMAIN_ISSUER_CERTIFICATE.code, new ObjectLink());
     }
 
@@ -120,8 +120,8 @@ public class Security extends BaseInstanceEnabler {
      * Returns a new security instance (X509) for a bootstrap server.
      */
     public static Security x509Bootstrap(String serverUri, byte[] clientCertificate, byte[] clientPrivateKey,
-            byte[] serverPublicKey) {
-        return new Security(serverUri, true, SecurityMode.X509.code, clientCertificate.clone(), serverPublicKey.clone(),
+            byte[] peerPublicKey) {
+        return new Security(serverUri, true, SecurityMode.X509.code, clientCertificate.clone(), peerPublicKey.clone(),
                 clientPrivateKey.clone(), null, CertificateUsage.DOMAIN_ISSUER_CERTIFICATE.code, new ObjectLink());
     }
 
@@ -129,8 +129,8 @@ public class Security extends BaseInstanceEnabler {
      * Returns a new security instance (X509) for a bootstrap server.
      */
     public static Security x509Bootstrap(String serverUri, byte[] clientCertificate, byte[] clientPrivateKey,
-            byte[] serverPublicKey, ULong certificateUsage) {
-        return new Security(serverUri, true, SecurityMode.X509.code, clientCertificate.clone(), serverPublicKey.clone(),
+            byte[] peerPublicKey, ULong certificateUsage) {
+        return new Security(serverUri, true, SecurityMode.X509.code, clientCertificate.clone(), peerPublicKey.clone(),
                 clientPrivateKey.clone(), null, certificateUsage, new ObjectLink());
     }
 
@@ -163,8 +163,8 @@ public class Security extends BaseInstanceEnabler {
      * Returns a new security instance (RPK) for a device management server.
      */
     public static Security rpk(String serverUri, int shortServerId, byte[] clientPublicKey, byte[] clientPrivateKey,
-            byte[] serverPublicKey) {
-        return new Security(serverUri, false, SecurityMode.RPK.code, clientPublicKey.clone(), serverPublicKey.clone(),
+            byte[] peerPublicKey) {
+        return new Security(serverUri, false, SecurityMode.RPK.code, clientPublicKey.clone(), peerPublicKey.clone(),
                 clientPrivateKey.clone(), shortServerId, CertificateUsage.DOMAIN_ISSUER_CERTIFICATE.code,
                 new ObjectLink());
     }
@@ -173,9 +173,9 @@ public class Security extends BaseInstanceEnabler {
      * Returns a new security instance (X509) for a device management server.
      */
     public static Security x509(String serverUri, int shortServerId, byte[] clientCertificate, byte[] clientPrivateKey,
-            byte[] serverPublicKey) {
+            byte[] peerPublicKey) {
         return new Security(serverUri, false, SecurityMode.X509.code, clientCertificate.clone(),
-                serverPublicKey.clone(), clientPrivateKey.clone(), shortServerId,
+                peerPublicKey.clone(), clientPrivateKey.clone(), shortServerId,
                 CertificateUsage.DOMAIN_ISSUER_CERTIFICATE.code, new ObjectLink());
     }
 
@@ -183,9 +183,9 @@ public class Security extends BaseInstanceEnabler {
      * Returns a new security instance (X509) for a device management server.
      */
     public static Security x509(String serverUri, int shortServerId, byte[] clientCertificate, byte[] clientPrivateKey,
-            byte[] serverPublicKey, ULong certificateUsage) {
+            byte[] peerPublicKey, ULong certificateUsage) {
         return new Security(serverUri, false, SecurityMode.X509.code, clientCertificate.clone(),
-                serverPublicKey.clone(), clientPrivateKey.clone(), shortServerId, certificateUsage, new ObjectLink());
+                peerPublicKey.clone(), clientPrivateKey.clone(), shortServerId, certificateUsage, new ObjectLink());
     }
 
     @Override
@@ -226,7 +226,7 @@ public class Security extends BaseInstanceEnabler {
             if (value.getType() != Type.OPAQUE) {
                 return WriteResponse.badRequest("invalid type");
             }
-            serverPublicKey = (byte[]) value.getValue();
+            peerPublicKey = (byte[]) value.getValue();
             return WriteResponse.success();
         case SEC_SECRET_KEY: // Secret Key
             if (value.getType() != Type.OPAQUE) {
@@ -292,7 +292,7 @@ public class Security extends BaseInstanceEnabler {
             return ReadResponse.success(resourceid, publicKeyOrIdentity);
 
         case SEC_SERVER_PUBKEY: // server public key
-            return ReadResponse.success(resourceid, serverPublicKey);
+            return ReadResponse.success(resourceid, peerPublicKey);
 
         case SEC_SECRET_KEY: // secret key
             return ReadResponse.success(resourceid, secretKey);

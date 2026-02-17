@@ -1001,15 +1001,15 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
         System.out.println("Client received EDHOC object with ID " + asEdhocObject.getId());
         System.out.println("initiator: " + asEdhocObject.initiator);
         System.out.println("authenticationMethod: " + asEdhocObject.authenticationMethod);
-        System.out.println("ciphersuite: " + asEdhocObject.ciphersuite);
-        System.out.println("credentialIdentifier: " + Hex.encodeHexString(asEdhocObject.credentialIdentifier));
-        System.out.println("publicCredential: " + Hex.encodeHexString(asEdhocObject.publicCredential));
+        System.out.println("selectedCiphersuite: " + asEdhocObject.selectedCiphersuite);
+        System.out.println("clientKeyIdentifier: " + Hex.encodeHexString(asEdhocObject.clientKeyIdentifier));
+        System.out.println("clientPublicKey: " + Hex.encodeHexString(asEdhocObject.clientPublicKey));
         System.out.println("privateKey: " + Hex.encodeHexString(asEdhocObject.privateKey));
-        System.out.println("serverCredentialIdentifier: " + Hex.encodeHexString(asEdhocObject.serverCredentialIdentifier));
-        System.out.println("serverPublicKey: " + Hex.encodeHexString(asEdhocObject.serverPublicKey));
-        System.out.println("oscoreMasterSecretLength: " + asEdhocObject.oscoreMasterSecretLength);
-        System.out.println("oscoreMasterSaltLength: " + asEdhocObject.oscoreMasterSaltLength);
-        System.out.println("edhocOscoreCombined: " + asEdhocObject.edhocOscoreCombined);
+        System.out.println("peerPublicKeyIdentifier: " + Hex.encodeHexString(asEdhocObject.peerPublicKeyIdentifier));
+        System.out.println("peerPublicKey: " + Hex.encodeHexString(asEdhocObject.peerPublicKey));
+        System.out.println("oscoreMasterSecretLengthRemove: " + asEdhocObject.oscoreMasterSecretLengthRemove);
+        System.out.println("oscoreMasterSaltLengthRemove: " + asEdhocObject.oscoreMasterSaltLengthRemove);
+        System.out.println("edhocOscoreCombinedSupport: " + asEdhocObject.edhocOscoreCombinedSupport);
         System.out.println("edhocURI: " + OscoreHandler.getAsServerUri() + "/.well-known/edhoc");
 
 		// Install crypto provider
@@ -1018,14 +1018,14 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 		// Set params
 		setupEdhocParameters();
 
-		// Set ciphersuite
-		setupSupportedCipherSuites(asEdhocObject.ciphersuite.intValue());
+		// Set selectedCiphersuite
+		setupSupportedCipherSuites(asEdhocObject.selectedCiphersuite.intValue());
 
 		// Set cred(s) (Credential Identifier and Server Credential
 		// Identifier). Set also my public and private key, and the server's
 		// public key
-		setupIdentityKeys(asEdhocObject.credentialIdentifier, asEdhocObject.serverCredentialIdentifier,
-				asEdhocObject.privateKey, asEdhocObject.publicCredential, asEdhocObject.serverPublicKey);
+		setupIdentityKeys(asEdhocObject.clientKeyIdentifier, asEdhocObject.peerPublicKeyIdentifier,
+				asEdhocObject.privateKey, asEdhocObject.clientPublicKey, asEdhocObject.peerPublicKey);
 
 		// Specify the processor of External Authorization Data
 		String args[] = new String[0];

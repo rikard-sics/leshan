@@ -57,13 +57,13 @@ public class ServerServlet extends HttpServlet {
         this.serverCertificate = serverCertificate;
     }
 
-    public ServerServlet(LeshanBootstrapServer server, PublicKey serverPublicKey) {
+    public ServerServlet(LeshanBootstrapServer server, PublicKey peerPublicKey) {
         this.server = server;
         GsonBuilder builder = new GsonBuilder();
         builder.registerTypeAdapter(SecurityInfo.class, new SecuritySerializer());
         certificateSerDes = new X509CertificateSerDes();
         publicKeySerDes = new PublicKeySerDes();
-        this.publicKey = serverPublicKey;
+        this.publicKey = peerPublicKey;
         this.serverCertificate = null;
     }
 

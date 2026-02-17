@@ -53,8 +53,8 @@ public class BootstrapUtil {
             resources.add(LwM2mSingleResource.newIntegerResource(2, securityConfig.securityMode.code));
         if (securityConfig.publicKeyOrId != null)
             resources.add(LwM2mSingleResource.newBinaryResource(3, securityConfig.publicKeyOrId));
-        if (securityConfig.serverPublicKey != null)
-            resources.add(LwM2mSingleResource.newBinaryResource(4, securityConfig.serverPublicKey));
+        if (securityConfig.peerPublicKey != null)
+            resources.add(LwM2mSingleResource.newBinaryResource(4, securityConfig.peerPublicKey));
         if (securityConfig.secretKey != null)
             resources.add(LwM2mSingleResource.newBinaryResource(5, securityConfig.secretKey));
         if (securityConfig.smsSecurityMode != null)
@@ -167,24 +167,24 @@ public class BootstrapUtil {
             resources.add(LwM2mSingleResource.newBooleanResource(0, edhocConfig.initiator));
         if (edhocConfig.authenticationMethod != null)
             resources.add(LwM2mSingleResource.newUnsignedIntegerResource(1, edhocConfig.authenticationMethod));
-        if (edhocConfig.ciphersuite != null)
-            resources.add(LwM2mSingleResource.newUnsignedIntegerResource(2, edhocConfig.ciphersuite));
-        if (edhocConfig.credentialIdentifier != null)
-            resources.add(LwM2mSingleResource.newBinaryResource(3, edhocConfig.credentialIdentifier));
-        if (edhocConfig.publicCredential != null)
-            resources.add(LwM2mSingleResource.newBinaryResource(4, edhocConfig.publicCredential));
+        if (edhocConfig.selectedCiphersuite != null)
+            resources.add(LwM2mSingleResource.newUnsignedIntegerResource(2, edhocConfig.selectedCiphersuite));
+        if (edhocConfig.clientKeyIdentifier != null)
+            resources.add(LwM2mSingleResource.newBinaryResource(3, edhocConfig.clientKeyIdentifier));
+        if (edhocConfig.clientPublicKey != null)
+            resources.add(LwM2mSingleResource.newBinaryResource(4, edhocConfig.clientPublicKey));
         if (edhocConfig.privateKey != null)
             resources.add(LwM2mSingleResource.newBinaryResource(5, edhocConfig.privateKey));
-        if (edhocConfig.serverCredentialIdentifier != null)
-            resources.add(LwM2mSingleResource.newBinaryResource(6, edhocConfig.serverCredentialIdentifier));
-        if (edhocConfig.serverPublicKey != null)
-            resources.add(LwM2mSingleResource.newBinaryResource(7, edhocConfig.serverPublicKey));
-        if (edhocConfig.oscoreMasterSecretLength != null)
-            resources.add(LwM2mSingleResource.newUnsignedIntegerResource(8, edhocConfig.oscoreMasterSecretLength));
-        if (edhocConfig.oscoreMasterSaltLength != null)
-            resources.add(LwM2mSingleResource.newUnsignedIntegerResource(9, edhocConfig.oscoreMasterSaltLength));
-        if (edhocConfig.edhocOscoreCombined != null)
-            resources.add(LwM2mSingleResource.newBooleanResource(10, edhocConfig.edhocOscoreCombined));
+        if (edhocConfig.peerPublicKeyIdentifier != null)
+            resources.add(LwM2mSingleResource.newBinaryResource(6, edhocConfig.peerPublicKeyIdentifier));
+        if (edhocConfig.peerPublicKey != null)
+            resources.add(LwM2mSingleResource.newBinaryResource(7, edhocConfig.peerPublicKey));
+        if (edhocConfig.oscoreMasterSecretLengthRemove != null)
+            resources.add(LwM2mSingleResource.newUnsignedIntegerResource(8, edhocConfig.oscoreMasterSecretLengthRemove));
+        if (edhocConfig.oscoreMasterSaltLengthRemove != null)
+            resources.add(LwM2mSingleResource.newUnsignedIntegerResource(9, edhocConfig.oscoreMasterSaltLengthRemove));
+        if (edhocConfig.edhocOscoreCombinedSupport != null)
+            resources.add(LwM2mSingleResource.newBooleanResource(10, edhocConfig.edhocOscoreCombinedSupport));
 
         return new LwM2mObjectInstance(instanceId, resources);
     }
@@ -251,9 +251,9 @@ public class BootstrapUtil {
 		// EdhocObject edhocTest = new EdhocObject();
 		// edhocTest.initiator = true;
 		// edhocTest.authenticationMethod = 0L;
-		// edhocTest.ciphersuite = 0L;
-		// edhocTest.credentialIdentifier = new byte[] { (byte) 0x2E };
-		// edhocTest.publicCredential = new byte[] { (byte) 0x89, (byte) 0x8f,
+		// edhocTest.selectedCiphersuite = 0L;
+		// edhocTest.clientKeyIdentifier = new byte[] { (byte) 0x2E };
+		// edhocTest.clientPublicKey = new byte[] { (byte) 0x89, (byte) 0x8f,
 		// (byte) 0xf7, (byte) 0x9a, (byte) 0x02,
 		// (byte) 0x06, (byte) 0x7a, (byte) 0x16, (byte) 0xea, (byte) 0x1e,
 		// (byte) 0xcc,
@@ -275,7 +275,7 @@ public class BootstrapUtil {
 		// (byte) 0xbd, (byte) 0x06, (byte) 0x59, (byte) 0xd9, (byte) 0x04,
 		// (byte) 0xb7,
 		// (byte) 0xfc, (byte) 0x2b, (byte) 0x5c };
-		// edhocTest.serverCredentialIdentifier = new byte[] { (byte) 0x34,
+		// edhocTest.peerPublicKeyIdentifier = new byte[] { (byte) 0x34,
 		// (byte) 0xfe, (byte) 0xcd, (byte) 0x22,
 		// (byte) 0x28, (byte) 0xb9, (byte) 0x0f, (byte) 0xd5, (byte) 0x66,
 		// (byte) 0x46,
@@ -286,7 +286,7 @@ public class BootstrapUtil {
 		// (byte) 0xb7, (byte) 0xdd, (byte) 0x4d, (byte) 0xd6, (byte) 0xec,
 		// (byte) 0x07,
 		// (byte) 0x6b, (byte) 0x5f, (byte) 0xe1, (byte) 0xd2 };
-		// edhocTest.serverPublicKey = new byte[] { (byte) 0xec, (byte) 0x8b,
+		// edhocTest.peerPublicKey = new byte[] { (byte) 0xec, (byte) 0x8b,
 		// (byte) 0x0c, (byte) 0x9a, (byte) 0x02,
 		// (byte) 0x06, (byte) 0x7a, (byte) 0x16, (byte) 0xea, (byte) 0x1e,
 		// (byte) 0xcc,
@@ -297,9 +297,9 @@ public class BootstrapUtil {
 		// (byte) 0xba, (byte) 0x02, (byte) 0x59, (byte) 0xd9, (byte) 0x04,
 		// (byte) 0xb7,
 		// (byte) 0xb4, (byte) 0x3a, (byte) 0x44 };
-		// edhocTest.oscoreMasterSecretLength = 8L;
-		// edhocTest.oscoreMasterSaltLength = 8L;
-		// edhocTest.edhocOscoreCombined = true;
+		// edhocTest.oscoreMasterSecretLengthRemove = 8L;
+		// edhocTest.oscoreMasterSaltLengthRemove = 8L;
+		// edhocTest.edhocOscoreCombinedSupport = true;
 		// requests.add(toWriteRequest(33, edhocTest, contentFormat));
 
         return (requests);

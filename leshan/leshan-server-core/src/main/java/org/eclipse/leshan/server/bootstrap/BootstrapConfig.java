@@ -171,7 +171,7 @@ public class BootstrapConfig implements Serializable {
          * <p>
          * The format is defined in Section E.1.1 of the LwM2M version 1.0 specification.
          */
-        public byte[] serverPublicKey = new byte[] {};
+        public byte[] peerPublicKey = new byte[] {};
         /**
          * Stores the secret key or private key of the security mode.
          * <p>
@@ -259,9 +259,9 @@ public class BootstrapConfig implements Serializable {
         public String toString() {
             // Note : secretKey and smsBindingKeySecret are explicitly excluded from the display for security purposes
             return String.format(
-                    "ServerSecurity [uri=%s, bootstrapServer=%s, securityMode=%s, publicKeyOrId=%s, serverPublicKey=%s, smsSecurityMode=%s, smsBindingKeySecret=%s, serverSmsNumber=%s, serverId=%s, clientOldOffTime=%s, bootstrapServerAccountTimeout=%s, certificateUsage=%s]",
+                    "ServerSecurity [uri=%s, bootstrapServer=%s, securityMode=%s, publicKeyOrId=%s, peerPublicKey=%s, smsSecurityMode=%s, smsBindingKeySecret=%s, serverSmsNumber=%s, serverId=%s, clientOldOffTime=%s, bootstrapServerAccountTimeout=%s, certificateUsage=%s]",
                     uri, bootstrapServer, securityMode, Arrays.toString(publicKeyOrId),
-                    Arrays.toString(serverPublicKey), smsSecurityMode, Arrays.toString(smsBindingKeyParam),
+                    Arrays.toString(peerPublicKey), smsSecurityMode, Arrays.toString(smsBindingKeyParam),
                     serverSmsNumber, serverId, clientOldOffTime, bootstrapServerAccountTimeout, certificateUsage);
         }
     }
@@ -342,26 +342,26 @@ public class BootstrapConfig implements Serializable {
 
         public Boolean initiator = null;
         public Long authenticationMethod = null;
-        public Long ciphersuite = null;
-        public byte[] credentialIdentifier = null;
-        public byte[] publicCredential = null;
+        public Long selectedCiphersuite = null;
+        public byte[] clientKeyIdentifier = null;
+        public byte[] clientPublicKey = null;
         public byte[] privateKey = null;
-        public byte[] serverCredentialIdentifier = null;
-        public byte[] serverPublicKey = null;
-        public Long oscoreMasterSecretLength = null;
-        public Long oscoreMasterSaltLength = null;
-        public Boolean edhocOscoreCombined = null;
+        public byte[] peerPublicKeyIdentifier = null;
+        public byte[] peerPublicKey = null;
+        public Long oscoreMasterSecretLengthRemove = null;
+        public Long oscoreMasterSaltLengthRemove = null;
+        public Boolean edhocOscoreCombinedSupport = null;
 
         @Override
         public String toString() {
             return String.format(
-                    "EdhocObject [initiator=%s, authenticationMethod=%s, ciphersuite=%s, credentialIdentifier=%s, publicCredential=%s, privateKey=%s, "
-                            + "serverCredentialIdentifier=%s, serverPublicKey=%s, oscoreMasterSecretLength=%s, oscoreMasterSaltLength=%s, edhocOscoreCombined]",
-                    initiator.toString(), authenticationMethod.toString(), ciphersuite.toString(),
-                    Hex.encodeHexString(credentialIdentifier), Hex.encodeHexString(publicCredential),
-                    Hex.encodeHexString(privateKey), Hex.encodeHexString(serverCredentialIdentifier),
-                    Hex.encodeHexString(serverPublicKey), oscoreMasterSecretLength.toString(),
-                    oscoreMasterSaltLength.toString(), edhocOscoreCombined.toString());
+                    "EdhocObject [initiator=%s, authenticationMethod=%s, selectedCiphersuite=%s, clientKeyIdentifier=%s, clientPublicKey=%s, privateKey=%s, "
+                            + "peerPublicKeyIdentifier=%s, peerPublicKey=%s, oscoreMasterSecretLengthRemove=%s, oscoreMasterSaltLengthRemove=%s, edhocOscoreCombinedSupport]",
+                    initiator.toString(), authenticationMethod.toString(), selectedCiphersuite.toString(),
+                    Hex.encodeHexString(clientKeyIdentifier), Hex.encodeHexString(clientPublicKey),
+                    Hex.encodeHexString(privateKey), Hex.encodeHexString(peerPublicKeyIdentifier),
+                    Hex.encodeHexString(peerPublicKey), oscoreMasterSecretLengthRemove.toString(),
+                    oscoreMasterSaltLengthRemove.toString(), edhocOscoreCombinedSupport.toString());
         }
     }
 

@@ -73,14 +73,14 @@
 			<td ng-if="security.edhoc">
 				Initiator : <code>{{ security.edhoc.initiator }}</code><br/>
 				Authentication Method : <code>{{ security.edhoc.authenticationMethod }}</code><br/>
-				Ciphersuite : <code>{{ security.edhoc.ciphersuite }}</code><br/>
-				Credential Identifier : <code>{{ security.edhoc.credentialIdentifier }}</code><br/>
-				Public Credential : <code>{{ security.edhoc.publicCredential }}</code><br/>
-				Server Credential Identifier : <code>{{ security.edhoc.serverCredentialIdentifier }}</code><br/>
-				Server Credential : <code>{{ security.edhoc.serverPublicKey }}</code><br/>
-				OSCORE Master Secret Length : <code>{{ security.edhoc.oscoreMasterSecretLength }}</code><br/>
-				OSCORE Master Salt Length : <code>{{ security.edhoc.oscoreMasterSaltLength }}</code><br/>
-				OSCORE EDHOC Combined : <code>{{ security.edhoc.edhocOscoreCombined }}</code><br/>
+				Ciphersuite : <code>{{ security.edhoc.selectedCiphersuite }}</code><br/>
+				Credential Identifier : <code>{{ security.edhoc.clientKeyIdentifier }}</code><br/>
+				Public Credential : <code>{{ security.edhoc.clientPublicKey }}</code><br/>
+				Server Credential Identifier : <code>{{ security.edhoc.peerPublicKeyIdentifier }}</code><br/>
+				Server Credential : <code>{{ security.edhoc.peerPublicKey }}</code><br/>
+				OSCORE Master Secret Length : <code>{{ security.edhoc.oscoreMasterSecretLengthRemove }}</code><br/>
+				OSCORE Master Salt Length : <code>{{ security.edhoc.oscoreMasterSaltLengthRemove }}</code><br/>
+				OSCORE EDHOC Combined : <code>{{ security.edhoc.edhocOscoreCombinedSupport }}</code><br/>
 			</td>
 			<td ng-if="security.rpk">Raw Public Key <br/><small class="text-muted" >(Elliptic Curve)</small></td>
 			<td ng-if="security.rpk">Public Key : <br/> <code style=display:block;white-space:pre-wrap>{{wrap(security.rpk.key)}}</code><br/> 
@@ -109,70 +109,70 @@
      <button type="button" onclick="
          document.getElementById('initiatorValue').value = 'True';
          document.getElementById('authenticationMethodValue').value = '0';
-         document.getElementById('ciphersuiteValue').value = '2';
-         document.getElementById('credentialIdentifierValue').value = '07';
-         document.getElementById('publicCredentialValue').value = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
-         document.getElementById('serverCredentialIdentifierValue').value = '24';
-         document.getElementById('serverPublicKeyValue').value = 'D709BFA1CB5C9B52ED7C29300932F8EC997721E16DC777B470EE64C5DE871B2DF5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLengthValue').value = '16';
-         document.getElementById('oscoreMasterSaltLengthValue').value = '8';
-         document.getElementById('edhocOscoreCombinedValue').value = 'False';
+         document.getElementById('selectedCiphersuiteValue').value = '2';
+         document.getElementById('clientKeyIdentifierValue').value = '07';
+         document.getElementById('clientPublicKeyValue').value = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
+         document.getElementById('peerPublicKeyIdentifierValue').value = '24';
+         document.getElementById('peerPublicKeyValue').value = 'D709BFA1CB5C9B52ED7C29300932F8EC997721E16DC777B470EE64C5DE871B2DF5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('oscoreMasterSecretLengthRemoveValue').value = '16';
+         document.getElementById('oscoreMasterSaltLengthRemoveValue').value = '8';
+         document.getElementById('edhocOscoreCombinedSupportValue').value = 'False';
          
          document.getElementById('initiatorValue').innerHTML = 'True';
          document.getElementById('authenticationMethodValue').innerHTML = '0';
-         document.getElementById('ciphersuiteValue').innerHTML = '2';
-         document.getElementById('credentialIdentifierValue').innerHTML = '07';
-         document.getElementById('publicCredentialValue').innerHTML = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
-         document.getElementById('serverCredentialIdentifierValue').innerHTML = '24';
-         document.getElementById('serverPublicKeyValue').innerHTML = 'D709BFA1CB5C9B52ED7C29300932F8EC997721E16DC777B470EE64C5DE871B2DF5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLengthValue').innerHTML = '16';
-         document.getElementById('oscoreMasterSaltLengthValue').innerHTML = '8';
-         document.getElementById('edhocOscoreCombinedValue').innerHTML = 'False';
+         document.getElementById('selectedCiphersuiteValue').innerHTML = '2';
+         document.getElementById('clientKeyIdentifierValue').innerHTML = '07';
+         document.getElementById('clientPublicKeyValue').innerHTML = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
+         document.getElementById('peerPublicKeyIdentifierValue').innerHTML = '24';
+         document.getElementById('peerPublicKeyValue').innerHTML = 'D709BFA1CB5C9B52ED7C29300932F8EC997721E16DC777B470EE64C5DE871B2DF5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('oscoreMasterSecretLengthRemoveValue').innerHTML = '16';
+         document.getElementById('oscoreMasterSaltLengthRemoveValue').innerHTML = '8';
+         document.getElementById('edhocOscoreCombinedSupportValue').innerHTML = 'False';
          
          document.getElementById('initiatorValue').innerText = 'True';
          document.getElementById('authenticationMethodValue').innerText = '0';
-         document.getElementById('ciphersuiteValue').innerText = '2';
-         document.getElementById('credentialIdentifierValue').innerText = '07';
-         document.getElementById('publicCredentialValue').innerText = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
-         document.getElementById('serverCredentialIdentifierValue').innerText = '24';
-         document.getElementById('serverPublicKeyValue').innerText = 'D709BFA1CB5C9B52ED7C29300932F8EC997721E16DC777B470EE64C5DE871B2DF5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLengthValue').innerText = '16';
-         document.getElementById('oscoreMasterSaltLengthValue').innerText = '8';
-         document.getElementById('edhocOscoreCombinedValue').innerText = 'False';
+         document.getElementById('selectedCiphersuiteValue').innerText = '2';
+         document.getElementById('clientKeyIdentifierValue').innerText = '07';
+         document.getElementById('clientPublicKeyValue').innerText = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
+         document.getElementById('peerPublicKeyIdentifierValue').innerText = '24';
+         document.getElementById('peerPublicKeyValue').innerText = 'D709BFA1CB5C9B52ED7C29300932F8EC997721E16DC777B470EE64C5DE871B2DF5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('oscoreMasterSecretLengthRemoveValue').innerText = '16';
+         document.getElementById('oscoreMasterSaltLengthRemoveValue').innerText = '8';
+         document.getElementById('edhocOscoreCombinedSupportValue').innerText = 'False';
          
          
          document.getElementById('initiator').value = 'True';
          document.getElementById('authenticationMethod').value = '0';
-         document.getElementById('ciphersuite').value = '2';
-         document.getElementById('credentialIdentifier').value = '07';
-         document.getElementById('publicCredential').value = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
-         document.getElementById('serverCredentialIdentifier').value = '24';
-         document.getElementById('serverPublicKey').value = 'D709BFA1CB5C9B52ED7C29300932F8EC997721E16DC777B470EE64C5DE871B2DF5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLength').value = '16';
-         document.getElementById('oscoreMasterSaltLength').value = '8';
-         document.getElementById('edhocOscoreCombined').value = 'False';
+         document.getElementById('selectedCiphersuite').value = '2';
+         document.getElementById('clientKeyIdentifier').value = '07';
+         document.getElementById('clientPublicKey').value = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
+         document.getElementById('peerPublicKeyIdentifier').value = '24';
+         document.getElementById('peerPublicKey').value = 'D709BFA1CB5C9B52ED7C29300932F8EC997721E16DC777B470EE64C5DE871B2DF5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('oscoreMasterSecretLengthRemove').value = '16';
+         document.getElementById('oscoreMasterSaltLengthRemove').value = '8';
+         document.getElementById('edhocOscoreCombinedSupport').value = 'False';
          
          document.getElementById('initiator').innerHTML = 'True';
          document.getElementById('authenticationMethod').innerHTML = '0';
-         document.getElementById('ciphersuite').innerHTML = '2';
-         document.getElementById('credentialIdentifier').innerHTML = '07';
-         document.getElementById('publicCredential').innerHTML = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
-         document.getElementById('serverCredentialIdentifier').innerHTML = '24';
-         document.getElementById('serverPublicKey').innerHTML = 'D709BFA1CB5C9B52ED7C29300932F8EC997721E16DC777B470EE64C5DE871B2DF5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLength').innerHTML = '16';
-         document.getElementById('oscoreMasterSaltLength').innerHTML = '8';
-         document.getElementById('edhocOscoreCombined').innerHTML = 'False';
+         document.getElementById('selectedCiphersuite').innerHTML = '2';
+         document.getElementById('clientKeyIdentifier').innerHTML = '07';
+         document.getElementById('clientPublicKey').innerHTML = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
+         document.getElementById('peerPublicKeyIdentifier').innerHTML = '24';
+         document.getElementById('peerPublicKey').innerHTML = 'D709BFA1CB5C9B52ED7C29300932F8EC997721E16DC777B470EE64C5DE871B2DF5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('oscoreMasterSecretLengthRemove').innerHTML = '16';
+         document.getElementById('oscoreMasterSaltLengthRemove').innerHTML = '8';
+         document.getElementById('edhocOscoreCombinedSupport').innerHTML = 'False';
          
          document.getElementById('initiator').innerText = 'True';
          document.getElementById('authenticationMethod').innerText = '0';
-         document.getElementById('ciphersuite').innerText = '2';
-         document.getElementById('credentialIdentifier').innerText = '07';
-         document.getElementById('publicCredential').innerText = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
-         document.getElementById('serverCredentialIdentifier').innerText = '24';
-         document.getElementById('serverPublicKey').innerText = 'D709BFA1CB5C9B52ED7C29300932F8EC997721E16DC777B470EE64C5DE871B2DF5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLength').innerText = '16';
-         document.getElementById('oscoreMasterSaltLength').innerText = '8';
-         document.getElementById('edhocOscoreCombined').innerText = 'False';
+         document.getElementById('selectedCiphersuite').innerText = '2';
+         document.getElementById('clientKeyIdentifier').innerText = '07';
+         document.getElementById('clientPublicKey').innerText = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
+         document.getElementById('peerPublicKeyIdentifier').innerText = '24';
+         document.getElementById('peerPublicKey').innerText = 'D709BFA1CB5C9B52ED7C29300932F8EC997721E16DC777B470EE64C5DE871B2DF5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('oscoreMasterSecretLengthRemove').innerText = '16';
+         document.getElementById('oscoreMasterSaltLengthRemove').innerText = '8';
+         document.getElementById('edhocOscoreCombinedSupport').innerText = 'False';
 
 
          
@@ -310,70 +310,70 @@
 					</div>
 					
 					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
-						<label for="ciphersuiteValue" class="col-sm-4 control-label">Ciphersuite</label>
+						<label for="selectedCiphersuiteValue" class="col-sm-4 control-label">Ciphersuite</label>
 						<div class="col-sm-8">
-							<textarea class="form-control" style="resize:none" rows="1" id="ciphersuiteValue" name="ciphersuite" 
-							ng-model="ciphersuite" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
+							<textarea class="form-control" style="resize:none" rows="1" id="selectedCiphersuiteValue" name="selectedCiphersuite" 
+							ng-model="selectedCiphersuite" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
 						</div>
 					</div>
 					
 					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
-						<label for="credentialIdentifierValue" class="col-sm-4 control-label">Credential Identifier</label>
+						<label for="clientKeyIdentifierValue" class="col-sm-4 control-label">Credential Identifier</label>
 						<div class="col-sm-8">
-							<textarea class="form-control" style="resize:none" rows="1" id="credentialIdentifierValue" name="credentialIdentifier" 
-							ng-model="credentialIdentifier" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
+							<textarea class="form-control" style="resize:none" rows="1" id="clientKeyIdentifierValue" name="clientKeyIdentifier" 
+							ng-model="clientKeyIdentifier" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
 							<p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
 						</div>
 					</div>
 
 					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
-						<label for="publicCredentialValue" class="col-sm-4 control-label">Public Credential</label>
+						<label for="clientPublicKeyValue" class="col-sm-4 control-label">Public Credential</label>
 						<div class="col-sm-8">
-							<textarea class="form-control" style="resize:none" rows="4" id="publicCredentialValue" name="publicCredential" 
-							ng-model="publicCredential" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="256" ></textarea>
+							<textarea class="form-control" style="resize:none" rows="4" id="clientPublicKeyValue" name="clientPublicKey" 
+							ng-model="clientPublicKey" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="256" ></textarea>
 							<p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
 						</div>
 					</div>
 					
 					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
-						<label for="serverCredentialIdentifierValue" class="col-sm-4 control-label">Server Credential Identifier</label>
+						<label for="peerPublicKeyIdentifierValue" class="col-sm-4 control-label">Server Credential Identifier</label>
 						<div class="col-sm-8">
-							<textarea class="form-control" style="resize:none" rows="1" id="serverCredentialIdentifierValue" name="serverCredentialIdentifier" 
-							ng-model="serverCredentialIdentifier" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
+							<textarea class="form-control" style="resize:none" rows="1" id="peerPublicKeyIdentifierValue" name="peerPublicKeyIdentifier" 
+							ng-model="peerPublicKeyIdentifier" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
 							<p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
 						</div>
 					</div>
 					
 					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
-						<label for="serverPublicKeyValue" class="col-sm-4 control-label">Server Credential</label>
+						<label for="peerPublicKeyValue" class="col-sm-4 control-label">Server Credential</label>
 						<div class="col-sm-8">
-							<textarea class="form-control" style="resize:none" rows="5" id="serverPublicKeyValue" name="serverPublicKey" 
-							ng-model="serverPublicKey" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="256" ></textarea>
+							<textarea class="form-control" style="resize:none" rows="5" id="peerPublicKeyValue" name="peerPublicKey" 
+							ng-model="peerPublicKey" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="256" ></textarea>
 							<p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
 						</div>
 					</div>
 					
 					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
-						<label for="oscoreMasterSecretLengthValue" class="col-sm-4 control-label">OSCORE Master Secret Length</label>
+						<label for="oscoreMasterSecretLengthRemoveValue" class="col-sm-4 control-label">OSCORE Master Secret Length</label>
 						<div class="col-sm-8">
-							<textarea class="form-control" style="resize:none" rows="1" id="oscoreMasterSecretLengthValue" name="oscoreMasterSecretLength" 
-							ng-model="oscoreMasterSecretLength" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
+							<textarea class="form-control" style="resize:none" rows="1" id="oscoreMasterSecretLengthRemoveValue" name="oscoreMasterSecretLengthRemove" 
+							ng-model="oscoreMasterSecretLengthRemove" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
 						</div>
 					</div>
 					
 					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
-						<label for="oscoreMasterSaltLengthValue" class="col-sm-4 control-label">OSCORE Master Salt Length</label>
+						<label for="oscoreMasterSaltLengthRemoveValue" class="col-sm-4 control-label">OSCORE Master Salt Length</label>
 						<div class="col-sm-8">
-							<textarea class="form-control" style="resize:none" rows="1" id="oscoreMasterSaltLengthValue" name="oscoreMasterSaltLength" 
-							ng-model="oscoreMasterSaltLength" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
+							<textarea class="form-control" style="resize:none" rows="1" id="oscoreMasterSaltLengthRemoveValue" name="oscoreMasterSaltLengthRemove" 
+							ng-model="oscoreMasterSaltLengthRemove" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
 						</div>
 					</div>
 					
 					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
-						<label for="edhocOscoreCombinedValue" class="col-sm-4 control-label">EDHOC OSCORE Combined</label>
+						<label for="edhocOscoreCombinedSupportValue" class="col-sm-4 control-label">EDHOC OSCORE Combined</label>
 						<div class="col-sm-8">
-							<textarea class="form-control" style="resize:none" rows="1" id="edhocOscoreCombinedValue" name="edhocOscoreCombined" 
-							ng-model="edhocOscoreCombined" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
+							<textarea class="form-control" style="resize:none" rows="1" id="edhocOscoreCombinedSupportValue" name="edhocOscoreCombinedSupport" 
+							ng-model="edhocOscoreCombinedSupport" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
 						</div>
 					</div>
 

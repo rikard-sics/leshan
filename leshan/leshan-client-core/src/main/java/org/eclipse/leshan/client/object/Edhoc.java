@@ -73,17 +73,17 @@ public class Edhoc extends BaseInstanceEnabler {
             Credential_Identifier, Public_Credential, Private_Key, Server_Credential_Identifier, Server_Public_Key,
             Oscore_Master_Secret_Length, Oscore_Master_Salt_Length, Edhoc_Oscore_Combined);
 
-    public boolean initiator;
-    public ULong authenticationMethod;
-    public ULong ciphersuite;
-    public byte[] credentialIdentifier;
-    public byte[] publicCredential;
+	public byte[] peerPublicKeyIdentifier;
+	public byte[] peerPublicKey;
+    public byte[] clientKeyIdentifier;
+    public byte[] clientPublicKey;
     public byte[] privateKey;
-    public byte[] serverCredentialIdentifier;
-    public byte[] serverPublicKey;
-    public ULong oscoreMasterSecretLength;
-    public ULong oscoreMasterSaltLength;
-    public boolean edhocOscoreCombined;
+	public ULong authenticationMethod;
+	public boolean initiator;
+	public ULong selectedCiphersuite;
+    public ULong oscoreMasterSecretLengthRemove;
+    public ULong oscoreMasterSaltLengthRemove;
+    public boolean edhocOscoreCombinedSupport;
 
     public Edhoc() {
 
@@ -92,23 +92,23 @@ public class Edhoc extends BaseInstanceEnabler {
     /**
      * Default constructor.
      */
-    public Edhoc(int instanceId, boolean initiator, long authenticationMethod, long ciphersuite,
-            byte[] credentialIdentifier,
-            byte[] publicCredential, byte[] privateKey, byte[] serverCredentialIdentifier, byte[] serverPublicKey,
-            long oscoreMasterSecretLength, long oscoreMasterSaltLength, boolean edhocOscoreCombined) {
+    public Edhoc(int instanceId, boolean initiator, long authenticationMethod, long selectedCiphersuite,
+            byte[] clientKeyIdentifier,
+            byte[] clientPublicKey, byte[] privateKey, byte[] peerPublicKeyIdentifier, byte[] peerPublicKey,
+            long oscoreMasterSecretLengthRemove, long oscoreMasterSaltLengthRemove, boolean edhocOscoreCombinedSupport) {
         super(instanceId);
 
         this.initiator = initiator;
         this.authenticationMethod = ULong.valueOf(authenticationMethod);
-        this.ciphersuite = ULong.valueOf(ciphersuite);
-        this.credentialIdentifier = credentialIdentifier;
-        this.publicCredential = publicCredential;
+        this.selectedCiphersuite = ULong.valueOf(selectedCiphersuite);
+        this.clientKeyIdentifier = clientKeyIdentifier;
+        this.clientPublicKey = clientPublicKey;
         this.privateKey = privateKey;
-        this.serverCredentialIdentifier = serverCredentialIdentifier;
-        this.serverPublicKey = serverPublicKey;
-        this.oscoreMasterSecretLength = ULong.valueOf(oscoreMasterSecretLength);
-        this.oscoreMasterSaltLength = ULong.valueOf(oscoreMasterSaltLength);
-        this.edhocOscoreCombined = edhocOscoreCombined;
+        this.peerPublicKeyIdentifier = peerPublicKeyIdentifier;
+        this.peerPublicKey = peerPublicKey;
+        this.oscoreMasterSecretLengthRemove = ULong.valueOf(oscoreMasterSecretLengthRemove);
+        this.oscoreMasterSaltLengthRemove = ULong.valueOf(oscoreMasterSaltLengthRemove);
+        this.edhocOscoreCombinedSupport = edhocOscoreCombinedSupport;
     }
 
 
@@ -123,15 +123,15 @@ public class Edhoc extends BaseInstanceEnabler {
             System.out.println("Client received EDHOC object from " + identity);
             System.out.println("initiator: " + initiator);
             System.out.println("authenticationMethod: " + authenticationMethod);
-            System.out.println("ciphersuite: " + ciphersuite);
-            System.out.println("credentialIdentifier: " + Hex.encodeHexString(credentialIdentifier));
-            System.out.println("publicCredential: " + Hex.encodeHexString(publicCredential));
+            System.out.println("selectedCiphersuite: " + selectedCiphersuite);
+            System.out.println("clientKeyIdentifier: " + Hex.encodeHexString(clientKeyIdentifier));
+            System.out.println("clientPublicKey: " + Hex.encodeHexString(clientPublicKey));
             System.out.println("privateKey: " + Hex.encodeHexString(privateKey));
-            System.out.println("serverCredentialIdentifier: " + Hex.encodeHexString(serverCredentialIdentifier));
-            System.out.println("serverPublicKey: " + Hex.encodeHexString(serverPublicKey));
-            System.out.println("oscoreMasterSecretLength: " + oscoreMasterSecretLength);
-            System.out.println("oscoreMasterSaltLength: " + oscoreMasterSaltLength);
-            System.out.println("edhocOscoreCombined: " + (boolean) value.getValue());
+            System.out.println("peerPublicKeyIdentifier: " + Hex.encodeHexString(peerPublicKeyIdentifier));
+            System.out.println("peerPublicKey: " + Hex.encodeHexString(peerPublicKey));
+            System.out.println("oscoreMasterSecretLengthRemove: " + oscoreMasterSecretLengthRemove);
+            System.out.println("oscoreMasterSaltLengthRemove: " + oscoreMasterSaltLengthRemove);
+            System.out.println("edhocOscoreCombinedSupport: " + (boolean) value.getValue());
         }
 
 		// RH: Run EDHOC now
@@ -146,15 +146,15 @@ public class Edhoc extends BaseInstanceEnabler {
 			// Set params
 			setupEdhocParameters();
 
-			// Set ciphersuite
-			System.out.println("Suite: " + ciphersuite);
-			setupSupportedCipherSuites(ciphersuite.intValue());
+			// Set selectedCiphersuite
+			System.out.println("Suite: " + selectedCiphersuite);
+			setupSupportedCipherSuites(selectedCiphersuite.intValue());
 
 			// Set cred(s) (Credential Identifier and Server Credential
 			// Identifier). Set also my public and private key, and the server's
 			// public key
-			setupIdentityKeys(credentialIdentifier, serverCredentialIdentifier, privateKey, publicCredential,
-					serverPublicKey);
+			setupIdentityKeys(clientKeyIdentifier, peerPublicKeyIdentifier, privateKey, clientPublicKey,
+					peerPublicKey);
 
 			// Specify the processor of External Authorization Data
 			String args[] = new String[0];
@@ -206,7 +206,7 @@ public class Edhoc extends BaseInstanceEnabler {
 
 			// Build an integer
 			int method = authenticationMethod.intValue();
-			int suite = ciphersuite.intValue();
+			int suite = selectedCiphersuite.intValue();
 			// Key Pairs
 			HashMap<Integer, OneKey> inner = keyPairs.get(Constants.ECDH_KEY);
 			if ((suite == 2 || suite == 3) && (method == 1 || method == 3)) {
@@ -307,10 +307,10 @@ public class Edhoc extends BaseInstanceEnabler {
 			
 			OscoreHandler.setEdhocWithDmDone(true);
 		} else if (resourceId == Edhoc_Oscore_Combined && OscoreHandler.getEdhocWithDmDone()) {
-			Edhoc temp = new Edhoc(100, initiator, authenticationMethod.longValue(), ciphersuite.longValue(),
-		            credentialIdentifier,
-		            publicCredential, privateKey, serverCredentialIdentifier, serverPublicKey,
-		            oscoreMasterSecretLength.longValue(), oscoreMasterSaltLength.longValue(), edhocOscoreCombined);
+			Edhoc temp = new Edhoc(100, initiator, authenticationMethod.longValue(), selectedCiphersuite.longValue(),
+		            clientKeyIdentifier,
+		            clientPublicKey, privateKey, peerPublicKeyIdentifier, peerPublicKey,
+		            oscoreMasterSecretLengthRemove.longValue(), oscoreMasterSaltLengthRemove.longValue(), edhocOscoreCombinedSupport);
 			OscoreHandler.setAsEdhocObj(temp);
 			
 		}
@@ -336,21 +336,21 @@ public class Edhoc extends BaseInstanceEnabler {
             if (value.getType() != Type.UNSIGNED_INTEGER) {
                 return WriteResponse.badRequest("invalid type");
             }
-            ciphersuite = (ULong) value.getValue();
+            selectedCiphersuite = (ULong) value.getValue();
             return WriteResponse.success();
 
         case Credential_Identifier:
             if (value.getType() != Type.OPAQUE) {
                 return WriteResponse.badRequest("invalid type");
             }
-            credentialIdentifier = (byte[]) value.getValue();
+            clientKeyIdentifier = (byte[]) value.getValue();
             return WriteResponse.success();
 
         case Public_Credential:
             if (value.getType() != Type.OPAQUE) {
                 return WriteResponse.badRequest("invalid type");
             }
-            publicCredential = (byte[]) value.getValue();
+            clientPublicKey = (byte[]) value.getValue();
             return WriteResponse.success();
 
         case Private_Key:
@@ -364,35 +364,35 @@ public class Edhoc extends BaseInstanceEnabler {
             if (value.getType() != Type.OPAQUE) {
                 return WriteResponse.badRequest("invalid type");
             }
-            serverCredentialIdentifier = (byte[]) value.getValue();
+            peerPublicKeyIdentifier = (byte[]) value.getValue();
             return WriteResponse.success();
 
         case Server_Public_Key:
             if (value.getType() != Type.OPAQUE) {
                 return WriteResponse.badRequest("invalid type");
             }
-            serverPublicKey = (byte[]) value.getValue();
+            peerPublicKey = (byte[]) value.getValue();
             return WriteResponse.success();
 
         case Oscore_Master_Secret_Length:
             if (value.getType() != Type.UNSIGNED_INTEGER) {
                 return WriteResponse.badRequest("invalid type");
             }
-            oscoreMasterSecretLength = (ULong) value.getValue();
+            oscoreMasterSecretLengthRemove = (ULong) value.getValue();
             return WriteResponse.success();
 
         case Oscore_Master_Salt_Length:
             if (value.getType() != Type.UNSIGNED_INTEGER) {
                 return WriteResponse.badRequest("invalid type");
             }
-            oscoreMasterSaltLength = (ULong) value.getValue();
+            oscoreMasterSaltLengthRemove = (ULong) value.getValue();
             return WriteResponse.success();
 
         case Edhoc_Oscore_Combined:
             if (value.getType() != Type.BOOLEAN) {
                 return WriteResponse.badRequest("invalid type");
             }
-            edhocOscoreCombined = (boolean) value.getValue();
+            edhocOscoreCombinedSupport = (boolean) value.getValue();
             return WriteResponse.success();
 
         default:
@@ -415,31 +415,31 @@ public class Edhoc extends BaseInstanceEnabler {
             return ReadResponse.success(resourceid, authenticationMethod);
 
         case Ciphersuite:
-            return ReadResponse.success(resourceid, ciphersuite);
+            return ReadResponse.success(resourceid, selectedCiphersuite);
 
         case Credential_Identifier:
-            return ReadResponse.success(resourceid, credentialIdentifier);
+            return ReadResponse.success(resourceid, clientKeyIdentifier);
 
         case Public_Credential:
-            return ReadResponse.success(resourceid, publicCredential);
+            return ReadResponse.success(resourceid, clientPublicKey);
 
         case Private_Key:
             return ReadResponse.success(resourceid, privateKey);
 
         case Server_Credential_Identifier:
-            return ReadResponse.success(resourceid, serverCredentialIdentifier);
+            return ReadResponse.success(resourceid, peerPublicKeyIdentifier);
 
         case Server_Public_Key:
-            return ReadResponse.success(resourceid, serverPublicKey);
+            return ReadResponse.success(resourceid, peerPublicKey);
 
         case Oscore_Master_Secret_Length:
-            return ReadResponse.success(resourceid, oscoreMasterSecretLength);
+            return ReadResponse.success(resourceid, oscoreMasterSecretLengthRemove);
 
         case Oscore_Master_Salt_Length:
-            return ReadResponse.success(resourceid, oscoreMasterSaltLength);
+            return ReadResponse.success(resourceid, oscoreMasterSaltLengthRemove);
 
         case Edhoc_Oscore_Combined:
-            return ReadResponse.success(resourceid, edhocOscoreCombined);
+            return ReadResponse.success(resourceid, edhocOscoreCombinedSupport);
 
         default:
             return super.read(identity, resourceid);

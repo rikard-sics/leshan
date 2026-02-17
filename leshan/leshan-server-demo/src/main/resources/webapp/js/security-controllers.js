@@ -110,9 +110,9 @@ angular.module('securityControllers', [])
                 } else if($scope.securityMode == "edhoc") {
                     // Information for EDHOC
                 	var security = {endpoint: $scope.endpoint, edhoc : { initiator : $scope.initiator, authenticationMethod : $scope.authenticationMethod,
-                        ciphersuite : $scope.ciphersuite, credentialIdentifier : $scope.credentialIdentifier, publicCredential : $scope.publicCredential,
-                        privateKey : $scope.privateKey, serverCredentialIdentifier : $scope.serverCredentialIdentifier, serverPublicKey : $scope.serverPublicKey,
-                        oscoreMasterSecretLength : $scope.oscoreMasterSecretLength, oscoreMasterSaltLength : $scope.oscoreMasterSaltLength, edhocOscoreCombined : $scope.edhocOscoreCombined }};
+                        selectedCiphersuite : $scope.selectedCiphersuite, clientKeyIdentifier : $scope.clientKeyIdentifier, clientPublicKey : $scope.clientPublicKey,
+                        privateKey : $scope.privateKey, peerPublicKeyIdentifier : $scope.peerPublicKeyIdentifier, peerPublicKey : $scope.peerPublicKey,
+                        oscoreMasterSecretLengthRemove : $scope.oscoreMasterSecretLengthRemove, oscoreMasterSaltLengthRemove : $scope.oscoreMasterSaltLengthRemove, edhocOscoreCombinedSupport : $scope.edhocOscoreCombinedSupport }};
                } else {
                     var security = {endpoint: $scope.endpoint, x509 : true};
                 }

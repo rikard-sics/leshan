@@ -93,7 +93,7 @@ Instances of this Object are linked from Instances of Object 21 using the EDHOC 
 				<Type>Unsigned Integer</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
-				<Description><![CDATA[This resource MUST store the EDHOC ciphersuite to be used. ]]></Description>
+				<Description><![CDATA[This resource MUST store the EDHOC selectedCiphersuite to be used. ]]></Description>
 			</Item>
 			<Item ID="3"><Name>Credential Identifier </Name>
 				<Operations></Operations>

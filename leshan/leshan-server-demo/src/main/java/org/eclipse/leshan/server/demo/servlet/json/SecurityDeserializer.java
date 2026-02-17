@@ -201,29 +201,29 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				// EDHOC Deserialization
 				Boolean initiator = edhoc.get("initiator").getAsBoolean();
 				Long method = edhoc.get("authenticationMethod").getAsLong();
-				Long ciphersuite = edhoc.get("ciphersuite").getAsLong();
-				byte[] credentialIdentifier = Hex
-						.decodeHex(edhoc.get("credentialIdentifier").getAsString().toCharArray());
-				byte[] publicCredential = Hex.decodeHex(edhoc.get("publicCredential").getAsString().toCharArray());
-				byte[] serverCredentialIdentifier = Hex
-						.decodeHex(edhoc.get("serverCredentialIdentifier").getAsString().toCharArray());
-				byte[] serverKey = Hex.decodeHex(edhoc.get("serverPublicKey").getAsString().toCharArray());
-				Long oscoreMasterSecretLength = edhoc.get("oscoreMasterSecretLength").getAsLong();
-				Long oscoreMasterSaltLength = edhoc.get("oscoreMasterSaltLength").getAsLong();
-				Boolean edhocOscoreCombined = edhoc.get("edhocOscoreCombined").getAsBoolean();
+				Long selectedCiphersuite = edhoc.get("selectedCiphersuite").getAsLong();
+				byte[] clientKeyIdentifier = Hex
+						.decodeHex(edhoc.get("clientKeyIdentifier").getAsString().toCharArray());
+				byte[] clientPublicKey = Hex.decodeHex(edhoc.get("clientPublicKey").getAsString().toCharArray());
+				byte[] peerPublicKeyIdentifier = Hex
+						.decodeHex(edhoc.get("peerPublicKeyIdentifier").getAsString().toCharArray());
+				byte[] serverKey = Hex.decodeHex(edhoc.get("peerPublicKey").getAsString().toCharArray());
+				Long oscoreMasterSecretLengthRemove = edhoc.get("oscoreMasterSecretLengthRemove").getAsLong();
+				Long oscoreMasterSaltLengthRemove = edhoc.get("oscoreMasterSaltLengthRemove").getAsLong();
+				Boolean edhocOscoreCombinedSupport = edhoc.get("edhocOscoreCombinedSupport").getAsBoolean();
 
 				// RH: TODO: Remove debug print
 				System.out.println("Configured EDHOC object: ");
 				System.out.println("initiator: " + initiator);
 				System.out.println("authenticationMethod: " + method);
-				System.out.println("ciphersuite: " + ciphersuite);
-				System.out.println("credentialIdentifier: " + Hex.encodeHexString(credentialIdentifier));
-				System.out.println("publicCredential: " + Hex.encodeHexString(publicCredential));
-				System.out.println("serverCredentialIdentifier: " + Hex.encodeHexString(serverCredentialIdentifier));
-				System.out.println("serverPublicKey: " + Hex.encodeHexString(serverKey));
-				System.out.println("oscoreMasterSecretLength: " + oscoreMasterSecretLength);
-				System.out.println("oscoreMasterSaltLength: " + oscoreMasterSaltLength);
-				System.out.println("edhocOscoreCombined: " + edhocOscoreCombined);
+				System.out.println("selectedCiphersuite: " + selectedCiphersuite);
+				System.out.println("clientKeyIdentifier: " + Hex.encodeHexString(clientKeyIdentifier));
+				System.out.println("clientPublicKey: " + Hex.encodeHexString(clientPublicKey));
+				System.out.println("peerPublicKeyIdentifier: " + Hex.encodeHexString(peerPublicKeyIdentifier));
+				System.out.println("peerPublicKey: " + Hex.encodeHexString(serverKey));
+				System.out.println("oscoreMasterSecretLengthRemove: " + oscoreMasterSecretLengthRemove);
+				System.out.println("oscoreMasterSaltLengthRemove: " + oscoreMasterSaltLengthRemove);
+				System.out.println("edhocOscoreCombinedSupport: " + edhocOscoreCombinedSupport);
 
 				OSCoreCtx ctx = null;
 				// Generate a placeholder OSCORE Context
@@ -241,16 +241,16 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				// Install crypto provider
 				org.eclipse.californium.edhoc.Util.installCryptoProvider();
 
-				// Set ciphersuites
+				// Set selectedCiphersuites
 				setupSupportedCipherSuites();
 
 				// Set cred(s) (Credential Identifier and Server Credential
 				// Identifier). Set also my public and private key, and the
 				// client's public key
 				byte[] serverPrivateKey = Arrays.copyOfRange(serverKey, 0, 32);
-				byte[] serverPublicKey = Arrays.copyOfRange(serverKey, 32, serverKey.length);
-				setupIdentityKeys(serverCredentialIdentifier, credentialIdentifier, serverPrivateKey, serverPublicKey,
-						publicCredential);
+				byte[] peerPublicKey = Arrays.copyOfRange(serverKey, 32, serverKey.length);
+				setupIdentityKeys(peerPublicKeyIdentifier, clientKeyIdentifier, serverPrivateKey, peerPublicKey,
+						clientPublicKey);
 
 				// NEW
 				// Set Authentication Method
@@ -304,13 +304,13 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 
 				// --- Key Pairs ---
 				    HashMap<Integer, OneKey> inner = EdhocHandler.keyPairs.get(Constants.ECDH_KEY);
-				    if ((ciphersuite == 2 || ciphersuite == 3) && (method == 1 || method == 3)) {
+				    if ((selectedCiphersuite == 2 || selectedCiphersuite == 3) && (method == 1 || method == 3)) {
 					OneKey old = inner.put(Constants.CURVE_P256, keyPair);
 					if (old != null && !oneKeysEqual(old, keyPair)) {
 					    System.err.println("Warning: Overwriting existing ECDH key pair for P256 with different value");
 					}
 				    }
-				    if ((ciphersuite == 0 || ciphersuite == 1) && (method == 1 || method == 3)) {
+				    if ((selectedCiphersuite == 0 || selectedCiphersuite == 1) && (method == 1 || method == 3)) {
 					OneKey old = inner.put(Constants.CURVE_X25519, keyPair);
 					if (old != null && !oneKeysEqual(old, keyPair)) {
 					    System.err.println("Warning: Overwriting existing ECDH key pair for X25519 with different value");
@@ -318,13 +318,13 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				    }
 
 				    inner = EdhocHandler.keyPairs.get(Constants.SIGNATURE_KEY);
-				    if ((ciphersuite == 2 || ciphersuite == 3) && (method == 0 || method == 2)) {
+				    if ((selectedCiphersuite == 2 || selectedCiphersuite == 3) && (method == 0 || method == 2)) {
 					OneKey old = inner.put(Constants.CURVE_P256, keyPair);
 					if (old != null && !oneKeysEqual(old, keyPair)) {
 					    System.err.println("Warning: Overwriting existing signature key pair for P256 with different value");
 					}
 				    }
-				    if ((ciphersuite == 0 || ciphersuite == 1) && (method == 0 || method == 2)) {
+				    if ((selectedCiphersuite == 0 || selectedCiphersuite == 1) && (method == 0 || method == 2)) {
 					OneKey old = inner.put(Constants.CURVE_Ed25519, keyPair);
 					if (old != null && !oneKeysEqual(old, keyPair)) {
 					    System.err.println("Warning: Overwriting existing signature key pair for Ed25519 with different value");
@@ -333,14 +333,14 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 
 				    // --- Creds ---
 				    HashMap<Integer, CBORObject> innerC = EdhocHandler.creds.get(Constants.ECDH_KEY);
-				    if ((ciphersuite == 2 || ciphersuite == 3) && (method == 1 || method == 3)) {
+				    if ((selectedCiphersuite == 2 || selectedCiphersuite == 3) && (method == 1 || method == 3)) {
 					CBORObject newCred = CBORObject.FromObject(cred);
 					CBORObject old = innerC.put(Constants.CURVE_P256, newCred);
 					if (old != null && !cborObjectsEqual(old, newCred)) {
 					    System.err.println("Warning: Overwriting existing ECDH credentials for P256 with different value");
 					}
 				    }
-				    if ((ciphersuite == 0 || ciphersuite == 1) && (method == 1 || method == 3)) {
+				    if ((selectedCiphersuite == 0 || selectedCiphersuite == 1) && (method == 1 || method == 3)) {
 					CBORObject newCred = CBORObject.FromObject(cred);
 					CBORObject old = innerC.put(Constants.CURVE_X25519, newCred);
 					if (old != null && !cborObjectsEqual(old, newCred)) {
@@ -349,14 +349,14 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				    }
 
 				    innerC = EdhocHandler.creds.get(Constants.SIGNATURE_KEY);
-				    if ((ciphersuite == 2 || ciphersuite == 3) && (method == 0 || method == 2)) {
+				    if ((selectedCiphersuite == 2 || selectedCiphersuite == 3) && (method == 0 || method == 2)) {
 					CBORObject newCred = CBORObject.FromObject(cred);
 					CBORObject old = innerC.put(Constants.CURVE_P256, newCred);
 					if (old != null && !cborObjectsEqual(old, newCred)) {
 					    System.err.println("Warning: Overwriting existing signature credentials for P256 with different value");
 					}
 				    }
-				    if ((ciphersuite == 0 || ciphersuite == 1) && (method == 0 || method == 2)) {
+				    if ((selectedCiphersuite == 0 || selectedCiphersuite == 1) && (method == 0 || method == 2)) {
 					CBORObject newCred = CBORObject.FromObject(cred);
 					CBORObject old = innerC.put(Constants.CURVE_Ed25519, newCred);
 					if (old != null && !cborObjectsEqual(old, newCred)) {
@@ -366,13 +366,13 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 
 				    // --- ID Creds ---
 				    HashMap<Integer, CBORObject> innerD = EdhocHandler.idCreds.get(Constants.ECDH_KEY);
-				    if ((ciphersuite == 2 || ciphersuite == 3) && (method == 1 || method == 3)) {
+				    if ((selectedCiphersuite == 2 || selectedCiphersuite == 3) && (method == 1 || method == 3)) {
 					CBORObject old = innerD.put(Constants.CURVE_P256, idCred);
 					if (old != null && !cborObjectsEqual(old, idCred)) {
 					    System.err.println("Warning: Overwriting existing ECDH 'ID Cred' for P256 with different value");
 					}
 				    }
-				    if ((ciphersuite == 0 || ciphersuite == 1) && (method == 1 || method == 3)) {
+				    if ((selectedCiphersuite == 0 || selectedCiphersuite == 1) && (method == 1 || method == 3)) {
 					CBORObject old = innerD.put(Constants.CURVE_X25519, idCred);
 					if (old != null && !cborObjectsEqual(old, idCred)) {
 					    System.err.println("Warning: Overwriting existing ECDH 'ID Cred' for X25519 with different value");
@@ -380,13 +380,13 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				    }
 
 				    innerD = EdhocHandler.idCreds.get(Constants.SIGNATURE_KEY);
-				    if ((ciphersuite == 2 || ciphersuite == 3) && (method == 0 || method == 2)) {
+				    if ((selectedCiphersuite == 2 || selectedCiphersuite == 3) && (method == 0 || method == 2)) {
 					CBORObject old = innerD.put(Constants.CURVE_P256, idCred);
 					if (old != null && !cborObjectsEqual(old, idCred)) {
 					    System.err.println("Warning: Overwriting existing signature 'ID Cred' for P256 with different value");
 					}
 				    }
-				    if ((ciphersuite == 0 || ciphersuite == 1) && (method == 0 || method == 2)) {
+				    if ((selectedCiphersuite == 0 || selectedCiphersuite == 1) && (method == 0 || method == 2)) {
 					CBORObject old = innerD.put(Constants.CURVE_Ed25519, idCred);
 					if (old != null && !cborObjectsEqual(old, idCred)) {
 					    System.err.println("Warning: Overwriting existing signature 'ID Cred' for Ed25519 with different value");

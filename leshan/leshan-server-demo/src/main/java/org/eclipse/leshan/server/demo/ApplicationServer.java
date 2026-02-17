@@ -60,27 +60,27 @@ public class ApplicationServer {
 		// Application Server EDHOC Configuration (read from file)
 //		Boolean initiator = edhoc.get("initiator").getAsBoolean();
 //		Long authenticationMethod = edhoc.get("authenticationMethod").getAsLong();
-//		Long ciphersuite = edhoc.get("ciphersuite").getAsLong();
-//		byte[] credentialIdentifier = Hex
-//				.decodeHex(edhoc.get("credentialIdentifier").getAsString().toCharArray());
-//		byte[] publicCredential = Hex.decodeHex(edhoc.get("publicCredential").getAsString().toCharArray());
-//		byte[] serverCredentialIdentifier = Hex
-//				.decodeHex(edhoc.get("serverCredentialIdentifier").getAsString().toCharArray());
-//		byte[] serverKey = Hex.decodeHex(edhoc.get("serverPublicKey").getAsString().toCharArray());
-//		Long oscoreMasterSecretLength = edhoc.get("oscoreMasterSecretLength").getAsLong();
-//		Long oscoreMasterSaltLength = edhoc.get("oscoreMasterSaltLength").getAsLong();
-//		Boolean edhocOscoreCombined = edhoc.get("edhocOscoreCombined").getAsBoolean();
+//		Long selectedCiphersuite = edhoc.get("selectedCiphersuite").getAsLong();
+//		byte[] clientKeyIdentifier = Hex
+//				.decodeHex(edhoc.get("clientKeyIdentifier").getAsString().toCharArray());
+//		byte[] clientPublicKey = Hex.decodeHex(edhoc.get("clientPublicKey").getAsString().toCharArray());
+//		byte[] peerPublicKeyIdentifier = Hex
+//				.decodeHex(edhoc.get("peerPublicKeyIdentifier").getAsString().toCharArray());
+//		byte[] serverKey = Hex.decodeHex(edhoc.get("peerPublicKey").getAsString().toCharArray());
+//		Long oscoreMasterSecretLengthRemove = edhoc.get("oscoreMasterSecretLengthRemove").getAsLong();
+//		Long oscoreMasterSaltLengthRemove = edhoc.get("oscoreMasterSaltLengthRemove").getAsLong();
+//		Boolean edhocOscoreCombinedSupport = edhoc.get("edhocOscoreCombinedSupport").getAsBoolean();
 
 		Boolean initiator = false;
 		Long authenticationMethod = 0L;
-		Long ciphersuite = 2L;
-		byte[] credentialIdentifier = hexStringToByteArray("08");
-		byte[] publicCredential = hexStringToByteArray("67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9");
-		byte[] serverCredentialIdentifier = hexStringToByteArray("25");
+		Long selectedCiphersuite = 2L;
+		byte[] clientKeyIdentifier = hexStringToByteArray("08");
+		byte[] clientPublicKey = hexStringToByteArray("67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9");
+		byte[] peerPublicKeyIdentifier = hexStringToByteArray("25");
 		byte[] serverKey = hexStringToByteArray("D709BFA1CB5C9B52ED7C29300932F8EC997721E16DC777B470EE64C5DE871B2DF5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273");
-		Long oscoreMasterSecretLength = 16L;
-		Long oscoreMasterSaltLength = 8L;
-		Boolean edhocOscoreCombined = false;
+		Long oscoreMasterSecretLengthRemove = 16L;
+		Long oscoreMasterSaltLengthRemove = 8L;
+		Boolean edhocOscoreCombinedSupport = false;
 
 		if(args.length != 0) {
 			localHostname = args[1];
@@ -90,14 +90,14 @@ public class ApplicationServer {
 		System.out.println("Configured EDHOC object: ");
 		System.out.println("initiator: " + initiator);
 		System.out.println("authenticationMethod: " + authenticationMethod);
-		System.out.println("ciphersuite: " + ciphersuite);
-		System.out.println("credentialIdentifier: " + Hex.encodeHexString(credentialIdentifier));
-		System.out.println("publicCredential: " + Hex.encodeHexString(publicCredential));
-		System.out.println("serverCredentialIdentifier: " + Hex.encodeHexString(serverCredentialIdentifier));
-		System.out.println("serverPublicKey: " + Hex.encodeHexString(serverKey));
-		System.out.println("oscoreMasterSecretLength: " + oscoreMasterSecretLength);
-		System.out.println("oscoreMasterSaltLength: " + oscoreMasterSaltLength);
-		System.out.println("edhocOscoreCombined: " + edhocOscoreCombined);
+		System.out.println("selectedCiphersuite: " + selectedCiphersuite);
+		System.out.println("clientKeyIdentifier: " + Hex.encodeHexString(clientKeyIdentifier));
+		System.out.println("clientPublicKey: " + Hex.encodeHexString(clientPublicKey));
+		System.out.println("peerPublicKeyIdentifier: " + Hex.encodeHexString(peerPublicKeyIdentifier));
+		System.out.println("peerPublicKey: " + Hex.encodeHexString(serverKey));
+		System.out.println("oscoreMasterSecretLengthRemove: " + oscoreMasterSecretLengthRemove);
+		System.out.println("oscoreMasterSaltLengthRemove: " + oscoreMasterSaltLengthRemove);
+		System.out.println("edhocOscoreCombinedSupport: " + edhocOscoreCombinedSupport);
 
 		OSCoreCtx ctx = null;
 		// Generate a placeholder OSCORE Context
@@ -116,16 +116,16 @@ public class ApplicationServer {
 		// Build EDHOC endpoint info
 		setupEdhocParameters();
 
-		// Set ciphersuite
-		setupSupportedCipherSuites(ciphersuite.intValue());
+		// Set selectedCiphersuite
+		setupSupportedCipherSuites(selectedCiphersuite.intValue());
 
 		// Set cred(s) (Credential Identifier and Server Credential
 		// Identifier). Set also my public and private key, and the
 		// client's public key
 		byte[] serverPrivateKey = Arrays.copyOfRange(serverKey, 0, 32);
-		byte[] serverPublicKey = Arrays.copyOfRange(serverKey, 32, serverKey.length);
-		setupIdentityKeys(serverCredentialIdentifier, credentialIdentifier, serverPrivateKey, serverPublicKey,
-				publicCredential);
+		byte[] peerPublicKey = Arrays.copyOfRange(serverKey, 32, serverKey.length);
+		setupIdentityKeys(peerPublicKeyIdentifier, clientKeyIdentifier, serverPrivateKey, peerPublicKey,
+				clientPublicKey);
 
 		// New
 		// Set Authentication Method
