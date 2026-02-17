@@ -63,7 +63,7 @@ import org.eclipse.leshan.core.util.Hex;
 import org.eclipse.leshan.core.util.datatype.ULong;
 
 /**
- * A simple {@link LwM2mInstanceEnabler} for the EDHOC Security (99) object.
+ * A simple {@link LwM2mInstanceEnabler} for the EDHOC Security (29) object.
  */
 public class Edhoc extends BaseInstanceEnabler {
 

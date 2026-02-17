@@ -34,7 +34,7 @@ public interface LwM2mId {
     public static final int CONNECTIVITY_STATISTICS = 7;
     public static final int SOFTWARE_MANAGEMENT = 9;
     public static final int OSCORE = 21;
-    public static final int EDHOC = 99;
+	public static final int EDHOC = 29;
 
     /* SECURITY RESOURCES */
 
