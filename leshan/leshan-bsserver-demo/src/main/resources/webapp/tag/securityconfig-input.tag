@@ -153,8 +153,7 @@
                 config.edhoc.privateKey = fromHex(edhocVals.privateKey);
                 config.edhoc.peerPublicKeyIdentifier = fromHex(edhocVals.peerPublicKeyIdentifier);
                 config.edhoc.peerPublicKey = fromHex(edhocVals.peerPublicKey);
-                config.edhoc.oscoreMasterSecretLengthRemove = edhocVals.oscoreMasterSecretLengthRemove;
-                config.edhoc.oscoreMasterSaltLengthRemove = edhocVals.oscoreMasterSaltLengthRemove;
+                config.edhoc.peerEdhocCoapUriPath = edhocVals.peerEdhocCoapUriPath;
                 config.edhoc.edhocOscoreCombinedSupport = edhocVals.edhocOscoreCombinedSupport;
             	
             }

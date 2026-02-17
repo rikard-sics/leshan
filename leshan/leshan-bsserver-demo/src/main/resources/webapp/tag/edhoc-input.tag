@@ -12,8 +12,7 @@
          document.getElementById('privateKey').value = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
          document.getElementById('peerPublicKeyIdentifier').value = '24';
          document.getElementById('peerPublicKey').value = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLengthRemove').value = '16';
-         document.getElementById('oscoreMasterSaltLengthRemove').value = '8';
+         document.getElementById('peerEdhocCoapUriPath').value = '.well-known/edhoc';
          document.getElementById('edhocOscoreCombinedSupport').value = 'False';
          
          document.getElementById('initiator').innerHTML = 'True';
@@ -24,8 +23,7 @@
          document.getElementById('privateKey').innerHTML = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
          document.getElementById('peerPublicKeyIdentifier').innerHTML = '24';
          document.getElementById('peerPublicKey').innerHTML = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLengthRemove').innerHTML = '16';
-         document.getElementById('oscoreMasterSaltLengthRemove').innerHTML = '8';
+         document.getElementById('peerEdhocCoapUriPath').innerHTML = '.well-known/edhoc';
          document.getElementById('edhocOscoreCombinedSupport').innerHTML = 'False';
          
          document.getElementById('initiator').innerText = 'True';
@@ -36,12 +34,11 @@
          document.getElementById('privateKey').innerText = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
          document.getElementById('peerPublicKeyIdentifier').innerText = '24';
          document.getElementById('peerPublicKey').innerText = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLengthRemove').innerText = '16';
-         document.getElementById('oscoreMasterSaltLengthRemove').innerText = '8';
+         document.getElementById('peerEdhocCoapUriPath').innerText = '.well-known/edhoc';
          document.getElementById('edhocOscoreCombinedSupport').innerText = 'False';
     ">Fill Client<->DM config</button> 
          
-    <button type="button" onclick="
+    <button type="button" hidden onclick="
          document.getElementById('initiator').value = 'True';
          document.getElementById('authenticationMethod').value = '0';
          document.getElementById('selectedCiphersuite').value = '2';
@@ -50,8 +47,6 @@
          document.getElementById('privateKey').value = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
          document.getElementById('peerPublicKeyIdentifier').value = '25';
          document.getElementById('peerPublicKey').value = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLengthRemove').value = '16';
-         document.getElementById('oscoreMasterSaltLengthRemove').value = '8';
          document.getElementById('edhocOscoreCombinedSupport').value = 'False';
          
          document.getElementById('initiator').innerText = 'True';
@@ -62,8 +57,6 @@
          document.getElementById('privateKey').innerText = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
          document.getElementById('peerPublicKeyIdentifier').innerText = '25';
          document.getElementById('peerPublicKey').innerText = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLengthRemove').innerText = '16';
-         document.getElementById('oscoreMasterSaltLengthRemove').innerText = '8';
          document.getElementById('edhocOscoreCombinedSupport').innerText = 'False';
          
          document.getElementById('initiator').innerHTML = 'True';
@@ -74,34 +67,28 @@
          document.getElementById('privateKey').innerHTML = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
          document.getElementById('peerPublicKeyIdentifier').innerHTML = '25';
          document.getElementById('peerPublicKey').innerHTML = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLengthRemove').innerHTML = '16';
-         document.getElementById('oscoreMasterSaltLengthRemove').innerHTML = '8';
          document.getElementById('edhocOscoreCombinedSupport').innerHTML = 'False';
     ">Fill Client<->AS config</button> 
     
+    
     <div class={ form-group:true }>
-        <label for="initiator" class="col-sm-4 control-label">Initiator</label>
+        <label for="peerPublicKeyIdentifier" class="col-sm-4 control-label">Peer Public Key Identifier</label>
         <div class="col-sm-8">
-            <textarea class="form-control" style="resize:none" rows="1" id="initiator" ref="initiator"></textarea>
+            <textarea class="form-control" style="resize:none" rows="1" id="peerPublicKeyIdentifier" ref="peerPublicKeyIdentifier"></textarea>
+            <p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
+        </div>
+    </div>
+
+    <div class={ form-group:true }>
+        <label for="peerPublicKey" class="col-sm-4 control-label">Peer Public Key</label>
+        <div class="col-sm-8">
+            <textarea class="form-control" style="resize:none" rows="4" id="peerPublicKey" ref="peerPublicKey"></textarea>
+            <p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
         </div>
     </div>
     
     <div class={ form-group:true }>
-        <label for="authenticationMethod" class="col-sm-4 control-label">Authentication Method</label>
-        <div class="col-sm-8">
-            <textarea class="form-control" style="resize:none" rows="1" id="authenticationMethod" ref="authenticationMethod"></textarea>
-        </div>
-    </div>
-
-    <div class={ form-group:true }>
-        <label for="selectedCiphersuite" class="col-sm-4 control-label">Ciphersuite</label>
-        <div class="col-sm-8">
-            <textarea class="form-control" style="resize:none" rows="1" id="selectedCiphersuite" ref="selectedCiphersuite"></textarea>
-        </div>
-    </div>
-
-    <div class={ form-group:true }>
-        <label for="clientKeyIdentifier" class="col-sm-4 control-label">Credential Identifier</label>
+        <label for="clientKeyIdentifier" class="col-sm-4 control-label">Client Key Identifier</label>
         <div class="col-sm-8">
             <textarea class="form-control" style="resize:none" rows="1" id="clientKeyIdentifier" ref="clientKeyIdentifier"></textarea>
             <p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
@@ -109,7 +96,7 @@
     </div>
 
     <div class={ form-group:true }>
-        <label for="clientPublicKey" class="col-sm-4 control-label">Public Credential</label>
+        <label for="clientPublicKey" class="col-sm-4 control-label">Client Public Key</label>
         <div class="col-sm-8">
             <textarea class="form-control" style="resize:none" rows="4" id="clientPublicKey" ref="clientPublicKey"></textarea>
             <p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
@@ -123,39 +110,37 @@
             <p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
         </div>
     </div>
-
+    
     <div class={ form-group:true }>
-        <label for="peerPublicKeyIdentifier" class="col-sm-4 control-label">Server Credential Identifier</label>
+        <label for="authenticationMethod" class="col-sm-4 control-label">Method</label>
         <div class="col-sm-8">
-            <textarea class="form-control" style="resize:none" rows="1" id="peerPublicKeyIdentifier" ref="peerPublicKeyIdentifier"></textarea>
-            <p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
+            <textarea class="form-control" style="resize:none" rows="1" id="authenticationMethod" ref="authenticationMethod"></textarea>
+        </div>
+    </div>
+    
+    <div class={ form-group:true }>
+        <label for="initiator" class="col-sm-4 control-label">Initiator</label>
+        <div class="col-sm-8">
+            <textarea class="form-control" style="resize:none" rows="1" id="initiator" ref="initiator"></textarea>
+        </div>
+    </div>
+    
+    <div class={ form-group:true }>
+        <label for="selectedCiphersuite" class="col-sm-4 control-label">Selected Ciphersuite</label>
+        <div class="col-sm-8">
+            <textarea class="form-control" style="resize:none" rows="1" id="selectedCiphersuite" ref="selectedCiphersuite"></textarea>
         </div>
     </div>
 
     <div class={ form-group:true }>
-        <label for="peerPublicKey" class="col-sm-4 control-label">Server Public Credential</label>
+        <label for="peerEdhocCoapUriPath" class="col-sm-4 control-label">Peer EDHOC CoAP URI Path</label>
         <div class="col-sm-8">
-            <textarea class="form-control" style="resize:none" rows="4" id="peerPublicKey" ref="peerPublicKey"></textarea>
-            <p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
+            <textarea class="form-control" style="resize:none" rows="1" id="peerEdhocCoapUriPath" ref="peerEdhocCoapUriPath"></textarea>
         </div>
     </div>
 
     <div class={ form-group:true }>
-        <label for="oscoreMasterSecretLengthRemove" class="col-sm-4 control-label">OSCORE Master Secret Length</label>
-        <div class="col-sm-8">
-            <textarea class="form-control" style="resize:none" rows="1" id="oscoreMasterSecretLengthRemove" ref="oscoreMasterSecretLengthRemove"></textarea>
-        </div>
-    </div>
-
-    <div class={ form-group:true }>
-        <label for="oscoreMasterSaltLengthRemove" class="col-sm-4 control-label">OSCORE Master Salt Length</label>
-        <div class="col-sm-8">
-            <textarea class="form-control" style="resize:none" rows="1" id="oscoreMasterSaltLengthRemove" ref="oscoreMasterSaltLengthRemove"></textarea>
-        </div>
-    </div>
-
-    <div class={ form-group:true }>
-        <label for="edhocOscoreCombinedSupport" class="col-sm-4 control-label">EDHOC OSCORE Combined</label>
+        <label for="edhocOscoreCombinedSupport" class="col-sm-4 control-label">EDHOC OSCORE Combined Support</label>
         <div class="col-sm-8">
             <textarea class="form-control" style="resize:none" rows="1" id="edhocOscoreCombinedSupport" ref="edhocOscoreCombinedSupport"></textarea>
         </div>
@@ -193,8 +178,7 @@
         tag.privateKey={};
         tag.peerPublicKeyIdentifier={};
         tag.peerPublicKey={};
-        tag.oscoreMasterSecretLengthRemove={};
-        tag.oscoreMasterSaltLengthRemove={};
+        tag.peerEdhocCoapUriPath={};
         tag.edhocOscoreCombinedSupport={};
         
         // Tag functions
@@ -341,8 +325,7 @@
                 privateKey:tag.refs.privateKey.value,
                 peerPublicKeyIdentifier:tag.refs.peerPublicKeyIdentifier.value,
                 peerPublicKey:tag.refs.peerPublicKey.value,
-                oscoreMasterSecretLengthRemove:tag.refs.oscoreMasterSecretLengthRemove.value,
-                oscoreMasterSaltLengthRemove:tag.refs.oscoreMasterSaltLengthRemove.value,
+                peerEdhocCoapUriPath:tag.refs.peerEdhocCoapUriPath.value,
                 edhocOscoreCombinedSupport:tag.refs.edhocOscoreCombinedSupport.value };
         }
 

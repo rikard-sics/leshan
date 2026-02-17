@@ -71,15 +71,14 @@
 			<!-- EDHOC fields -->
 			<td ng-if="security.edhoc">EDHOC</td>
 			<td ng-if="security.edhoc">
-				Initiator : <code>{{ security.edhoc.initiator }}</code><br/>
+				Peer Public Key Identifier : <code>{{ security.edhoc.peerPublicKeyIdentifier }}</code><br/>
+				Peer Public Key : <code>{{ security.edhoc.peerPublicKey }}</code><br/>
+				Client Key Identifier : <code>{{ security.edhoc.clientKeyIdentifier }}</code><br/>
+				Client Public Key : <code>{{ security.edhoc.clientPublicKey }}</code><br/>
 				Authentication Method : <code>{{ security.edhoc.authenticationMethod }}</code><br/>
-				Ciphersuite : <code>{{ security.edhoc.selectedCiphersuite }}</code><br/>
-				Credential Identifier : <code>{{ security.edhoc.clientKeyIdentifier }}</code><br/>
-				Public Credential : <code>{{ security.edhoc.clientPublicKey }}</code><br/>
-				Server Credential Identifier : <code>{{ security.edhoc.peerPublicKeyIdentifier }}</code><br/>
-				Server Credential : <code>{{ security.edhoc.peerPublicKey }}</code><br/>
-				OSCORE Master Secret Length : <code>{{ security.edhoc.oscoreMasterSecretLengthRemove }}</code><br/>
-				OSCORE Master Salt Length : <code>{{ security.edhoc.oscoreMasterSaltLengthRemove }}</code><br/>
+				Initiator : <code>{{ security.edhoc.initiator }}</code><br/>
+				Selected Ciphersuite : <code>{{ security.edhoc.selectedCiphersuite }}</code><br/>
+				Peer EDHOC CoAP URI Path : <code>{{ security.edhoc.peerEdhocCoapUriPath }}</code><br/>
 				OSCORE EDHOC Combined : <code>{{ security.edhoc.edhocOscoreCombinedSupport }}</code><br/>
 			</td>
 			<td ng-if="security.rpk">Raw Public Key <br/><small class="text-muted" >(Elliptic Curve)</small></td>
@@ -114,8 +113,7 @@
          document.getElementById('clientPublicKeyValue').value = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
          document.getElementById('peerPublicKeyIdentifierValue').value = '24';
          document.getElementById('peerPublicKeyValue').value = 'D709BFA1CB5C9B52ED7C29300932F8EC997721E16DC777B470EE64C5DE871B2DF5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLengthRemoveValue').value = '16';
-         document.getElementById('oscoreMasterSaltLengthRemoveValue').value = '8';
+         document.getElementById('peerEdhocCoapUriPathValue').value = '.well-known/edhoc';
          document.getElementById('edhocOscoreCombinedSupportValue').value = 'False';
          
          document.getElementById('initiatorValue').innerHTML = 'True';
@@ -125,8 +123,7 @@
          document.getElementById('clientPublicKeyValue').innerHTML = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
          document.getElementById('peerPublicKeyIdentifierValue').innerHTML = '24';
          document.getElementById('peerPublicKeyValue').innerHTML = 'D709BFA1CB5C9B52ED7C29300932F8EC997721E16DC777B470EE64C5DE871B2DF5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLengthRemoveValue').innerHTML = '16';
-         document.getElementById('oscoreMasterSaltLengthRemoveValue').innerHTML = '8';
+         document.getElementById('peerEdhocCoapUriPathValue').innerHTML = '.well-known/edhoc';
          document.getElementById('edhocOscoreCombinedSupportValue').innerHTML = 'False';
          
          document.getElementById('initiatorValue').innerText = 'True';
@@ -136,8 +133,7 @@
          document.getElementById('clientPublicKeyValue').innerText = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
          document.getElementById('peerPublicKeyIdentifierValue').innerText = '24';
          document.getElementById('peerPublicKeyValue').innerText = 'D709BFA1CB5C9B52ED7C29300932F8EC997721E16DC777B470EE64C5DE871B2DF5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLengthRemoveValue').innerText = '16';
-         document.getElementById('oscoreMasterSaltLengthRemoveValue').innerText = '8';
+         document.getElementById('peerEdhocCoapUriPathValue').innerText = '.well-known/edhoc';
          document.getElementById('edhocOscoreCombinedSupportValue').innerText = 'False';
          
          
@@ -148,8 +144,7 @@
          document.getElementById('clientPublicKey').value = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
          document.getElementById('peerPublicKeyIdentifier').value = '24';
          document.getElementById('peerPublicKey').value = 'D709BFA1CB5C9B52ED7C29300932F8EC997721E16DC777B470EE64C5DE871B2DF5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLengthRemove').value = '16';
-         document.getElementById('oscoreMasterSaltLengthRemove').value = '8';
+         document.getElementById('peerEdhocCoapUriPath').value = '.well-known/edhoc';
          document.getElementById('edhocOscoreCombinedSupport').value = 'False';
          
          document.getElementById('initiator').innerHTML = 'True';
@@ -159,8 +154,7 @@
          document.getElementById('clientPublicKey').innerHTML = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
          document.getElementById('peerPublicKeyIdentifier').innerHTML = '24';
          document.getElementById('peerPublicKey').innerHTML = 'D709BFA1CB5C9B52ED7C29300932F8EC997721E16DC777B470EE64C5DE871B2DF5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLengthRemove').innerHTML = '16';
-         document.getElementById('oscoreMasterSaltLengthRemove').innerHTML = '8';
+         document.getElementById('peerEdhocCoapUriPath').innerHTML = '.well-known/edhoc';
          document.getElementById('edhocOscoreCombinedSupport').innerHTML = 'False';
          
          document.getElementById('initiator').innerText = 'True';
@@ -170,8 +164,7 @@
          document.getElementById('clientPublicKey').innerText = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
          document.getElementById('peerPublicKeyIdentifier').innerText = '24';
          document.getElementById('peerPublicKey').innerText = 'D709BFA1CB5C9B52ED7C29300932F8EC997721E16DC777B470EE64C5DE871B2DF5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
-         document.getElementById('oscoreMasterSecretLengthRemove').innerText = '16';
-         document.getElementById('oscoreMasterSaltLengthRemove').innerText = '8';
+         document.getElementById('peerEdhocCoapUriPath').innerText = '.well-known/edhoc';
          document.getElementById('edhocOscoreCombinedSupport').innerText = 'False';
 
 
@@ -293,27 +286,22 @@
 					</div>
 					
 					<!-- EDHOC inputs TODO: Add validation -->
+					
 					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
-						<label for="initiatorValue" class="col-sm-4 control-label">Initiator</label>
+						<label for="peerPublicKeyIdentifierValue" class="col-sm-4 control-label">Peer Public Key Identifier</label>
 						<div class="col-sm-8">
-							<textarea defaultValue="True" class="form-control" style="resize:none" rows="1" id="initiatorValue" name="initiator" 
-							ng-model="initiator" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
+							<textarea class="form-control" style="resize:none" rows="1" id="peerPublicKeyIdentifierValue" name="peerPublicKeyIdentifier" 
+							ng-model="peerPublicKeyIdentifier" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
+							<p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
 						</div>
 					</div>
 					
 					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
-						<label for="authenticationMethodValue" class="col-sm-4 control-label">Authentication Method</label>
+						<label for="peerPublicKeyValue" class="col-sm-4 control-label">Peer Public Key</label>
 						<div class="col-sm-8">
-							<textarea class="form-control" style="resize:none" rows="1" id="authenticationMethodValue" name="authenticationMethod" 
-							ng-model="authenticationMethod" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
-						</div>
-					</div>
-					
-					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
-						<label for="selectedCiphersuiteValue" class="col-sm-4 control-label">Selected Ciphersuite</label>
-						<div class="col-sm-8">
-							<textarea class="form-control" style="resize:none" rows="1" id="selectedCiphersuiteValue" name="selectedCiphersuite" 
-							ng-model="selectedCiphersuite" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
+							<textarea class="form-control" style="resize:none" rows="5" id="peerPublicKeyValue" name="peerPublicKey" 
+							ng-model="peerPublicKey" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="256" ></textarea>
+							<p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
 						</div>
 					</div>
 					
@@ -336,36 +324,34 @@
 					</div>
 					
 					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
-						<label for="peerPublicKeyIdentifierValue" class="col-sm-4 control-label">Peer Public Key Identifier</label>
+						<label for="authenticationMethodValue" class="col-sm-4 control-label">Method</label>
 						<div class="col-sm-8">
-							<textarea class="form-control" style="resize:none" rows="1" id="peerPublicKeyIdentifierValue" name="peerPublicKeyIdentifier" 
-							ng-model="peerPublicKeyIdentifier" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
-							<p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
+							<textarea class="form-control" style="resize:none" rows="1" id="authenticationMethodValue" name="authenticationMethod" 
+							ng-model="authenticationMethod" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
 						</div>
 					</div>
 					
 					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
-						<label for="peerPublicKeyValue" class="col-sm-4 control-label">Peer Public Key</label>
+						<label for="initiatorValue" class="col-sm-4 control-label">Initiator</label>
 						<div class="col-sm-8">
-							<textarea class="form-control" style="resize:none" rows="5" id="peerPublicKeyValue" name="peerPublicKey" 
-							ng-model="peerPublicKey" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="256" ></textarea>
-							<p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
+							<textarea defaultValue="True" class="form-control" style="resize:none" rows="1" id="initiatorValue" name="initiator" 
+							ng-model="initiator" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
 						</div>
 					</div>
 					
 					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
-						<label for="oscoreMasterSecretLengthRemoveValue" class="col-sm-4 control-label">OSCORE Master Secret Length REMOVE</label>
+						<label for="selectedCiphersuiteValue" class="col-sm-4 control-label">Selected Ciphersuite</label>
 						<div class="col-sm-8">
-							<textarea class="form-control" style="resize:none" rows="1" id="oscoreMasterSecretLengthRemoveValue" name="oscoreMasterSecretLengthRemove" 
-							ng-model="oscoreMasterSecretLengthRemove" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
+							<textarea class="form-control" style="resize:none" rows="1" id="selectedCiphersuiteValue" name="selectedCiphersuite" 
+							ng-model="selectedCiphersuite" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
 						</div>
-					</div>
-					
+					</div>				
+
 					<div class="form-group" ng-class="{'hidden': securityMode!='edhoc'}" show-errors>
-						<label for="oscoreMasterSaltLengthRemoveValue" class="col-sm-4 control-label">OSCORE Master Salt Length REMOVE</label>
+						<label for="peerEdhocCoapUriPathValue" class="col-sm-4 control-label">Peer EDHOC CoAP URI Path</label>
 						<div class="col-sm-8">
-							<textarea class="form-control" style="resize:none" rows="1" id="oscoreMasterSaltLengthRemoveValue" name="oscoreMasterSaltLengthRemove" 
-							ng-model="oscoreMasterSaltLengthRemove" ng-required="securityMode=='edhoc'" ng-pattern="/^[0-9a-zA-Z]+$/" ng-maxlength="128" ></textarea>
+							<textarea class="form-control" style="resize:none" rows="1" id="peerEdhocCoapUriPathValue" name="peerEdhocCoapUriPath" 
+							ng-model="peerEdhocCoapUriPath" ng-required="securityMode=='edhoc'" ng-maxlength="128" ></textarea>
 						</div>
 					</div>
 					

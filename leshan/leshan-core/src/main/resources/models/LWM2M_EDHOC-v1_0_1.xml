@@ -148,8 +148,18 @@ Instances of this Object are linked from Instances of Object 21 using the EDHOC 
 				<Units></Units>
 				<Description><![CDATA[This resource MUST store the EDHOC selected ciphersuite to be used. ]]></Description>
 			</Item>
+
+			<Item ID="8"><Name>Peer EDHOC CoAP URI Path </Name>
+				<Operations></Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Optional</Mandatory>
+				<Type>String</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[This resource MUST store the EDHOC CoAP URI path on the Server to use. If this Resource is not instantiated, the default value is "/.well-known-edhoc" when using CoAP. ]]></Description>
+			</Item>
 			
-			<Item ID="8"><Name>EDHOC OSCORE Combined Support </Name>
+			<Item ID="9"><Name>EDHOC OSCORE Combined Support </Name>
 				<Operations></Operations>
 				<MultipleInstances>Single</MultipleInstances>
 				<Mandatory>Optional</Mandatory>
@@ -158,26 +168,9 @@ Instances of this Object are linked from Instances of Object 21 using the EDHOC 
 				<Units></Units>
 				<Description><![CDATA[This resource MUST store whether the LWM2M Server supports the optimization of combining EDHOC with OSCORE. ]]></Description>
 			</Item>
-
-			<Item ID="9"><Name>OSCORE Master Secret Length REMOVE </Name>
-				<Operations></Operations>
-				<MultipleInstances>Single</MultipleInstances>
-				<Mandatory>Optional</Mandatory>
-				<Type>Unsigned Integer</Type>
-				<RangeEnumeration></RangeEnumeration>
-				<Units></Units>
-				<Description><![CDATA[This resource MUST store the length of the OSCORE Master Secret to be produced by the EDHOC-Exporter. ]]></Description>
-			</Item>
 			
-			<Item ID="10"><Name>OSCORE Master Salt Length REMOVE </Name>
-				<Operations></Operations>
-				<MultipleInstances>Single</MultipleInstances>
-				<Mandatory>Optional</Mandatory>
-				<Type>Unsigned Integer</Type>
-				<RangeEnumeration></RangeEnumeration>
-				<Units></Units>
-				<Description><![CDATA[This resource MUST store the length of the OSCORE Master Salt to be produced by the EDHOC-Exporter. ]]></Description>
-			</Item></Resources>
+			
+			</Resources>
 			<Description2><![CDATA[]]></Description2>
 	</Object>
 </LWM2M>

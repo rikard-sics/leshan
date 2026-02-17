@@ -208,8 +208,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				byte[] peerPublicKeyIdentifier = Hex
 						.decodeHex(edhoc.get("peerPublicKeyIdentifier").getAsString().toCharArray());
 				byte[] serverKey = Hex.decodeHex(edhoc.get("peerPublicKey").getAsString().toCharArray());
-				Long oscoreMasterSecretLengthRemove = edhoc.get("oscoreMasterSecretLengthRemove").getAsLong();
-				Long oscoreMasterSaltLengthRemove = edhoc.get("oscoreMasterSaltLengthRemove").getAsLong();
+				String peerEdhocCoapUriPath = edhoc.get("peerEdhocCoapUriPath").getAsString();
 				Boolean edhocOscoreCombinedSupport = edhoc.get("edhocOscoreCombinedSupport").getAsBoolean();
 
 				// RH: TODO: Remove debug print
@@ -221,8 +220,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				System.out.println("clientPublicKey: " + Hex.encodeHexString(clientPublicKey));
 				System.out.println("peerPublicKeyIdentifier: " + Hex.encodeHexString(peerPublicKeyIdentifier));
 				System.out.println("peerPublicKey: " + Hex.encodeHexString(serverKey));
-				System.out.println("oscoreMasterSecretLengthRemove: " + oscoreMasterSecretLengthRemove);
-				System.out.println("oscoreMasterSaltLengthRemove: " + oscoreMasterSaltLengthRemove);
+				System.out.println("peerEdhocCoapUriPath: " + peerEdhocCoapUriPath);
 				System.out.println("edhocOscoreCombinedSupport: " + edhocOscoreCombinedSupport);
 
 				OSCoreCtx ctx = null;

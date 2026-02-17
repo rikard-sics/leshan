@@ -112,7 +112,7 @@ angular.module('securityControllers', [])
                 	var security = {endpoint: $scope.endpoint, edhoc : { initiator : $scope.initiator, authenticationMethod : $scope.authenticationMethod,
                         selectedCiphersuite : $scope.selectedCiphersuite, clientKeyIdentifier : $scope.clientKeyIdentifier, clientPublicKey : $scope.clientPublicKey,
                         privateKey : $scope.privateKey, peerPublicKeyIdentifier : $scope.peerPublicKeyIdentifier, peerPublicKey : $scope.peerPublicKey,
-                        oscoreMasterSecretLengthRemove : $scope.oscoreMasterSecretLengthRemove, oscoreMasterSaltLengthRemove : $scope.oscoreMasterSaltLengthRemove, edhocOscoreCombinedSupport : $scope.edhocOscoreCombinedSupport }};
+                        peerEdhocCoapUriPath : $scope.peerEdhocCoapUriPath, edhocOscoreCombinedSupport : $scope.edhocOscoreCombinedSupport }};
                } else {
                     var security = {endpoint: $scope.endpoint, x509 : true};
                 }

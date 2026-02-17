@@ -15,7 +15,7 @@
  *******************************************************************************/
 package org.eclipse.leshan.client.engine;
 
-import static org.eclipse.leshan.core.LwM2mId.Edhoc_Oscore_Combined;
+import static org.eclipse.leshan.core.LwM2mId.Edhoc_Oscore_Combined_Support;
 
 import java.io.IOException;
 import java.net.URI;
@@ -1007,10 +1007,12 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
         System.out.println("privateKey: " + Hex.encodeHexString(asEdhocObject.privateKey));
         System.out.println("peerPublicKeyIdentifier: " + Hex.encodeHexString(asEdhocObject.peerPublicKeyIdentifier));
         System.out.println("peerPublicKey: " + Hex.encodeHexString(asEdhocObject.peerPublicKey));
-        System.out.println("oscoreMasterSecretLengthRemove: " + asEdhocObject.oscoreMasterSecretLengthRemove);
-        System.out.println("oscoreMasterSaltLengthRemove: " + asEdhocObject.oscoreMasterSaltLengthRemove);
+		System.out.println("peerEdhocCoapUriPath: " + asEdhocObject.peerEdhocCoapUriPath);
         System.out.println("edhocOscoreCombinedSupport: " + asEdhocObject.edhocOscoreCombinedSupport);
-        System.out.println("edhocURI: " + OscoreHandler.getAsServerUri() + "/.well-known/edhoc");
+		/*
+		 * System.out.println("edhocURI: " + OscoreHandler.getAsServerUri() +
+		 * "/.well-known/edhoc");
+		 */
 
 		// Install crypto provider
 		org.eclipse.californium.edhoc.Util.installCryptoProvider();

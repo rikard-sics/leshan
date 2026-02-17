@@ -335,7 +335,7 @@ public class BootstrapConfig implements Serializable {
         }
     }
 
-    /** edhoc configuration (object 99) */
+    /** edhoc configuration (object 29) */
     // TODO EDHOC : add some javadoc
     public static class EdhocObject implements Serializable {
         private static final long serialVersionUID = 1L;
@@ -348,20 +348,19 @@ public class BootstrapConfig implements Serializable {
         public byte[] privateKey = null;
         public byte[] peerPublicKeyIdentifier = null;
         public byte[] peerPublicKey = null;
-        public Long oscoreMasterSecretLengthRemove = null;
-        public Long oscoreMasterSaltLengthRemove = null;
+        public String peerEdhocCoapUriPath = null;
         public Boolean edhocOscoreCombinedSupport = null;
 
         @Override
         public String toString() {
             return String.format(
                     "EdhocObject [initiator=%s, authenticationMethod=%s, selectedCiphersuite=%s, clientKeyIdentifier=%s, clientPublicKey=%s, privateKey=%s, "
-                            + "peerPublicKeyIdentifier=%s, peerPublicKey=%s, oscoreMasterSecretLengthRemove=%s, oscoreMasterSaltLengthRemove=%s, edhocOscoreCombinedSupport]",
+                            + "peerPublicKeyIdentifier=%s, peerPublicKey=%s, peerEdhocCoapUriPath=%s, edhocOscoreCombinedSupport]",
                     initiator.toString(), authenticationMethod.toString(), selectedCiphersuite.toString(),
                     Hex.encodeHexString(clientKeyIdentifier), Hex.encodeHexString(clientPublicKey),
                     Hex.encodeHexString(privateKey), Hex.encodeHexString(peerPublicKeyIdentifier),
-                    Hex.encodeHexString(peerPublicKey), oscoreMasterSecretLengthRemove.toString(),
-                    oscoreMasterSaltLengthRemove.toString(), edhocOscoreCombinedSupport.toString());
+                    Hex.encodeHexString(peerPublicKey), peerEdhocCoapUriPath.toString(),
+                    edhocOscoreCombinedSupport.toString());
         }
     }
 

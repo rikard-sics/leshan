@@ -136,8 +136,7 @@
                     privateKey : lwserverEdhoc.privateKey,
                     peerPublicKeyIdentifier : lwserverEdhoc.peerPublicKeyIdentifier,
                     peerPublicKey : lwserverEdhoc.peerPublicKey,
-                    oscoreMasterSecretLengthRemove : lwserverEdhoc.oscoreMasterSecretLengthRemove,
-                    oscoreMasterSaltLengthRemove : lwserverEdhoc.oscoreMasterSaltLengthRemove,
+                    peerEdhocCoapUriPath : lwserverEdhoc.peerEdhocCoapUriPath,
                     edhocOscoreCombinedSupport : lwserverEdhoc.edhocOscoreCombinedSupport,
                 }
                 var dmOscoreSecurityMode = 1; // link to dm oscore object

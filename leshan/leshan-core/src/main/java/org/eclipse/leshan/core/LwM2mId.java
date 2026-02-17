@@ -59,17 +59,16 @@ public interface LwM2mId {
 
     /* EDHOC RESOURCES */
 
-    public static final int Initiator = 0;
-    public static final int Authentication_Method = 1;
-    public static final int Ciphersuite = 2;
-    public static final int Credential_Identifier = 3;
-    public static final int Public_Credential = 4;
-    public static final int Private_Key = 5;
-    public static final int Server_Credential_Identifier = 6;
-    public static final int Server_Public_Key = 7;
-    public static final int Oscore_Master_Secret_Length = 8;
-    public static final int Oscore_Master_Salt_Length = 9;
-    public static final int Edhoc_Oscore_Combined = 10;
+	public static final int Peer_Public_Key_Identifier = 0;
+	public static final int Peer_Public_Key = 1;
+	public static final int Client_Key_Identifier = 2;
+	public static final int Client_Public_Key = 3;
+	public static final int Private_Key = 4;
+	public static final int Method = 5;
+	public static final int Initiator = 6;
+	public static final int Selected_Ciphersuite = 7;
+    public static final int Peer_Edhoc_Coap_Uri_Path = 8;
+	public static final int Edhoc_Oscore_Combined_Support = 9;
 
     /* SERVER RESOURCES */
 
