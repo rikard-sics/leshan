@@ -8,10 +8,10 @@
          document.getElementById('authenticationMethod').value = '0';
          document.getElementById('selectedCiphersuite').value = '2';
          document.getElementById('clientKeyIdentifier').value = '07';
-         document.getElementById('clientPublicKey').value = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
-         document.getElementById('privateKey').value = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
+         document.getElementById('clientPublicKey').value = 'a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8';
+         document.getElementById('privateKey').value = 'fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b';
          document.getElementById('peerPublicKeyIdentifier').value = '24';
-         document.getElementById('peerPublicKey').value = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('peerPublicKey').value = 'a2026b6578616d706c652e65647508a101a501020241322001215820bbc34960526ea4d32e940cad2a234148ddc21791a12afbcbac93622046dd44f02258204519e257236b2a0ce2023f0931f1f386ca7afda64fcde0108c224c51eabf6072';
          document.getElementById('peerEdhocCoapUriPath').value = '.well-known/edhoc';
          document.getElementById('edhocOscoreCombinedSupport').value = 'False';
          
@@ -19,10 +19,10 @@
          document.getElementById('authenticationMethod').innerHTML = '0';
          document.getElementById('selectedCiphersuite').innerHTML = '2';
          document.getElementById('clientKeyIdentifier').innerHTML = '07';
-         document.getElementById('clientPublicKey').innerHTML = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
-         document.getElementById('privateKey').innerHTML = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
+         document.getElementById('clientPublicKey').innerHTML = 'a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8';
+         document.getElementById('privateKey').innerHTML = 'fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b';
          document.getElementById('peerPublicKeyIdentifier').innerHTML = '24';
-         document.getElementById('peerPublicKey').innerHTML = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('peerPublicKey').innerHTML = 'a2026b6578616d706c652e65647508a101a501020241322001215820bbc34960526ea4d32e940cad2a234148ddc21791a12afbcbac93622046dd44f02258204519e257236b2a0ce2023f0931f1f386ca7afda64fcde0108c224c51eabf6072';
          document.getElementById('peerEdhocCoapUriPath').innerHTML = '.well-known/edhoc';
          document.getElementById('edhocOscoreCombinedSupport').innerHTML = 'False';
          
@@ -30,10 +30,10 @@
          document.getElementById('authenticationMethod').innerText = '0';
          document.getElementById('selectedCiphersuite').innerText = '2';
          document.getElementById('clientKeyIdentifier').innerText = '07';
-         document.getElementById('clientPublicKey').innerText = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
-         document.getElementById('privateKey').innerText = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
+         document.getElementById('clientPublicKey').innerText = 'a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8';
+         document.getElementById('privateKey').innerText = 'fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b';
          document.getElementById('peerPublicKeyIdentifier').innerText = '24';
-         document.getElementById('peerPublicKey').innerText = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('peerPublicKey').innerText = 'a2026b6578616d706c652e65647508a101a501020241322001215820bbc34960526ea4d32e940cad2a234148ddc21791a12afbcbac93622046dd44f02258204519e257236b2a0ce2023f0931f1f386ca7afda64fcde0108c224c51eabf6072';
          document.getElementById('peerEdhocCoapUriPath').innerText = '.well-known/edhoc';
          document.getElementById('edhocOscoreCombinedSupport').innerText = 'False';
     ">Fill Client<->DM config</button> 
@@ -43,30 +43,30 @@
          document.getElementById('authenticationMethod').value = '0';
          document.getElementById('selectedCiphersuite').value = '2';
          document.getElementById('clientKeyIdentifier').value = '08';
-         document.getElementById('clientPublicKey').value = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
-         document.getElementById('privateKey').value = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
+         document.getElementById('clientPublicKey').value = 'a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8';
+         document.getElementById('privateKey').value = 'fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b';
          document.getElementById('peerPublicKeyIdentifier').value = '25';
-         document.getElementById('peerPublicKey').value = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('peerPublicKey').value = 'a2026b6578616d706c652e65647508a101a501020241322001215820bbc34960526ea4d32e940cad2a234148ddc21791a12afbcbac93622046dd44f02258204519e257236b2a0ce2023f0931f1f386ca7afda64fcde0108c224c51eabf6072';
          document.getElementById('edhocOscoreCombinedSupport').value = 'False';
          
          document.getElementById('initiator').innerText = 'True';
          document.getElementById('authenticationMethod').innerText = '0';
          document.getElementById('selectedCiphersuite').innerText = '2';
          document.getElementById('clientKeyIdentifier').innerText = '08';
-         document.getElementById('clientPublicKey').innerText = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
-         document.getElementById('privateKey').innerText = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
+         document.getElementById('clientPublicKey').innerText = 'a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8';
+         document.getElementById('privateKey').innerText = 'fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b';
          document.getElementById('peerPublicKeyIdentifier').innerText = '25';
-         document.getElementById('peerPublicKey').innerText = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('peerPublicKey').innerText = 'a2026b6578616d706c652e65647508a101a501020241322001215820bbc34960526ea4d32e940cad2a234148ddc21791a12afbcbac93622046dd44f02258204519e257236b2a0ce2023f0931f1f386ca7afda64fcde0108c224c51eabf6072';
          document.getElementById('edhocOscoreCombinedSupport').innerText = 'False';
          
          document.getElementById('initiator').innerHTML = 'True';
          document.getElementById('authenticationMethod').innerHTML = '0';
          document.getElementById('selectedCiphersuite').innerHTML = '2';
          document.getElementById('clientKeyIdentifier').innerHTML = '08';
-         document.getElementById('clientPublicKey').innerHTML = '67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9';
-         document.getElementById('privateKey').innerHTML = 'DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44';
+         document.getElementById('clientPublicKey').innerHTML = 'a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8';
+         document.getElementById('privateKey').innerHTML = 'fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b';
          document.getElementById('peerPublicKeyIdentifier').innerHTML = '25';
-         document.getElementById('peerPublicKey').innerHTML = 'F5924DD07D48217FF82197A72EE0B72F2A8A9751DF4B7A1E0745190A3C5628805EF242B57557049C268CC6B861D45B71D823A57A8CE7B4B609910D3EB5064273';
+         document.getElementById('peerPublicKey').innerHTML = 'a2026b6578616d706c652e65647508a101a501020241322001215820bbc34960526ea4d32e940cad2a234148ddc21791a12afbcbac93622046dd44f02258204519e257236b2a0ce2023f0931f1f386ca7afda64fcde0108c224c51eabf6072';
          document.getElementById('edhocOscoreCombinedSupport').innerHTML = 'False';
     ">Fill Client<->AS config</button> 
     
@@ -82,7 +82,7 @@
     <div class={ form-group:true }>
         <label for="peerPublicKey" class="col-sm-4 control-label">Peer Public Key</label>
         <div class="col-sm-8">
-            <textarea class="form-control" style="resize:none" rows="4" id="peerPublicKey" ref="peerPublicKey"></textarea>
+            <textarea class="form-control" style="resize:none" rows="5" id="peerPublicKey" ref="peerPublicKey"></textarea>
             <p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
         </div>
     </div>
@@ -98,7 +98,7 @@
     <div class={ form-group:true }>
         <label for="clientPublicKey" class="col-sm-4 control-label">Client Public Key</label>
         <div class="col-sm-8">
-            <textarea class="form-control" style="resize:none" rows="4" id="clientPublicKey" ref="clientPublicKey"></textarea>
+            <textarea class="form-control" style="resize:none" rows="5" id="clientPublicKey" ref="clientPublicKey"></textarea>
             <p class="text-right text-muted small" style="margin:0">Hexadecimal format</p>
         </div>
     </div>
