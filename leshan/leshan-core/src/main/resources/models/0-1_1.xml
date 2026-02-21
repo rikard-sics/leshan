@@ -265,7 +265,7 @@ If the value is set to 0, or if this resource is not instantiated, the Bootstrap
 				<Type>Unsigned Integer</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
-				<Description><![CDATA[When this resource is present it instructs the TLS/DTLS client to propose the indicated ciphersuite(s) in the ClientHello of the handshake. A ciphersuite is indicated as a 32-bit integer value. The IANA TLS ciphersuite registry is maintained at https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml. As an example, the TLS_PSK_WITH_AES_128_CCM_8 ciphersuite is represented with the following string "0xC0,0xA8". To form an integer value the two values are concatenated. In this example, the value is 0xc0a8 or 49320.]]></Description>
+				<Description><![CDATA[When this resource is present it instructs the TLS/DTLS client to propose the indicated selectedCiphersuite(s) in the ClientHello of the handshake. A selectedCiphersuite is indicated as a 32-bit integer value. The IANA TLS selectedCiphersuite registry is maintained at https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml. As an example, the TLS_PSK_WITH_AES_128_CCM_8 selectedCiphersuite is represented with the following string "0xC0,0xA8". To form an integer value the two values are concatenated. In this example, the value is 0xc0a8 or 49320.]]></Description>
             </Item>
 			<Item ID="17"><Name>OSCORE Security Mode</Name>
 				<Operations></Operations>

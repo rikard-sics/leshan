@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.eclipse.californium.core.coap.CoAP.Code;
+import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.cose.KeyKeys;
 import org.eclipse.californium.cose.OneKey;
 import org.eclipse.californium.edhoc.AppProfile;
@@ -38,7 +39,7 @@ import org.eclipse.californium.edhoc.ClientEdhocExecutor;
 import org.eclipse.californium.edhoc.Constants;
 import org.eclipse.californium.edhoc.EdhocEndpointInfo;
 import org.eclipse.californium.edhoc.EdhocSession;
-import org.eclipse.californium.edhoc.SharedSecretCalculation;
+import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.leshan.client.OscoreHandler;
 import org.eclipse.leshan.client.resource.BaseInstanceEnabler;
@@ -52,6 +53,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
 
 import org.eclipse.leshan.core.util.Hex;
 import org.eclipse.leshan.core.util.datatype.ULong;
@@ -500,88 +502,12 @@ public class Edhoc extends BaseInstanceEnabler {
 	private static void setupIdentityKeys(byte[] idCredKid, byte[] peerKid, byte[] myPrivateKey, byte[] myPublicKey,
 			byte[] thePeerPublicKey) {
 
-		String keyPairBase64 = null;
-		String peerPublicKeyBase64 = null;
-		byte[] privateKeyBinary = null;
-		byte[] publicKeyBinary = null;
-		byte[] publicKeyBinaryY = null;
-		byte[] peerPublicKeyBinary = null;
-		byte[] peerPublicKeyBinaryY = null;
-
-		switch (keyFormat) {
-
-		/* For stand-alone testing, as base64 encoding of OneKey objects */
-		case 0:
-			if (keyCurve == KeyKeys.EC2_P256.AsInt32()) {
-				// keyPairBase64 =
-				// "pgMmAQIgASFYIGdZmgAlZDXB6FGfVVxHrB2LL8JMZag4JgK4ZcZ/+GBUIlgguZsSChh5hecy3n4Op+lZZJ2xXdbsz8DY7qRmLdIVavkjWCDfyRlRix5e7y5M9aMohvqWGgWCbCW2UYo7V5JppHHsRA==";
-				// peerPublicKeyBase64 =
-				// "pQMmAQIgASFYIPWSTdB9SCF/+CGXpy7gty8qipdR30t6HgdFGQo8ViiAIlggXvJCtXVXBJwmjMa4YdRbcdgjpXqM57S2CZENPrUGQnM=";
-			}
-			else if (keyCurve == KeyKeys.OKP_Ed25519.AsInt32()) {
-				// keyPairBase64 =
-				// "pQMnAQEgBiFYIEPgltbaO4rEBSYv3Lhs09jLtrOdihHUxLdc9pRoR/W9I1ggTriT3VdzE7bLv2mJ3gqW/YIyJ7vDuCac62OZMNO8SP4=";
-				// peerPublicKeyBase64 =
-				// "pAMnAQEgBiFYIDzQyFH694a7CcXQasH9RcqnmwQAy2FIX97dGGGy+bpS";
-			} else if (keyCurve == KeyKeys.OKP_X25519.AsInt32()) {
-				// keyPairBase64 =
-				// "pQMnAQEgBiFYIGt2OynWjaQY4cE9OhPQrwcrZYNg8lRJ+MwXIYMjeCtrI1gg5TeGQyIjv2d2mulBYLnL7Mxp0cuaHMBlSuuFtmaU808=";
-				// peerPublicKeyBase64 =
-				// "pAMnAQEgBiFYIKOjK/y+4psOGi9zdnJBqTLThdpEj6Qygg4Voc10NYGS";
-			}
-			break;
-		default:
-			System.err.println("ERROR in key format switch!");
-			break;
-		}
-
-		switch (keyFormat) {
-		/* For stand-alone testing, as base64 encoding of OneKey objects */
-		case 0:
-			// keyPair = new
-			// OneKey(CBORObject.DecodeFromBytes(Base64.getDecoder().decode(keyPairBase64)));
-			// keyPair = SharedSecretCalculation.buildEcdsa256OneKey(
-			// Hex.decodeHex("DFC919518B1E5EEF2E4CF5A32886FA961A05826C25B6518A3B579269A471EC44".toCharArray()),
-			// // Priv
-			// Hex.decodeHex("67599A00256435C1E8519F555C47AC1D8B2FC24C65A8382602B865C67FF86054".toCharArray()),
-			// // X
-			// Hex.decodeHex(
-			// "B99B120A187985E732DE7E0EA7E959649DB15DD6ECCFC0D8EEA4662DD2156AF9".toCharArray()));
-			// // Y
-
-			// ECDSA P256
-			if (myPublicKey.length == 64) {
-				byte[] keyX = Arrays.copyOfRange(myPublicKey, 0, 32);
-				byte[] keyY = Arrays.copyOfRange(myPublicKey, 32, 64);
-				keyPair = SharedSecretCalculation.buildEcdsa256OneKey(myPrivateKey, keyX, keyY);
-			} else {
-				// OKP_Ed25519
-				keyPair = SharedSecretCalculation.buildEd25519OneKey(myPrivateKey, myPublicKey);
-			}
-
-			break;
-
-		/* Value from the test vectors, as binary serializations */
-		case 1:
-			// if (keyCurve == KeyKeys.EC2_P256.AsInt32()) {
-			// keyPair =
-			// SharedSecretCalculation.buildEcdsa256OneKey(privateKeyBinary,
-			// publicKeyBinary,
-			// publicKeyBinaryY);
-			// } else if (keyCurve == KeyKeys.OKP_Ed25519.AsInt32()) {
-			// keyPair =
-			// SharedSecretCalculation.buildEd25519OneKey(privateKeyBinary,
-			// publicKeyBinary);
-			// } else if (keyCurve == KeyKeys.OKP_X25519.AsInt32()) {
-			// keyPair =
-			// SharedSecretCalculation.buildCurve25519OneKey(privateKeyBinary,
-			// publicKeyBinary);
-			// }
-			System.err.println("Bad key settings!");
-			break;
-		default:
-			System.err.println("ERROR in key format switch!");
-			break;
+		// Build COSE OneKey for client, including public and private keys
+		try {
+			keyPair = oneKeyFromCcs(myPublicKey, myPrivateKey);
+		} catch (CoseException e1) {
+			System.err.println("Failed to generate public/private COSE OneKey for client in Edhoc.java");
+			e1.printStackTrace();
 		}
 
 		switch (credType) {
@@ -591,9 +517,9 @@ public class Edhoc extends BaseInstanceEnabler {
 			// is 0xa1, 0x04, 0x41, 0x07
 			// byte[] idCredKid = new byte[] { (byte) 0x07 };
 			idCred = org.eclipse.californium.edhoc.Util.buildIdCredKid(idCredKid);
-			// Build the related CRED
-			cred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKeyCcs(keyPair, subjectName, idCred);
-			System.out.println("Adding key");
+			// Set the related CRED (full CCS)
+			cred = myPublicKey.clone();
+			System.out.println("Adding key: " + StringUtil.byteArray2Hex(cred));
 			break;
 
 		default:
@@ -603,51 +529,17 @@ public class Edhoc extends BaseInstanceEnabler {
 
 		/* Settings for the other peer */
 
-		// Build the OneKey object for the identity public key of the other
-		// peer
+		// Build COSE OneKey for server, including public key
 		OneKey peerPublicKey = null;
-
-		switch (keyFormat) {
-		/* For stand-alone testing, as base64 encoding of OneKey objects */
-		case 0:
-			// peerPublicKey = new
-			// OneKey(CBORObject.DecodeFromBytes(Base64.getDecoder().decode(peerPublicKeyBase64)));
-
-			// ECDSA P256
-			if (thePeerPublicKey.length == 64) {
-				byte[] keyX = Arrays.copyOfRange(thePeerPublicKey, 0, 32);
-				byte[] keyY = Arrays.copyOfRange(thePeerPublicKey, 32, 64);
-				peerPublicKey = SharedSecretCalculation.buildEcdsa256OneKey(null, keyX, keyY);
-			} else {
-				// OKP_Ed25519
-				peerPublicKey = SharedSecretCalculation.buildEd25519OneKey(null, thePeerPublicKey);
-			}
-
-			break;
-
-		/* Value from the test vectors, as binary serializations */
-		case 1:
-			// if (keyCurve == KeyKeys.EC2_P256.AsInt32()) {
-			// peerPublicKey = SharedSecretCalculation.buildEcdsa256OneKey(null,
-			// peerPublicKeyBinary,
-			// peerPublicKeyBinaryY);
-			// } else if (keyCurve == KeyKeys.OKP_Ed25519.AsInt32()) {
-			// peerPublicKey = SharedSecretCalculation.buildEd25519OneKey(null,
-			// peerPublicKeyBinary);
-			// } else if (keyCurve == KeyKeys.OKP_X25519.AsInt32()) {
-			// peerPublicKey =
-			// SharedSecretCalculation.buildCurve25519OneKey(null,
-			// peerPublicKeyBinary);
-			// }
-			System.err.println("Bad key settings!");
-			break;
-		default:
-			System.err.println("ERROR in key format switch!");
-			break;
-		}
-
-		CBORObject peerIdCred = null;
 		byte[] peerCred = null;
+		CBORObject peerIdCred = null;
+
+		try {
+			peerPublicKey = oneKeyFromCcs(thePeerPublicKey);
+		} catch (CoseException e1) {
+			System.err.println("Failed to generate public COSE OneKey for server in Edhoc.java");
+			e1.printStackTrace();
+		}
 
 		switch (credType) {
 		case Constants.CRED_TYPE_CCS:
@@ -658,9 +550,9 @@ public class Edhoc extends BaseInstanceEnabler {
 			CBORObject idCredPeer = org.eclipse.californium.edhoc.Util.buildIdCredKid(peerKid);
 			peerPublicKeys.put(idCredPeer, peerPublicKey);
 			// Build the related CRED
-			peerCred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKeyCcs(peerPublicKey, "", idCredPeer);
+			peerCred = thePeerPublicKey.clone();
 			peerCredentials.put(idCredPeer, CBORObject.FromObject(peerCred));
-			System.out.println("Adding peer key");
+			System.out.println("Adding peer key: " + StringUtil.byteArray2Hex(peerCred));
 			break;
 		default:
 			System.err.println("ERROR in cred type switch!");
@@ -668,6 +560,58 @@ public class Edhoc extends BaseInstanceEnabler {
 		}
 		peerPublicKeys.put(peerIdCred, peerPublicKey);
 		peerCredentials.put(peerIdCred, CBORObject.FromObject(peerCred));
+	}
+
+	// --- Utility methods ---
+
+	/**
+	 * Extracts the innermost COSE_Key map from a CCS and returns it as a COSE
+	 * OneKey.
+	 *
+	 * Assumes CCS layout like: { ..., 8: { 1: { <COSE_Key map> } } }
+	 *
+	 * @param ccsBytes CBOR-encoded CCS bytes
+	 * @param privateKey optional private key bytes to add as COSE label -4 (d)
+	 * @return OneKey created from the extracted COSE_Key portion only
+	 */
+	public static OneKey oneKeyFromCcs(byte[] ccsBytes, byte[] privateKey) throws CoseException {
+		if (ccsBytes == null || ccsBytes.length == 0) {
+			throw new IllegalArgumentException("ccsBytes is null/empty");
+		}
+
+		CBORObject ccs = CBORObject.DecodeFromBytes(ccsBytes);
+		if (ccs == null || ccs.getType() != CBORType.Map) {
+			throw new IllegalArgumentException("CCS root is not a CBOR map");
+		}
+
+		// CCS claim 8 -> map; inside it key 1 -> COSE_Key map
+		CBORObject claim8 = ccs.get(CBORObject.FromObject(8));
+		if (claim8 == null || claim8.getType() != CBORType.Map) {
+			throw new IllegalArgumentException("CCS does not contain claim 8 as a map");
+		}
+
+		CBORObject coseKeyMap = claim8.get(CBORObject.FromObject(1));
+		if (coseKeyMap == null || coseKeyMap.getType() != CBORType.Map) {
+			throw new IllegalArgumentException("CCS claim 8 does not contain key 1 as a COSE_Key map");
+		}
+
+		// Work on a copy so to not never mutate the decoded CCS structure
+		CBORObject keyMap = CBORObject.DecodeFromBytes(coseKeyMap.EncodeToBytes());
+
+		// If caller provided private key -> inject as -4.
+		CBORObject dLabel = CBORObject.FromObject(-4);
+		if (privateKey != null && privateKey.length > 0) {
+			keyMap.Set(dLabel, CBORObject.FromObject(Arrays.copyOf(privateKey, privateKey.length)));
+		}
+
+		return new OneKey(keyMap);
+	}
+
+	/**
+	 * Convenience overload: public-only OneKey.
+	 */
+	public static OneKey oneKeyFromCcs(byte[] ccsBytes) throws CoseException {
+		return oneKeyFromCcs(ccsBytes, null);
 	}
 
 }

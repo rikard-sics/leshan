@@ -35,21 +35,19 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.*;
-import java.util.Arrays;
-
 import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.Utils;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.cose.AlgorithmID;
+import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.cose.OneKey;
 import org.eclipse.californium.edhoc.AppProfile;
 import org.eclipse.californium.edhoc.Constants;
 import org.eclipse.californium.edhoc.EdhocEndpointInfo;
 import org.eclipse.californium.edhoc.EdhocResource;
 import org.eclipse.californium.edhoc.EdhocSession;
-import org.eclipse.californium.edhoc.SharedSecretCalculation;
 import org.eclipse.californium.elements.util.Bytes;
+import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.californium.oscore.OSCoreCtx;
 import org.eclipse.californium.oscore.OSException;
@@ -66,6 +64,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonPrimitive;
 import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
 
 public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 
@@ -207,7 +206,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				byte[] clientPublicKey = Hex.decodeHex(edhoc.get("clientPublicKey").getAsString().toCharArray());
 				byte[] peerPublicKeyIdentifier = Hex
 						.decodeHex(edhoc.get("peerPublicKeyIdentifier").getAsString().toCharArray());
-				byte[] serverKey = Hex.decodeHex(edhoc.get("peerPublicKey").getAsString().toCharArray());
+				byte[] peerPublicKey = Hex.decodeHex(edhoc.get("peerPublicKey").getAsString().toCharArray());
 				String peerEdhocCoapUriPath = edhoc.get("peerEdhocCoapUriPath").getAsString();
 				Boolean edhocOscoreCombinedSupport = edhoc.get("edhocOscoreCombinedSupport").getAsBoolean();
 
@@ -219,7 +218,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				System.out.println("clientKeyIdentifier: " + Hex.encodeHexString(clientKeyIdentifier));
 				System.out.println("clientPublicKey: " + Hex.encodeHexString(clientPublicKey));
 				System.out.println("peerPublicKeyIdentifier: " + Hex.encodeHexString(peerPublicKeyIdentifier));
-				System.out.println("peerPublicKey: " + Hex.encodeHexString(serverKey));
+				System.out.println("peerPublicKey: " + Hex.encodeHexString(peerPublicKey));
 				System.out.println("peerEdhocCoapUriPath: " + peerEdhocCoapUriPath);
 				System.out.println("edhocOscoreCombinedSupport: " + edhocOscoreCombinedSupport);
 
@@ -245,10 +244,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				// Set cred(s) (Credential Identifier and Server Credential
 				// Identifier). Set also my public and private key, and the
 				// client's public key
-				byte[] serverPrivateKey = Arrays.copyOfRange(serverKey, 0, 32);
-				byte[] peerPublicKey = Arrays.copyOfRange(serverKey, 32, serverKey.length);
-				setupIdentityKeys(peerPublicKeyIdentifier, clientKeyIdentifier, serverPrivateKey, peerPublicKey,
-						clientPublicKey);
+				setupIdentityKeys(peerPublicKeyIdentifier, clientKeyIdentifier, peerPublicKey, clientPublicKey);
 
 				// NEW
 				// Set Authentication Method
@@ -483,50 +479,15 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 	/**
 	 * RH: Imported from the EDHOC code EdhocServer.
 	 */
-	private static void setupIdentityKeys(byte[] idCredKid, byte[] peerKid, byte[] myPrivateKey, byte[] myPublicKey,
+	private static void setupIdentityKeys(byte[] idCredKid, byte[] peerKid, byte[] myPublicPrivateKey,
 			byte[] thePeerPublicKey) {
 
-		final int keyFormat = 0;
-
-		switch (keyFormat) {
-		/* For stand-alone testing, as base64 encoding of OneKey objects */
-		case 0:
-			// keyPair = new
-			// OneKey(CBORObject.DecodeFromBytes(Base64.getDecoder().decode(keyPairBase64)));
-
-			// ECDSA P256
-			if (myPublicKey.length == 64) {
-				byte[] keyX = Arrays.copyOfRange(myPublicKey, 0, 32);
-				byte[] keyY = Arrays.copyOfRange(myPublicKey, 32, 64);
-				keyPair = SharedSecretCalculation.buildEcdsa256OneKey(myPrivateKey, keyX, keyY);
-			} else {
-				// OKP_Ed25519
-				keyPair = SharedSecretCalculation.buildEd25519OneKey(myPrivateKey, myPublicKey);
-			}
-
-			break;
-
-		/* Value from the test vectors, as binary serializations */
-		case 1:
-			// if (keyCurve == KeyKeys.EC2_P256.AsInt32()) {
-			// keyPair =
-			// SharedSecretCalculation.buildEcdsa256OneKey(privateKeyBinary,
-			// publicKeyBinary,
-			// publicKeyBinaryY);
-			// } else if (keyCurve == KeyKeys.OKP_Ed25519.AsInt32()) {
-			// keyPair =
-			// SharedSecretCalculation.buildEd25519OneKey(privateKeyBinary,
-			// publicKeyBinary);
-			// } else if (keyCurve == KeyKeys.OKP_X25519.AsInt32()) {
-			// keyPair =
-			// SharedSecretCalculation.buildCurve25519OneKey(privateKeyBinary,
-			// publicKeyBinary);
-			// }
-			System.err.println("Bad key settings!");
-			break;
-		default:
-			System.err.println("ERROR in key format switch!");
-			break;
+		// Build COSE OneKey for server, including public and private keys
+		try {
+			keyPair = oneKeyFromCcs(myPublicPrivateKey);
+		} catch (CoseException e1) {
+			System.err.println("Failed to generate public/private COSE OneKey for server in SecurityDeserializer.java");
+			e1.printStackTrace();
 		}
 
 		switch (credType) {
@@ -537,9 +498,10 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 			// byte[] idCredKid = new byte[] { (byte) 0x24 };
 			System.out.println("This peer ID CRED " + Utils.toHexString(idCredKid));
 			idCred = org.eclipse.californium.edhoc.Util.buildIdCredKid(idCredKid);
-			// Build the related CRED
-			cred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKeyCcs(keyPair, subjectName, idCred);
-			System.out.println("Adding key");
+
+			// Build the related CRED (first remove private key)
+			cred = stripPrivateKeyFromCcs(myPublicPrivateKey).clone();
+			System.out.println("Adding key: " + StringUtil.byteArray2Hex(cred));
 			break;
 
 		default:
@@ -549,53 +511,17 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 
 		/* Settings for the other peer */
 
-		// Build the OneKey object for the identity public key of the other
-		// peer
+		// Build COSE OneKey for server, including public key
 		OneKey peerPublicKey = null;
-
-		switch (keyFormat) {
-		/* For stand-alone testing, as base64 encoding of OneKey objects */
-		case 0:
-			// peerPublicKey = new
-			// OneKey(CBORObject.DecodeFromBytes(Base64.getDecoder().decode(peerPublicKeyBase64)));
-
-			// ECDSA P256
-			if (thePeerPublicKey.length == 64) {
-				byte[] keyX = Arrays.copyOfRange(thePeerPublicKey, 0, 32);
-				byte[] keyY = Arrays.copyOfRange(thePeerPublicKey, 32, 64);
-				peerPublicKey = SharedSecretCalculation.buildEcdsa256OneKey(null, keyX, keyY);
-			} else {
-				// OKP_Ed25519
-				peerPublicKey = SharedSecretCalculation.buildEd25519OneKey(null, thePeerPublicKey);
-			}
-
-			break;
-
-		/* Value from the test vectors, as binary serializations */
-		case 1:
-			// if (keyCurve == KeyKeys.EC2_P256.AsInt32()) {
-			// peerPublicKey =
-			// SharedSecretCalculation.buildEcdsa256OneKey(null,
-			// peerPublicKeyBinary,
-			// peerPublicKeyBinaryY);
-			// } else if (keyCurve == KeyKeys.OKP_Ed25519.AsInt32()) {
-			// peerPublicKey =
-			// SharedSecretCalculation.buildEd25519OneKey(null,
-			// peerPublicKeyBinary);
-			// } else if (keyCurve == KeyKeys.OKP_X25519.AsInt32()) {
-			// peerPublicKey =
-			// SharedSecretCalculation.buildCurve25519OneKey(null,
-			// peerPublicKeyBinary);
-			// }
-			System.err.println("ERROR in cred type switch!");
-			break;
-		default:
-			System.err.println("ERROR in key format switch!");
-			break;
-		}
-
 		CBORObject peerIdCred = null;
 		byte[] peerCred = null;
+
+		try {
+			peerPublicKey = oneKeyFromCcs(thePeerPublicKey);
+		} catch (CoseException e1) {
+			System.err.println("Failed to generate public/private COSE OneKey for client in SecurityDeserializer.java");
+			e1.printStackTrace();
+		}
 
 		switch (credType) {
 		case Constants.CRED_TYPE_CCS:
@@ -606,10 +532,10 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 			System.out.println("Peer ID Cred " + Utils.toHexString(peerKid));
 			CBORObject idCredPeer = org.eclipse.californium.edhoc.Util.buildIdCredKid(peerKid);
 			EdhocHandler.peerPublicKeys.put(idCredPeer, peerPublicKey);
-			// Build the related CRED
-			peerCred = org.eclipse.californium.edhoc.Util.buildCredRawPublicKeyCcs(peerPublicKey, "", idCredPeer);
+			// Set the related CRED (full CCS)
+			peerCred = thePeerPublicKey.clone();
 			EdhocHandler.peerCredentials.put(idCredPeer, CBORObject.FromObject(peerCred));
-			System.out.println("Adding peer key");
+			System.out.println("Adding peer key: " + StringUtil.byteArray2Hex(peerCred));
 			break;
 		default:
 			System.err.println("ERROR in cred type switch!");
@@ -670,4 +596,93 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 		return false;
 	    }
 	}
+	
+	/**
+	 * Extracts the innermost COSE_Key map from a CCS and returns it as a COSE
+	 * OneKey.
+	 *
+	 * Assumes CCS layout like: { ..., 8: { 1: { <COSE_Key map> } } }
+	 *
+	 * @param ccsBytes CBOR-encoded CCS bytes
+	 * @param privateKey optional private key bytes to add as COSE label -4 (d)
+	 * @return OneKey created from the extracted COSE_Key portion only
+	 */
+	public static OneKey oneKeyFromCcs(byte[] ccsBytes, byte[] privateKey) throws CoseException {
+		if (ccsBytes == null || ccsBytes.length == 0) {
+			throw new IllegalArgumentException("ccsBytes is null/empty");
+		}
+
+		CBORObject ccs = CBORObject.DecodeFromBytes(ccsBytes);
+		if (ccs == null || ccs.getType() != CBORType.Map) {
+			throw new IllegalArgumentException("CCS root is not a CBOR map");
+		}
+
+		// CCS claim 8 -> map; inside it key 1 -> COSE_Key map
+		CBORObject claim8 = ccs.get(CBORObject.FromObject(8));
+		if (claim8 == null || claim8.getType() != CBORType.Map) {
+			throw new IllegalArgumentException("CCS does not contain claim 8 as a map");
+		}
+
+		CBORObject coseKeyMap = claim8.get(CBORObject.FromObject(1));
+		if (coseKeyMap == null || coseKeyMap.getType() != CBORType.Map) {
+			throw new IllegalArgumentException("CCS claim 8 does not contain key 1 as a COSE_Key map");
+		}
+
+		// Work on a copy so to not never mutate the decoded CCS structure
+		CBORObject keyMap = CBORObject.DecodeFromBytes(coseKeyMap.EncodeToBytes());
+
+		// If caller provided private key -> inject as -4.
+		CBORObject dLabel = CBORObject.FromObject(-4);
+		if (privateKey != null && privateKey.length > 0) {
+			keyMap.Set(dLabel, CBORObject.FromObject(Arrays.copyOf(privateKey, privateKey.length)));
+		}
+
+		return new OneKey(keyMap);
+	}
+
+	/**
+	 * Convenience overload: public-only OneKey.
+	 */
+	public static OneKey oneKeyFromCcs(byte[] ccsBytes) throws CoseException {
+		return oneKeyFromCcs(ccsBytes, null);
+	}
+
+	/**
+	 * Removes COSE private key parameter (-4, 'd') from the embedded COSE_Key
+	 * inside a CCS, while preserving the full CCS structure.
+	 *
+	 * Assumes CCS layout like: { ..., 8: { 1: { <COSE_Key map possibly
+	 * containing -4> } } }
+	 *
+	 * @param ccsBytes CCS bytes (may contain public+private)
+	 * @return CCS bytes with -4 removed from the embedded COSE_Key map
+	 */
+	public static byte[] stripPrivateKeyFromCcs(byte[] ccsBytes) {
+		if (ccsBytes == null || ccsBytes.length == 0) {
+			throw new IllegalArgumentException("ccsBytes is null/empty");
+		}
+
+		CBORObject ccs = CBORObject.DecodeFromBytes(ccsBytes);
+		if (ccs.getType() != CBORType.Map) {
+			throw new IllegalArgumentException("CCS root is not a CBOR map");
+		}
+
+		CBORObject claim8 = ccs.get(CBORObject.FromObject(8));
+		if (claim8 == null || claim8.getType() != CBORType.Map) {
+			throw new IllegalArgumentException("CCS missing claim 8 map");
+		}
+
+		CBORObject coseKeyMap = claim8.get(CBORObject.FromObject(1));
+		if (coseKeyMap == null || coseKeyMap.getType() != CBORType.Map) {
+			throw new IllegalArgumentException("CCS claim 8/1 is not a COSE_Key map");
+		}
+
+		// Remove private key parameter -4 (OKP/EC2/RSA private component label
+		// used by COSE)
+		coseKeyMap.Remove(CBORObject.FromObject(-4));
+
+		// Re-encode the full CCS with only that field removed
+		return ccs.EncodeToBytes();
+	}
+
 }
