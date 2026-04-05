@@ -41,6 +41,7 @@ import org.eclipse.californium.edhoc.EdhocEndpointInfo;
 import org.eclipse.californium.edhoc.EdhocSession;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.oscore.HashMapCtxDB;
+import org.eclipse.leshan.client.ClientCredentialManager;
 import org.eclipse.leshan.client.OscoreHandler;
 import org.eclipse.leshan.client.resource.BaseInstanceEnabler;
 import org.eclipse.leshan.client.servers.ServerIdentity;
@@ -112,7 +113,7 @@ public class Edhoc extends BaseInstanceEnabler {
 
         // restricted to BS server?
 
-        // TODO RH: Remove debug print
+		// TODO RH: Remove debug print?
         if (resourceId == Edhoc_Oscore_Combined_Support) {
             System.out.println("Client received EDHOC object from " + identity);
             System.out.println("initiator: " + initiator);
@@ -127,7 +128,7 @@ public class Edhoc extends BaseInstanceEnabler {
             System.out.println("edhocOscoreCombinedSupport: " + (boolean) value.getValue());
         }
 
-		// RH: Run EDHOC now
+		// RH: Run EDHOC now (when reaching the last resource)
 		// RH: TODO: Do somewhere else instead?
 		if (resourceId == Edhoc_Oscore_Combined_Support && !OscoreHandler.getEdhocWithDmDone()) {
 
@@ -309,6 +310,12 @@ public class Edhoc extends BaseInstanceEnabler {
 		}
 		// End run EDHOC
 
+		// Start write resources
+
+		// Note: If clientKeyIdentifier, clientPublicKey & privateKey were not
+		// received from Bootstrap Server set them from values indicated on the
+		// command line
+
         switch (resourceId) {
 
         case Initiator:
@@ -337,6 +344,10 @@ public class Edhoc extends BaseInstanceEnabler {
                 return WriteResponse.badRequest("invalid type");
             }
             clientKeyIdentifier = (byte[]) value.getValue();
+			if (clientKeyIdentifier == null || clientKeyIdentifier.length == 0) {
+				clientKeyIdentifier = ClientCredentialManager.getClientKeyIdentifier();
+				System.out.println("Using local information for Client Key Identifier");
+			}
             return WriteResponse.success();
 
         case Client_Public_Key:
@@ -344,6 +355,10 @@ public class Edhoc extends BaseInstanceEnabler {
                 return WriteResponse.badRequest("invalid type");
             }
             clientPublicKey = (byte[]) value.getValue();
+			if (clientPublicKey == null || clientPublicKey.length == 0) {
+				clientPublicKey = ClientCredentialManager.getClientPublicKey();
+				System.out.println("Using local information for Client Public Key");
+			}
             return WriteResponse.success();
 
         case Private_Key:
@@ -351,6 +366,10 @@ public class Edhoc extends BaseInstanceEnabler {
                 return WriteResponse.badRequest("invalid type");
             }
             privateKey = (byte[]) value.getValue();
+			if (privateKey == null || privateKey.length == 0) {
+				privateKey = ClientCredentialManager.getPrivateKey();
+				System.out.println("Using local information for (Client) Private Key");
+			}
             return WriteResponse.success();
 
         case Peer_Public_Key_Identifier:

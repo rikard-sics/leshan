@@ -57,6 +57,7 @@ import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.elements.Connector;
 import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.util.SslContextUtil;
+import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.californium.oscore.OSCoreCoapStackFactory;
 import org.eclipse.californium.scandium.DTLSConnector;
@@ -72,6 +73,7 @@ import org.eclipse.californium.scandium.dtls.SessionAdapter;
 import org.eclipse.californium.scandium.dtls.SessionId;
 import org.eclipse.californium.scandium.dtls.SingleNodeConnectionIdGenerator;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
+import org.eclipse.leshan.client.ClientCredentialManager;
 import org.eclipse.leshan.client.OscoreHandler;
 import org.eclipse.leshan.client.californium.LeshanClient;
 import org.eclipse.leshan.client.californium.LeshanClientBuilder;
@@ -266,6 +268,10 @@ public class LeshanClientDemo {
                 "The OSCORE AEAD algorithm used between the Client and LwM2M Server or Bootstrap Server.\nDefault: AES_CCM_16_64_128");
         options.addOption("hkdf", true,
                 "The OSCORE HKDF algorithm used between the Client and LwM2M Server or Bootstrap Server.\nDefault: HKDF_HMAC_SHA_256");
+
+		options.addOption("ckid", true, "EDHOC: Client Key Identifier (hex string)");
+		options.addOption("cpub", true, "EDHOC: Client Public Key (hex string)");
+		options.addOption("cpkey", true, "EDHOC: Client Private Key (hex string)");
 
         final StringBuilder trustStoreChapter = new StringBuilder();
         trustStoreChapter.append("\n .");
@@ -753,6 +759,46 @@ public class LeshanClientDemo {
                     recipientidStr, aeadInt, hkdfInt);
         }
 
+        // Set optional parameters for EDHOC
+        if (cl.hasOption("ckid")) {
+
+			String edhocClientKeyIdentifierStr = cl.getOptionValue("ckid");
+			if (edhocClientKeyIdentifierStr == null) {
+				System.err.println("EDHOC: Client Key Identifier must be provided");
+                formatter.printHelp(USAGE, options);
+                return;
+            }
+
+			byte[] edhocClientKeyIdentifier = StringUtil.hex2ByteArray(edhocClientKeyIdentifierStr);
+			ClientCredentialManager.setClientKeyIdentifier(edhocClientKeyIdentifier);
+        }
+
+        if (cl.hasOption("cpub")) {
+
+			String edhocClientPublicKeyStr = cl.getOptionValue("cpub");
+			if (edhocClientPublicKeyStr == null) {
+				System.err.println("EDHOC: Client Public Key must be provided");
+                formatter.printHelp(USAGE, options);
+                return;
+            }
+
+			byte[] edhocClientPublicKey = StringUtil.hex2ByteArray(edhocClientPublicKeyStr);
+			ClientCredentialManager.setClientPublicKey(edhocClientPublicKey);
+        }
+
+		if (cl.hasOption("cpkey")) {
+
+			String edhocPrivateKeyStr = cl.getOptionValue("cpkey");
+			if (edhocPrivateKeyStr == null) {
+				System.err.println("EDHOC: Private Key must be provided");
+                formatter.printHelp(USAGE, options);
+                return;
+            }
+
+			byte[] edhocPrivateKey = StringUtil.hex2ByteArray(edhocPrivateKeyStr);
+			ClientCredentialManager.setPrivateKey(edhocPrivateKey);
+        }
+        
         try {
             createAndStartClient(endpoint, localAddress, localPort, cl.hasOption("b"), additionalAttributes,
                     bsAdditionalAttributes, lifetime, communicationPeriod, serverURI, pskIdentity, pskKey,
