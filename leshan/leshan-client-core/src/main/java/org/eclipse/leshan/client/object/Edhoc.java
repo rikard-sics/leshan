@@ -339,38 +339,50 @@ public class Edhoc extends BaseInstanceEnabler {
             selectedCiphersuite = (ULong) value.getValue();
             return WriteResponse.success();
 
-        case Client_Key_Identifier:
-            if (value.getType() != Type.OPAQUE) {
-                return WriteResponse.badRequest("invalid type");
-            }
-            clientKeyIdentifier = (byte[]) value.getValue();
-			if (clientKeyIdentifier == null || clientKeyIdentifier.length == 0) {
-				clientKeyIdentifier = ClientCredentialManager.getClientKeyIdentifier();
-				System.out.println("Using local information for Client Key Identifier");
-			}
-            return WriteResponse.success();
-
-        case Client_Public_Key:
-            if (value.getType() != Type.OPAQUE) {
-                return WriteResponse.badRequest("invalid type");
-            }
-            clientPublicKey = (byte[]) value.getValue();
-			if (clientPublicKey == null || clientPublicKey.length == 0) {
-				clientPublicKey = ClientCredentialManager.getClientPublicKey();
-				System.out.println("Using local information for Client Public Key");
-			}
-            return WriteResponse.success();
-
-        case Private_Key:
-            if (value.getType() != Type.OPAQUE) {
-                return WriteResponse.badRequest("invalid type");
-            }
-            privateKey = (byte[]) value.getValue();
-			if (privateKey == null || privateKey.length == 0) {
-				privateKey = ClientCredentialManager.getPrivateKey();
-				System.out.println("Using local information for (Client) Private Key");
-			}
-            return WriteResponse.success();
+       case Client_Key_Identifier:
+		    if (value.getType() != Type.OPAQUE) {
+		        return WriteResponse.badRequest("invalid type");
+		    }
+		    clientKeyIdentifier = (byte[]) value.getValue();
+		    if (clientKeyIdentifier == null || clientKeyIdentifier.length == 0) {
+		        clientKeyIdentifier = ClientCredentialManager.getClientKeyIdentifier();
+		        System.out.println("Using local information for EDHOC Client Key Identifier");
+		    } else {
+		        if (ClientCredentialManager.getClientKeyIdentifier() != null) {
+		            System.out.println("Warning: Received EDHOC Client Key Identifier configuration from both BS and command line!");
+		        }
+		    }
+		    return WriteResponse.success();
+		
+		case Client_Public_Key:
+		    if (value.getType() != Type.OPAQUE) {
+		        return WriteResponse.badRequest("invalid type");
+		    }
+		    clientPublicKey = (byte[]) value.getValue();
+		    if (clientPublicKey == null || clientPublicKey.length == 0) {
+		        clientPublicKey = ClientCredentialManager.getClientPublicKey();
+		        System.out.println("Using local information for EDHOC Client Public Key");
+		    } else {
+		        if (ClientCredentialManager.getClientPublicKey() != null) {
+		            System.out.println("Warning: Received Client EDHOC Public Key configuration from both BS and command line!");
+		        }
+		    }
+		    return WriteResponse.success();
+		
+		case Private_Key:
+		    if (value.getType() != Type.OPAQUE) {
+		        return WriteResponse.badRequest("invalid type");
+		    }
+		    privateKey = (byte[]) value.getValue();
+		    if (privateKey == null || privateKey.length == 0) {
+		        privateKey = ClientCredentialManager.getPrivateKey();
+		        System.out.println("Using local information for EDHOC (Client) Private Key");
+		    } else {
+		        if (ClientCredentialManager.getPrivateKey() != null) {
+		            System.out.println("Warning: Received EDHOC Client Private Key configuration from both BS and command line!");
+		        }
+		    }
+		    return WriteResponse.success();
 
         case Peer_Public_Key_Identifier:
             if (value.getType() != Type.OPAQUE) {
