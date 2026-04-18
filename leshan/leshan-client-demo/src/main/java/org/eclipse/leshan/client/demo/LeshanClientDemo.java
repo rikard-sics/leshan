@@ -37,6 +37,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
@@ -272,7 +274,9 @@ public class LeshanClientDemo {
 		options.addOption("eckid", true, "EDHOC: Client Key Identifier (hex string)");
 		options.addOption("ecpub", true, "EDHOC: Client Public Key (hex string)");
 		options.addOption("ecpriv", true, "EDHOC: Client Private Key (hex string)");
-
+		
+        options.addOption("f", true, "Path to endpoint config file (JSON or CSV).");
+		
         final StringBuilder trustStoreChapter = new StringBuilder();
         trustStoreChapter.append("\n .");
         trustStoreChapter
@@ -318,6 +322,14 @@ public class LeshanClientDemo {
             return;
         }
 
+		// Parse arguments from file if provided
+		try {
+		    cl = readConfigFromFile(options, cl, args);
+		} catch (Exception e) {
+		    System.err.println("Failed to load endpoint config from file. Reason: " + e.getMessage());
+		    return;
+		}
+		
         // Print help
         if (cl.hasOption("help")) {
             formatter.printHelp(USAGE, options);
@@ -1172,6 +1184,71 @@ public class LeshanClientDemo {
         }
     }
 
+    // Parse command line arguments from file
+	private static CommandLine readConfigFromFile(Options options, CommandLine cl, String[] args)
+        throws ParseException {
+
+	    // Only trigger if both -n and -f are present
+	    if (!(cl.hasOption("n") && cl.hasOption("f"))) {
+	        return cl;
+	    }
+	
+	    String endpointName = cl.getOptionValue("n");
+	    String filePath = cl.getOptionValue("f");
+	
+	    String[] fileArgs;
+	    if (filePath.toLowerCase().endsWith(".json")) {
+	        fileArgs = readArgsFromJson(filePath, endpointName);
+	    } else if (filePath.toLowerCase().endsWith(".csv")) {
+	        fileArgs = readArgsFromCsv(filePath, endpointName);
+	    } else {
+	        throw new IllegalArgumentException("Unsupported file format: " + filePath);
+	    }
+	
+	    // Warning if same option appears in both CLI and file
+	    warnIfDuplicateOptions(args, fileArgs);
+	
+	    // Append file args after CLI args (file takes precedence)
+	    String[] merged = new String[args.length + fileArgs.length];
+	    System.arraycopy(args, 0, merged, 0, args.length);
+	    System.arraycopy(fileArgs, 0, merged, args.length, fileArgs.length);
+	
+	    // Reparse as if everything came from CLI
+	    return new DefaultParser().parse(options, merged);
+}
+
+// Warn if same option is provided both in file and command line
+private static void warnIfDuplicateOptions(String[] cliArgs, String[] fileArgs) {
+    Set<String> cliOpts = new HashSet<>();
+
+    for (String s : cliArgs) {
+        if (s.startsWith("-")) {
+            cliOpts.add(s);
+        }
+    }
+
+    for (String s : fileArgs) {
+        if (s.startsWith("-") && cliOpts.contains(s)) {
+            System.err.println("Warning: option " + s +
+                    " provided both in CLI and file. Using value from file.");
+        }
+    }
+}
+
+// Stub for parsing arguments from JSON file
+private static String[] readArgsFromJson(String filePath, String endpointName) {
+    // TODO implement
+    // Example return:
+    // return new String[] { "-u", "coap://localhost:5683", "-i", "myId", "-p", "a1b2c3" };
+    throw new UnsupportedOperationException("JSON parsing not implemented yet");
+}
+
+// Stub for parsing arguments from CSV file
+private static String[] readArgsFromCsv(String filePath, String endpointName) {
+    // TODO implement
+    throw new UnsupportedOperationException("CSV parsing not implemented yet");
+}
+	
     static void printVersion() {
         Properties props = new Properties();
                 try (InputStream in = LeshanClientDemo.class.getClassLoader().getResourceAsStream("app-version.properties")) {
