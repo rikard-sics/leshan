@@ -271,7 +271,7 @@ public class LeshanClientDemo {
 
 		options.addOption("eckid", true, "EDHOC: Client Key Identifier (hex string)");
 		options.addOption("ecpub", true, "EDHOC: Client Public Key (hex string)");
-		options.addOption("epriv", true, "EDHOC: Client Private Key (hex string)");
+		options.addOption("ecpriv", true, "EDHOC: Client Private Key (hex string)");
 
         final StringBuilder trustStoreChapter = new StringBuilder();
         trustStoreChapter.append("\n .");
@@ -786,9 +786,9 @@ public class LeshanClientDemo {
 			ClientCredentialManager.setClientPublicKey(edhocClientPublicKey);
         }
 
-		if (cl.hasOption("epriv")) {
+		if (cl.hasOption("ecpriv")) {
 
-			String edhocPrivateKeyStr = cl.getOptionValue("epriv");
+			String edhocPrivateKeyStr = cl.getOptionValue("ecpriv");
 			if (edhocPrivateKeyStr == null) {
 				System.err.println("EDHOC: Private Key must be provided");
                 formatter.printHelp(USAGE, options);
