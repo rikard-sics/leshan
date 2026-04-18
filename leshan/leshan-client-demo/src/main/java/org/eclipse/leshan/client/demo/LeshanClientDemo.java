@@ -269,9 +269,9 @@ public class LeshanClientDemo {
         options.addOption("hkdf", true,
                 "The OSCORE HKDF algorithm used between the Client and LwM2M Server or Bootstrap Server.\nDefault: HKDF_HMAC_SHA_256");
 
-		options.addOption("ckid", true, "EDHOC: Client Key Identifier (hex string)");
-		options.addOption("cpub", true, "EDHOC: Client Public Key (hex string)");
-		options.addOption("cpkey", true, "EDHOC: Client Private Key (hex string)");
+		options.addOption("eckid", true, "EDHOC: Client Key Identifier (hex string)");
+		options.addOption("ecpub", true, "EDHOC: Client Public Key (hex string)");
+		options.addOption("epriv", true, "EDHOC: Client Private Key (hex string)");
 
         final StringBuilder trustStoreChapter = new StringBuilder();
         trustStoreChapter.append("\n .");
@@ -760,9 +760,9 @@ public class LeshanClientDemo {
         }
 
         // Set optional parameters for EDHOC
-        if (cl.hasOption("ckid")) {
+        if (cl.hasOption("eckid")) {
 
-			String edhocClientKeyIdentifierStr = cl.getOptionValue("ckid");
+			String edhocClientKeyIdentifierStr = cl.getOptionValue("eckid");
 			if (edhocClientKeyIdentifierStr == null) {
 				System.err.println("EDHOC: Client Key Identifier must be provided");
                 formatter.printHelp(USAGE, options);
@@ -773,9 +773,9 @@ public class LeshanClientDemo {
 			ClientCredentialManager.setClientKeyIdentifier(edhocClientKeyIdentifier);
         }
 
-        if (cl.hasOption("cpub")) {
+        if (cl.hasOption("ecpub")) {
 
-			String edhocClientPublicKeyStr = cl.getOptionValue("cpub");
+			String edhocClientPublicKeyStr = cl.getOptionValue("ecpub");
 			if (edhocClientPublicKeyStr == null) {
 				System.err.println("EDHOC: Client Public Key must be provided");
                 formatter.printHelp(USAGE, options);
@@ -786,9 +786,9 @@ public class LeshanClientDemo {
 			ClientCredentialManager.setClientPublicKey(edhocClientPublicKey);
         }
 
-		if (cl.hasOption("cpkey")) {
+		if (cl.hasOption("epriv")) {
 
-			String edhocPrivateKeyStr = cl.getOptionValue("cpkey");
+			String edhocPrivateKeyStr = cl.getOptionValue("epriv");
 			if (edhocPrivateKeyStr == null) {
 				System.err.println("EDHOC: Private Key must be provided");
                 formatter.printHelp(USAGE, options);
