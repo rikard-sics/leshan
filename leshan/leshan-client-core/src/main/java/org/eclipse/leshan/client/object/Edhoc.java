@@ -39,6 +39,7 @@ import org.eclipse.californium.edhoc.ClientEdhocExecutor;
 import org.eclipse.californium.edhoc.Constants;
 import org.eclipse.californium.edhoc.EdhocEndpointInfo;
 import org.eclipse.californium.edhoc.EdhocSession;
+import org.eclipse.californium.edhoc.SharedSecretCalculation;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.leshan.client.ClientCredentialManager;
@@ -629,13 +630,18 @@ public class Edhoc extends BaseInstanceEnabler {
 		// Work on a copy so to not never mutate the decoded CCS structure
 		CBORObject keyMap = CBORObject.DecodeFromBytes(coseKeyMap.EncodeToBytes());
 
-		// If caller provided private key -> inject as -4.
-		CBORObject dLabel = CBORObject.FromObject(-4);
-		if (privateKey != null && privateKey.length > 0) {
-			keyMap.Set(dLabel, CBORObject.FromObject(Arrays.copyOf(privateKey, privateKey.length)));
+		// Special handling for keys with curve X25519 (they must be built by a
+		// separate method as the OneKey constructor can currently not handle
+		// them)
+		OneKey keyToReturn = null;
+		if (keyMap.ContainsKey(-1) && keyMap.get(-1) == CBORObject.FromObject(4)) {
+			byte[] publicKeyBytes = keyMap.get(-2).GetByteString();
+			keyToReturn = SharedSecretCalculation.buildCurve25519OneKey(privateKey, publicKeyBytes);
+		} else {
+			keyToReturn = new OneKey(keyMap);
 		}
 
-		return new OneKey(keyMap);
+		return keyToReturn;
 	}
 
 	/**

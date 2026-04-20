@@ -15,7 +15,11 @@ public final class ClientCredentialManager {
 	}
 
 	public static byte[] getClientKeyIdentifier() {
-		return clientKeyIdentifier.clone();
+		if (clientKeyIdentifier != null) {
+			return clientKeyIdentifier.clone();
+		} else {
+			return null;
+		}
 	}
 
 	public static void setClientKeyIdentifier(byte[] inputClientKeyIdentifier) {
@@ -26,7 +30,11 @@ public final class ClientCredentialManager {
 	}
 
 	public static byte[] getClientPublicKey() {
-		return clientPublicKey.clone();
+		if (clientPublicKey != null) {
+			return clientPublicKey.clone();
+		} else {
+			return null;
+		}
 	}
 
 	public static void setClientPublicKey(byte[] inputClientPublicKey) {
@@ -37,7 +45,11 @@ public final class ClientCredentialManager {
 	}
 
 	public static byte[] getPrivateKey() {
-		return privateKey.clone();
+		if (privateKey != null) {
+			return privateKey.clone();
+		} else {
+			return null;
+		}
 	}
 
 	public static void setPrivateKey(byte[] inputPrivateKey) {

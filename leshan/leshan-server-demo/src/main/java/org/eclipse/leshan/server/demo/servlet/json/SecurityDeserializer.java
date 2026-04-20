@@ -46,6 +46,7 @@ import org.eclipse.californium.edhoc.Constants;
 import org.eclipse.californium.edhoc.EdhocEndpointInfo;
 import org.eclipse.californium.edhoc.EdhocResource;
 import org.eclipse.californium.edhoc.EdhocSession;
+import org.eclipse.californium.edhoc.SharedSecretCalculation;
 import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.oscore.HashMapCtxDB;
@@ -637,7 +638,18 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 			keyMap.Set(dLabel, CBORObject.FromObject(Arrays.copyOf(privateKey, privateKey.length)));
 		}
 
-		return new OneKey(keyMap);
+		// Special handling for keys with curve X25519 (they must be built by a
+		// separate method as the OneKey constructor can currently not handle
+		// them)
+		OneKey keyToReturn = null;
+		if (keyMap.ContainsKey(-1) && keyMap.get(-1) == CBORObject.FromObject(4)) {
+			byte[] publicKeyBytes = keyMap.get(-2).GetByteString();
+			keyToReturn = SharedSecretCalculation.buildCurve25519OneKey(privateKey, publicKeyBytes);
+		} else {
+			keyToReturn = new OneKey(keyMap);
+		}
+
+		return keyToReturn;
 	}
 
 	/**
