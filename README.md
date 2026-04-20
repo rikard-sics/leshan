@@ -55,12 +55,12 @@ Leshan Client with
 
 Note that it is possible to specify the Client Key Identifier, Client Public Key and (Client) Private Key to be used by the Client when running EDHOC as command line arguments. The arguments are the following:
 
--ckid: Client Key Identifier  
--cpub: Client Public Key  
--cpkey: Client Private Key  
+-eckid: Client Key Identifier  
+-ecpub: Client Public Key  
+-ecpriv: Client Private Key  
 
 Example Client invocation:  
--b -n Test -msec AAAA -sid BB -rid CC -ckid 2b -cpub a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8 -cpkey fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b -u 127.0.0.3
+-b -n Test -msec AAAA -sid BB -rid CC -eckid 2b -ecpub a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8 -ecpriv fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b -u 127.0.0.3
 
 When this way of configuring things is used, the Client Key Identifier, Client Public Key and (Client) Private Key fields should be left empty when configuring the Bootstrap Server.
 
