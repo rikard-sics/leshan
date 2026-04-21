@@ -630,6 +630,12 @@ public class Edhoc extends BaseInstanceEnabler {
 		// Work on a copy so to not never mutate the decoded CCS structure
 		CBORObject keyMap = CBORObject.DecodeFromBytes(coseKeyMap.EncodeToBytes());
 
+		// If caller provided private key -> inject as -4.
+		CBORObject dLabel = CBORObject.FromObject(-4);
+		if (privateKey != null && privateKey.length > 0) {
+		    keyMap.Set(dLabel, CBORObject.FromObject(Arrays.copyOf(privateKey, privateKey.length)));
+		}
+		
 		// Special handling for keys with curve X25519 (they must be built by a
 		// separate method as the OneKey constructor can currently not handle
 		// them)
