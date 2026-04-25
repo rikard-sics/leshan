@@ -77,3 +77,11 @@ If the following error is encountered:
   
 Ensure that reflection is properly enabled (it was limited in later Java versions). To do this add the following as argument to the *java* command (before *-jar*):  
 *--add-opens java.base/java.util=ALL-UNNAMED*
+
+## Note on persistence of configurations
+
+The following describes what configuration is persisted with regards to EDHOC and OSCORE across reboots for the Client, Bootstrap Server and Management Server.
+
+- Client: No configuration is persisted. The Client needs to be restarted with the same cmd line arguments or configuration file as input.
+- Bootstrap Server: All configuration is persisted.
+- Management Server: No configuration is persisted. The Device Manager needs to be re-configured if it reboots.
