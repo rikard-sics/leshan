@@ -1000,7 +1000,7 @@ public class LeshanServerDemo {
 
 		List<Path> files = new ArrayList<>();
 
-		// SNAPSHOT: collect files first
+		// Collect files first (non-mutable)
 		try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory, "*.json")) {
 			for (Path path : stream) {
 				if (Files.isRegularFile(path)) {
@@ -1008,31 +1008,31 @@ public class LeshanServerDemo {
 				}
 			}
 		} catch (IOException e) {
-			System.err.println("Failed to list directory: " + directory);
+			System.err.println("Failed to list directory: " + directory.toAbsolutePath());
 			e.printStackTrace();
 			return;
 		}
 
-		// Now process a fixed list
+		// Now process the fixed list
 		for (Path file : files) {
 			try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
 				SecurityInfo info = gson.fromJson(reader, SecurityInfo.class);
 
 				if (info != null) {
-					System.out.println("Loading endpoint config from: " + file.getFileName());
+					System.out.println("Loading endpoint config from: " + file.toAbsolutePath());
 					securityStore.add(info);
 				} else {
-					System.err.println("Skipped endpoint config (null): " + file.getFileName());
+					System.err.println("Skipped endpoint config (null): " + file.toAbsolutePath());
 				}
 
 			} catch (JsonParseException e) {
-				System.err.println("JSON parse error: " + file.getFileName());
+				System.err.println("JSON parse error: " + file.toAbsolutePath());
 				e.printStackTrace();
 			} catch (IOException e) {
-				System.err.println("I/O error: " + file.getFileName());
+				System.err.println("I/O error: " + file.toAbsolutePath());
 				e.printStackTrace();
 			} catch (Exception e) {
-				System.err.println("Unexpected error: " + file.getFileName());
+				System.err.println("Unexpected error: " + file.toAbsolutePath());
 				e.printStackTrace();
 			}
 		}

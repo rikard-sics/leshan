@@ -82,6 +82,6 @@ Ensure that reflection is properly enabled (it was limited in later Java version
 
 The following describes what configuration is persisted with regards to EDHOC and OSCORE across reboots for the Client, Bootstrap Server and Management Server.
 
-- Client: No configuration is persisted. The Client needs to be restarted with the same cmd line arguments or configuration file as input.
+- Client: The Client needs to be restarted with the same cmd line arguments or configuration file as input.
 - Bootstrap Server: All configuration is persisted.
-- Management Server: No configuration is persisted. The Device Manager needs to be re-configured if it reboots.
+- Management Server: All configuration is persisted.
