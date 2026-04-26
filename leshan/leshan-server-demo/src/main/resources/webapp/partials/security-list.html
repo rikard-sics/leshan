@@ -105,30 +105,30 @@
 			</div>
 			
 			
-<button type="button" onclick="
-  function setValue(id, value) {
-    var el = document.getElementById(id);
-    el.value = value;
-    angular.element(el).triggerHandler('input');
-    angular.element(el).triggerHandler('change');
-  }
-
-  setValue('initiatorValue', 'True');
-  setValue('authenticationMethodValue', '3');
-  setValue('selectedCiphersuiteValue', '2');
-  setValue('clientKeyIdentifierValue', '2b');
-
-  setValue('clientPublicKeyValue', `a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8`);
-
-  setValue('peerPublicKeyIdentifierValue', '32');
-
-  setValue('peerPublicKeyValue', `A2026B6578616D706C652E65647508A101A601020241322001215820BBC34960526EA4D32E940CAD2A234148DDC21791A12AFBCBAC93622046DD44F02258204519E257236B2A0CE2023F0931F1F386CA7AFDA64FCDE0108C224C51EABF607223582072CC4761DBD4C78F758931AA589D348D1EF874A7E303EDE2F140DCF3E6AA4AAC`);
-
-  setValue('peerEdhocCoapUriPathValue', '.well-known/edhoc');
-  setValue('edhocOscoreCombinedSupportValue', 'False');
-">
-  Fill Client&lt;-&gt;DM config
-</button>
+	<button type="button" onclick="
+		  function setValue(id, value) {
+		    var el = document.getElementById(id);
+		    el.value = value;
+		    angular.element(el).triggerHandler('input');
+		    angular.element(el).triggerHandler('change');
+		  }
+		
+		  setValue('initiatorValue', 'True');
+		  setValue('authenticationMethodValue', '3');
+		  setValue('selectedCiphersuiteValue', '2');
+		  setValue('clientKeyIdentifierValue', '2b');
+		
+		  setValue('clientPublicKeyValue', `a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8`);
+		
+		  setValue('peerPublicKeyIdentifierValue', '32');
+		
+		  setValue('peerPublicKeyValue', `A2026B6578616D706C652E65647508A101A601020241322001215820BBC34960526EA4D32E940CAD2A234148DDC21791A12AFBCBAC93622046DD44F02258204519E257236B2A0CE2023F0931F1F386CA7AFDA64FCDE0108C224C51EABF607223582072CC4761DBD4C78F758931AA589D348D1EF874A7E303EDE2F140DCF3E6AA4AAC`);
+		
+		  setValue('peerEdhocCoapUriPathValue', '.well-known/edhoc');
+		  setValue('edhocOscoreCombinedSupportValue', 'False');
+		">
+		  Fill Client&lt;-&gt;DM config
+	</button>
 
 			
 			<div class="modal-body">
