@@ -36,12 +36,7 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import javax.jmdns.JmDNS;
 import javax.jmdns.ServiceInfo;
 
@@ -50,23 +45,10 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.config.CoapConfig;
-import org.eclipse.californium.core.server.resources.CoapExchange;
-import org.eclipse.californium.cose.CoseException;
-import org.eclipse.californium.cose.KeyKeys;
-import org.eclipse.californium.cose.OneKey;
-import org.eclipse.californium.edhoc.AppProfile;
-import org.eclipse.californium.edhoc.Constants;
-import org.eclipse.californium.edhoc.EdhocEndpointInfo;
-import org.eclipse.californium.edhoc.EdhocResource;
-import org.eclipse.californium.edhoc.EdhocSession;
-import org.eclipse.californium.edhoc.SharedSecretCalculation;
 import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.util.SslContextUtil;
-import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.californium.oscore.OSCoreCoapStackFactory;
-import org.eclipse.californium.oscore.OSCoreCtxDB;
 import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.SingleNodeConnectionIdGenerator;
@@ -89,6 +71,7 @@ import org.eclipse.leshan.server.demo.servlet.ClientServlet;
 import org.eclipse.leshan.server.demo.servlet.EventServlet;
 import org.eclipse.leshan.server.demo.servlet.ObjectSpecServlet;
 import org.eclipse.leshan.server.demo.servlet.SecurityServlet;
+import org.eclipse.leshan.server.demo.servlet.json.SecurityDeserializer;
 import org.eclipse.leshan.server.demo.utils.MagicLwM2mValueConverter;
 import org.eclipse.leshan.server.model.LwM2mModelProvider;
 import org.eclipse.leshan.server.model.VersionedModelProvider;
@@ -101,11 +84,18 @@ import org.slf4j.LoggerFactory;
 import java.util.Properties;
 import java.io.InputStream;
 
-import com.upokecenter.cbor.CBORObject;
-
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.util.Pool;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonParseException;
+import org.eclipse.leshan.server.security.SecurityInfo;
+
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
 
 public class LeshanServerDemo {
 
@@ -131,13 +121,14 @@ public class LeshanServerDemo {
 		EdhocHandler.init();
 
     	// Delete old config files
-    	String serverData = "/home/segrid-1/Leshan-Critisec2/leshan/leshan/leshan-server-demo/data/security.data";
-    	String bsServerData = "/home/segrid-1/Leshan-Critisec2/leshan/leshan/leshan-bsserver-demo/data/bootstrap.json";
+		String serverData = "data/security.data";
+		// String bsServerData =
+		// "/home/segrid-1/Leshan-Critisec2/leshan/leshan/leshan-bsserver-demo/data/bootstrap.json";
     	File rmFile = new File(serverData);
     	rmFile.delete();
-    	rmFile = new File(bsServerData);
+		// rmFile = new File(bsServerData);
     	rmFile.delete();
-    	
+
         // Define options for command line tools
         Options options = new Options();
 
@@ -714,6 +705,9 @@ public class LeshanServerDemo {
 		// Expose reference to the server
 		OscoreHandler.setLwServer(lwServer.getCoapServer());
 
+		// Load all saved endpoint configs
+		loadEndpointConfigs(securityStore);
+
 		// /* =============================================== */
 		// // TODO: RH: Remove this testing
 		//
@@ -993,4 +987,56 @@ public class LeshanServerDemo {
                     System.out.println("Version: SNAPSHOT");
                 }
         }
+
+	public static void loadEndpointConfigs(EditableSecurityStore securityStore) {
+		Path directory = Paths.get("data/endpoints");
+
+		if (directory == null || !Files.exists(directory) || !Files.isDirectory(directory)) {
+			System.err.println("No directory found for endpoint configs: " + directory.toAbsolutePath());
+			return;
+		}
+
+		Gson gson = new GsonBuilder().registerTypeAdapter(SecurityInfo.class, new SecurityDeserializer(false)).create();
+
+		List<Path> files = new ArrayList<>();
+
+		// SNAPSHOT: collect files first
+		try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory, "*.json")) {
+			for (Path path : stream) {
+				if (Files.isRegularFile(path)) {
+					files.add(path);
+				}
+			}
+		} catch (IOException e) {
+			System.err.println("Failed to list directory: " + directory);
+			e.printStackTrace();
+			return;
+		}
+
+		// Now process a fixed list
+		for (Path file : files) {
+			try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+				SecurityInfo info = gson.fromJson(reader, SecurityInfo.class);
+
+				if (info != null) {
+					System.out.println("Loading endpoint config from: " + file.getFileName());
+					securityStore.add(info);
+				} else {
+					System.err.println("Skipped endpoint config (null): " + file.getFileName());
+				}
+
+			} catch (JsonParseException e) {
+				System.err.println("JSON parse error: " + file.getFileName());
+				e.printStackTrace();
+			} catch (IOException e) {
+				System.err.println("I/O error: " + file.getFileName());
+				e.printStackTrace();
+			} catch (Exception e) {
+				System.err.println("Unexpected error: " + file.getFileName());
+				e.printStackTrace();
+			}
+		}
+		return;
+	}
+
 }

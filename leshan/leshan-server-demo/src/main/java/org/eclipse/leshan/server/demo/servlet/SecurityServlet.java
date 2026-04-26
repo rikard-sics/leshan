@@ -18,6 +18,9 @@ package org.eclipse.leshan.server.demo.servlet;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
@@ -170,6 +173,9 @@ public class SecurityServlet extends HttpServlet {
             return;
         }
 
+		// Delete saved config
+		deleteEndpointConfig(endpoint);
+
         LOG.debug("Removing security info for end-point {}", endpoint);
         if (this.store.remove(endpoint, true) != null) {
             resp.sendError(HttpServletResponse.SC_OK);
@@ -177,4 +183,30 @@ public class SecurityServlet extends HttpServlet {
             resp.sendError(HttpServletResponse.SC_NOT_FOUND);
         }
     }
+
+	private boolean deleteEndpointConfig(String endpoint) {
+		if (endpoint == null || endpoint.trim().isEmpty()) {
+			System.err.println("Endpoint is empty");
+			return false;
+		}
+
+		String safeEndpoint = endpoint.replaceAll("[^a-zA-Z0-9._-]", "_");
+		Path file = Paths.get("data", "endpoints", safeEndpoint + ".json");
+
+		try {
+			boolean deleted = Files.deleteIfExists(file);
+
+			if (deleted) {
+				System.out.println("Deleted endpoint config " + file.toAbsolutePath());
+			} else {
+				System.out.println("No endpoint config found to delete at " + file.toAbsolutePath());
+			}
+
+			return deleted;
+
+		} catch (IOException e) {
+			LOG.error("Failed to delete endpoint config file {}", file.toAbsolutePath(), e);
+			return false;
+		}
+	}
 }

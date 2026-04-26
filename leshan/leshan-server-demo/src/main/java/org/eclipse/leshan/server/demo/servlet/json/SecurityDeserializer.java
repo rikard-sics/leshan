@@ -67,7 +67,25 @@ import com.google.gson.JsonPrimitive;
 import com.upokecenter.cbor.CBORObject;
 import com.upokecenter.cbor.CBORType;
 
+import com.google.gson.GsonBuilder;
+import java.io.BufferedWriter;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+
 public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
+
+	boolean save = true;
+
+	public SecurityDeserializer(boolean save) {
+		this.save = save;
+	}
+
+	public SecurityDeserializer() {
+		this.save = true;
+	}
 
     @Override
     public SecurityInfo deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
@@ -88,6 +106,11 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
             } else {
                 throw new JsonParseException("Missing endpoint");
             }
+            
+            // Save config
+			if (save == true) {
+				saveEndpointConfig(object, endpoint);
+			}
 
             JsonObject psk = (JsonObject) object.get("psk");
             JsonObject rpk = (JsonObject) object.get("rpk");
@@ -414,8 +437,10 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 					wellKnownResource.add(edhocResource);
 
 					// Add resource to the CoapServer
-					OscoreHandler.getLwServer().add(wellKnownResource);
-					EdhocHandler.setEndpointAdded(true);
+					if (OscoreHandler.getLwServer() != null) {
+						OscoreHandler.getLwServer().add(wellKnownResource);
+						EdhocHandler.setEndpointAdded(true);
+					}
 				}
 
             } else {
@@ -697,4 +722,39 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 		return ccs.EncodeToBytes();
 	}
 
+	private void saveEndpointConfig(JsonObject object, String endpoint) throws JsonParseException {
+	    if (endpoint == null || endpoint.trim().isEmpty()) {
+	        throw new JsonParseException("Endpoint is empty");
+	    }
+
+	    String safeEndpoint = endpoint.replaceAll("[^a-zA-Z0-9._-]", "_");
+
+	    Path directory = Paths.get("data", "endpoints");
+	    Path file = directory.resolve(safeEndpoint + ".json");
+
+	    try {
+	        Files.createDirectories(directory);
+
+	        try (BufferedWriter writer = Files.newBufferedWriter(
+	                file,
+	                StandardCharsets.UTF_8,
+	                StandardOpenOption.CREATE,
+	                StandardOpenOption.TRUNCATE_EXISTING,
+	                StandardOpenOption.WRITE
+	        )) {
+	            new GsonBuilder()
+	                    .setPrettyPrinting()
+	                    .create()
+	                    .toJson(object, writer);
+	        }
+
+	    } catch (IOException e) {
+	        throw new JsonParseException(
+	                "Failed to save endpoint config to " + file.toAbsolutePath(),
+	                e
+	        );
+	    }
+	    System.out.println("Saving endpoint config to " + file.toAbsolutePath());
+	}
+	
 }
