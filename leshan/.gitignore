@@ -3,6 +3,7 @@ leshan-core/ddffiles
 **/Californium.properties
 **/data/*.data
 **/data/*.json
+**/data/endpoints/*.json
 
 # Binary files #
 *.class
