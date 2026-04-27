@@ -1318,14 +1318,17 @@ public class LeshanClientDemo {
                 }
 
                 for (int i = 0; i < headers.length; i++) {
-                    if (i == endpointColumn) {
-                        continue;
-                    }
-
                     String optionName = headers[i].trim();
                     String value = i < values.length ? stripQuotes(values[i].trim()) : "";
 
                     if (value.isEmpty()) {
+                        continue;
+                    }
+
+                    // Special handling: endpoint -n
+                    if (i == endpointColumn) {
+                        args.add("-n");
+                        args.add(value);
                         continue;
                     }
 
