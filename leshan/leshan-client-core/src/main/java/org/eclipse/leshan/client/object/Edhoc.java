@@ -534,6 +534,10 @@ public class Edhoc extends BaseInstanceEnabler {
 	private static void setupIdentityKeys(byte[] idCredKid, byte[] peerKid, byte[] myPrivateKey, byte[] myPublicKey,
 			byte[] thePeerPublicKey) {
 
+		if (myPrivateKey == null) {
+			System.err.println("Warning own private key is null!");
+		}
+
 		// Build COSE OneKey for client, including public and private keys
 		try {
 			keyPair = oneKeyFromCcs(myPublicKey, myPrivateKey);

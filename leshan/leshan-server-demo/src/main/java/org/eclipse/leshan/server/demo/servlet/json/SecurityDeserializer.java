@@ -510,7 +510,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 
 		// Build COSE OneKey for server, including public and private keys
 		try {
-			keyPair = oneKeyFromCcs(myPublicPrivateKey);
+			keyPair = oneKeyFromCcs(myPublicPrivateKey, true);
 		} catch (CoseException e1) {
 			System.err.println("Failed to generate public/private COSE OneKey for server in SecurityDeserializer.java");
 			e1.printStackTrace();
@@ -543,7 +543,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 		byte[] peerCred = null;
 
 		try {
-			peerPublicKey = oneKeyFromCcs(thePeerPublicKey);
+			peerPublicKey = oneKeyFromCcs(thePeerPublicKey, false);
 		} catch (CoseException e1) {
 			System.err.println("Failed to generate public/private COSE OneKey for client in SecurityDeserializer.java");
 			e1.printStackTrace();
@@ -625,15 +625,16 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 	
 	/**
 	 * Extracts the innermost COSE_Key map from a CCS and returns it as a COSE
-	 * OneKey.
+	 * OneKey. Note that if the CCS returns a private key it will be included in
+	 * the constructed OneKey.
 	 *
 	 * Assumes CCS layout like: { ..., 8: { 1: { <COSE_Key map> } } }
 	 *
 	 * @param ccsBytes CBOR-encoded CCS bytes
-	 * @param privateKey optional private key bytes to add as COSE label -4 (d)
+	 * @param requirePrivate if a private key must exist in the CCS
 	 * @return OneKey created from the extracted COSE_Key portion only
 	 */
-	public static OneKey oneKeyFromCcs(byte[] ccsBytes, byte[] privateKey) throws CoseException {
+	public static OneKey oneKeyFromCcs(byte[] ccsBytes, boolean requirePrivate) throws CoseException {
 		if (ccsBytes == null || ccsBytes.length == 0) {
 			throw new IllegalArgumentException("ccsBytes is null/empty");
 		}
@@ -654,34 +655,49 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 			throw new IllegalArgumentException("CCS claim 8 does not contain key 1 as a COSE_Key map");
 		}
 
-		// Work on a copy so to not never mutate the decoded CCS structure
+		// Work on a copy so to not never change the decoded CCS structure
 		CBORObject keyMap = CBORObject.DecodeFromBytes(coseKeyMap.EncodeToBytes());
 
-		// If caller provided private key -> inject as -4.
-		CBORObject dLabel = CBORObject.FromObject(-4);
-		if (privateKey != null && privateKey.length > 0) {
-			keyMap.Set(dLabel, CBORObject.FromObject(Arrays.copyOf(privateKey, privateKey.length)));
+		CBORObject dObj = keyMap.get(CBORObject.FromObject(-4));
+		if (requirePrivate && dObj == null) {
+			throw new IllegalArgumentException("CCS COSE_Key is missing required private key parameter -4");
 		}
 
-		// Special handling for keys with curve X25519 (they must be built by a
+		if (dObj != null && dObj.getType() != CBORType.ByteString) {
+			throw new IllegalArgumentException("CCS COSE_Key private key parameter -4 is not a byte string");
+		}
+
+		// Hhandling for keys with curve X25519 (they must be built by a
 		// separate method as the OneKey constructor can currently not handle
 		// them)
 		OneKey keyToReturn = null;
-		if (keyMap.ContainsKey(-1) && keyMap.get(-1) == CBORObject.FromObject(4)) {
-			byte[] publicKeyBytes = keyMap.get(-2).GetByteString();
-			keyToReturn = SharedSecretCalculation.buildCurve25519OneKey(privateKey, publicKeyBytes);
+
+		if (keyMap.ContainsKey(CBORObject.FromObject(-1))
+				&& keyMap.get(CBORObject.FromObject(-1)).equals(CBORObject.FromObject(4))) {
+
+			CBORObject xObj = keyMap.get(CBORObject.FromObject(-2));
+			if (xObj == null) {
+				throw new IllegalArgumentException("X25519 COSE_Key is missing public key parameter -2");
+			}
+			if (xObj.getType() != CBORType.ByteString) {
+				throw new IllegalArgumentException("X25519 COSE_Key public key parameter -2 is not a byte string");
+			}
+
+			byte[] publicKeyBytes = xObj.GetByteString();
+
+			// Extract private key parameter (-4) if present in CCS
+			byte[] privateKeyBytes = null;
+			if (dObj != null) {
+				privateKeyBytes = dObj.GetByteString();
+			}
+
+			keyToReturn = SharedSecretCalculation.buildCurve25519OneKey(privateKeyBytes, publicKeyBytes);
 		} else {
+			// Normal handling for non-X25519 keys
 			keyToReturn = new OneKey(keyMap);
 		}
 
 		return keyToReturn;
-	}
-
-	/**
-	 * Convenience overload: public-only OneKey.
-	 */
-	public static OneKey oneKeyFromCcs(byte[] ccsBytes) throws CoseException {
-		return oneKeyFromCcs(ccsBytes, null);
 	}
 
 	/**
