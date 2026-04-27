@@ -148,8 +148,8 @@ public class LeshanClientDemo {
                             "10344.xml", "10345.xml", "10346.xml", "10347.xml", "10348.xml", "10349.xml", "10350.xml",
                             "10351.xml", "10352.xml", "10353.xml", "10354.xml", "10355.xml", "10356.xml", "10357.xml",
                             "10358.xml", "10359.xml", "10360.xml", "10361.xml", "10362.xml", "10363.xml", "10364.xml",
-                            "10365.xml", "10366.xml", "10368.xml", "10369.xml", "10371.xml", "18830.xml",
-                            "18831.xml", "9999.xml", };
+                            "10365.xml", "10366.xml", "10368.xml", "10369.xml", "10371.xml", "18830.xml", "18831.xml",
+                            "9999.xml", };
 
     private static final int OBJECT_ID_TEMPERATURE_SENSOR = 3303;
     private final static String DEFAULT_ENDPOINT = "LeshanClientDemo";
@@ -159,7 +159,7 @@ public class LeshanClientDemo {
     private static MyLocation locationInstance;
 
     public static void main(final String[] args) {
-    
+
         printVersion();
 
         // Define options for command line tools
@@ -271,12 +271,12 @@ public class LeshanClientDemo {
         options.addOption("hkdf", true,
                 "The OSCORE HKDF algorithm used between the Client and LwM2M Server or Bootstrap Server.\nDefault: HKDF_HMAC_SHA_256");
 
-		options.addOption("eckid", true, "EDHOC: Client Key Identifier (hex string)");
-		options.addOption("ecpub", true, "EDHOC: Client Public Key (hex string)");
-		options.addOption("ecpriv", true, "EDHOC: Client Private Key (hex string)");
-		
+        options.addOption("eckid", true, "EDHOC: Client Key Identifier (hex string)");
+        options.addOption("ecpub", true, "EDHOC: Client Public Key (hex string)");
+        options.addOption("ecpriv", true, "EDHOC: Client Private Key (hex string)");
+
         options.addOption("f", true, "Path to endpoint config file (JSON or CSV).");
-		
+
         final StringBuilder trustStoreChapter = new StringBuilder();
         trustStoreChapter.append("\n .");
         trustStoreChapter
@@ -307,10 +307,11 @@ public class LeshanClientDemo {
         HelpFormatter formatter = new HelpFormatter();
         formatter.setWidth(120);
         formatter.setOptionComparator(null);
-        
+
         // Startup message
         System.out.println("Starting EDHOC-enabled Client Demo Application");
-        System.out.println("Loading EDHOC client code from: " + org.eclipse.californium.edhoc.EdhocClient.class.getName());
+        System.out.println(
+                "Loading EDHOC client code from: " + org.eclipse.californium.edhoc.EdhocClient.class.getName());
 
         // Parse arguments
         CommandLine cl;
@@ -322,14 +323,14 @@ public class LeshanClientDemo {
             return;
         }
 
-		// Parse arguments from file if provided
-		try {
-		    cl = readConfigFromFile(options, cl, args);
-		} catch (Exception e) {
-		    System.err.println("Failed to load endpoint config from file. Reason: " + e.getMessage());
-		    return;
-		}
-		
+        // Parse arguments from file if provided
+        try {
+            cl = readConfigFromFile(options, cl, args);
+        } catch (Exception e) {
+            System.err.println("Failed to load endpoint config from file. Reason: " + e.getMessage());
+            return;
+        }
+
         // Print help
         if (cl.hasOption("help")) {
             formatter.printHelp(USAGE, options);
@@ -362,10 +363,10 @@ public class LeshanClientDemo {
                 rpkConfig = true;
             }
         }
-        
+
         // Check if EDHOC is supported
         if (cl.hasOption("edhoc")) {
-        	OscoreHandler.setWithEdhoc(true);
+            OscoreHandler.setWithEdhoc(true);
         }
 
         // Abort if all X509 config is not complete
@@ -767,50 +768,50 @@ public class LeshanClientDemo {
             }
 
             // Save the configured OSCORE parameters
-            oscoreSettings = new OSCoreSettings(mastersecretStr, mastersaltStr, senderidStr,
-                    recipientidStr, aeadInt, hkdfInt);
+            oscoreSettings = new OSCoreSettings(mastersecretStr, mastersaltStr, senderidStr, recipientidStr, aeadInt,
+                    hkdfInt);
         }
 
         // Set optional parameters for EDHOC
         if (cl.hasOption("eckid")) {
 
-			String edhocClientKeyIdentifierStr = cl.getOptionValue("eckid");
-			if (edhocClientKeyIdentifierStr == null) {
-				System.err.println("EDHOC: Client Key Identifier must be provided");
+            String edhocClientKeyIdentifierStr = cl.getOptionValue("eckid");
+            if (edhocClientKeyIdentifierStr == null) {
+                System.err.println("EDHOC: Client Key Identifier must be provided");
                 formatter.printHelp(USAGE, options);
                 return;
             }
 
-			byte[] edhocClientKeyIdentifier = StringUtil.hex2ByteArray(edhocClientKeyIdentifierStr);
-			ClientCredentialManager.setClientKeyIdentifier(edhocClientKeyIdentifier);
+            byte[] edhocClientKeyIdentifier = StringUtil.hex2ByteArray(edhocClientKeyIdentifierStr);
+            ClientCredentialManager.setClientKeyIdentifier(edhocClientKeyIdentifier);
         }
 
         if (cl.hasOption("ecpub")) {
 
-			String edhocClientPublicKeyStr = cl.getOptionValue("ecpub");
-			if (edhocClientPublicKeyStr == null) {
-				System.err.println("EDHOC: Client Public Key must be provided");
+            String edhocClientPublicKeyStr = cl.getOptionValue("ecpub");
+            if (edhocClientPublicKeyStr == null) {
+                System.err.println("EDHOC: Client Public Key must be provided");
                 formatter.printHelp(USAGE, options);
                 return;
             }
 
-			byte[] edhocClientPublicKey = StringUtil.hex2ByteArray(edhocClientPublicKeyStr);
-			ClientCredentialManager.setClientPublicKey(edhocClientPublicKey);
+            byte[] edhocClientPublicKey = StringUtil.hex2ByteArray(edhocClientPublicKeyStr);
+            ClientCredentialManager.setClientPublicKey(edhocClientPublicKey);
         }
 
-		if (cl.hasOption("ecpriv")) {
+        if (cl.hasOption("ecpriv")) {
 
-			String edhocPrivateKeyStr = cl.getOptionValue("ecpriv");
-			if (edhocPrivateKeyStr == null) {
-				System.err.println("EDHOC: Private Key must be provided");
+            String edhocPrivateKeyStr = cl.getOptionValue("ecpriv");
+            if (edhocPrivateKeyStr == null) {
+                System.err.println("EDHOC: Private Key must be provided");
                 formatter.printHelp(USAGE, options);
                 return;
             }
 
-			byte[] edhocPrivateKey = StringUtil.hex2ByteArray(edhocPrivateKeyStr);
-			ClientCredentialManager.setPrivateKey(edhocPrivateKey);
+            byte[] edhocPrivateKey = StringUtil.hex2ByteArray(edhocPrivateKeyStr);
+            ClientCredentialManager.setPrivateKey(edhocPrivateKey);
         }
-        
+
         try {
             createAndStartClient(endpoint, localAddress, localPort, cl.hasOption("b"), additionalAttributes,
                     bsAdditionalAttributes, lifetime, communicationPeriod, serverURI, pskIdentity, pskKey,
@@ -903,11 +904,11 @@ public class LeshanClientDemo {
         List<LwM2mObjectEnabler> enablers = initializer.createAll();
 
         // Create CoAP Config
-		CoapConfig.register();
-		Configuration coapConfig;
-		File configFile = new File(Configuration.DEFAULT_FILE_NAME);
+        CoapConfig.register();
+        Configuration coapConfig;
+        File configFile = new File(Configuration.DEFAULT_FILE_NAME);
         if (configFile.isFile()) {
-			coapConfig = new Configuration();
+            coapConfig = new Configuration();
             coapConfig.load(configFile);
         } else {
             coapConfig = LeshanClientBuilder.createDefaultNetworkConfig();
@@ -915,7 +916,7 @@ public class LeshanClientDemo {
         }
 
         // Create DTLS Config
-		DtlsConnectorConfig.Builder dtlsConfig = new DtlsConnectorConfig.Builder(coapConfig);
+        DtlsConnectorConfig.Builder dtlsConfig = new DtlsConnectorConfig.Builder(coapConfig);
 
         if (cid != null) {
             dtlsConfig.setConnectionIdGenerator(new SingleNodeConnectionIdGenerator(cid));
@@ -1100,7 +1101,7 @@ public class LeshanClientDemo {
         commandsHelp.append("  - d : to move to West.");
         commandsHelp.append(System.lineSeparator());
         LOG.info(commandsHelp.toString());
-        
+
         Utils.printPause("Initialize client and perform bootstrapping: ");
 
         // Start the client
@@ -1173,8 +1174,8 @@ public class LeshanClientDemo {
         public int aeadAlgorithm;
         public int hkdfAlgorithm;
 
-        public OSCoreSettings(String masterSecret, String masterSalt, String senderId,
-                String recipientId, int aeadAlgorithm, int hkdfAlgorithm) {
+        public OSCoreSettings(String masterSecret, String masterSalt, String senderId, String recipientId,
+                int aeadAlgorithm, int hkdfAlgorithm) {
             this.masterSecret = masterSecret;
             this.masterSalt = masterSalt;
             this.senderId = senderId;
@@ -1185,82 +1186,81 @@ public class LeshanClientDemo {
     }
 
     // Parse command line arguments from file
-	private static CommandLine readConfigFromFile(Options options, CommandLine cl, String[] args)
-        throws ParseException {
+    private static CommandLine readConfigFromFile(Options options, CommandLine cl, String[] args)
+            throws ParseException {
 
-	    // Only trigger if both -n and -f are present
-	    if (!(cl.hasOption("n") && cl.hasOption("f"))) {
-	        return cl;
-	    }
-	
-	    String endpointName = cl.getOptionValue("n");
-	    String filePath = cl.getOptionValue("f");
-	
-	    String[] fileArgs;
-	    if (filePath.toLowerCase().endsWith(".json")) {
-	        fileArgs = readArgsFromJson(filePath, endpointName);
-	    } else if (filePath.toLowerCase().endsWith(".csv")) {
-	        fileArgs = readArgsFromCsv(filePath, endpointName);
-	    } else {
-	        throw new IllegalArgumentException("Unsupported file format: " + filePath);
-	    }
-	
-	    // Warning if same option appears in both CLI and file
-	    warnIfDuplicateOptions(args, fileArgs);
-	
-	    // Append file args after CLI args (file takes precedence)
-	    String[] merged = new String[args.length + fileArgs.length];
-	    System.arraycopy(args, 0, merged, 0, args.length);
-	    System.arraycopy(fileArgs, 0, merged, args.length, fileArgs.length);
-	
-	    // Reparse as if everything came from CLI
-	    return new DefaultParser().parse(options, merged);
-}
+        // Only trigger if both -n and -f are present
+        if (!(cl.hasOption("n") && cl.hasOption("f"))) {
+            return cl;
+        }
 
-// Warn if same option is provided both in file and command line
-private static void warnIfDuplicateOptions(String[] cliArgs, String[] fileArgs) {
-    Set<String> cliOpts = new HashSet<>();
+        String endpointName = cl.getOptionValue("n");
+        String filePath = cl.getOptionValue("f");
 
-    for (String s : cliArgs) {
-        if (s.startsWith("-")) {
-            cliOpts.add(s);
+        String[] fileArgs;
+        if (filePath.toLowerCase().endsWith(".json")) {
+            fileArgs = readArgsFromJson(filePath, endpointName);
+        } else if (filePath.toLowerCase().endsWith(".csv")) {
+            fileArgs = readArgsFromCsv(filePath, endpointName);
+        } else {
+            throw new IllegalArgumentException("Unsupported file format: " + filePath);
+        }
+
+        // Warning if same option appears in both CLI and file
+        warnIfDuplicateOptions(args, fileArgs);
+
+        // Append file args after CLI args (file takes precedence)
+        String[] merged = new String[args.length + fileArgs.length];
+        System.arraycopy(args, 0, merged, 0, args.length);
+        System.arraycopy(fileArgs, 0, merged, args.length, fileArgs.length);
+
+        // Reparse as if everything came from CLI
+        return new DefaultParser().parse(options, merged);
+    }
+
+    // Warn if same option is provided both in file and command line
+    private static void warnIfDuplicateOptions(String[] cliArgs, String[] fileArgs) {
+        Set<String> cliOpts = new HashSet<>();
+
+        for (String s : cliArgs) {
+            if (s.startsWith("-")) {
+                cliOpts.add(s);
+            }
+        }
+
+        for (String s : fileArgs) {
+            if (s.startsWith("-") && cliOpts.contains(s)) {
+                System.err.println("Warning: option " + s + " provided both in CLI and file. Using value from file.");
+            }
         }
     }
 
-    for (String s : fileArgs) {
-        if (s.startsWith("-") && cliOpts.contains(s)) {
-            System.err.println("Warning: option " + s +
-                    " provided both in CLI and file. Using value from file.");
-        }
+    // Stub for parsing arguments from JSON file
+    private static String[] readArgsFromJson(String filePath, String endpointName) {
+        // TODO implement
+        // Example return:
+        // return new String[] { "-u", "coap://localhost:5683", "-i", "myId", "-p", "a1b2c3" };
+        throw new UnsupportedOperationException("JSON parsing not implemented yet");
     }
-}
 
-// Stub for parsing arguments from JSON file
-private static String[] readArgsFromJson(String filePath, String endpointName) {
-    // TODO implement
-    // Example return:
-    // return new String[] { "-u", "coap://localhost:5683", "-i", "myId", "-p", "a1b2c3" };
-    throw new UnsupportedOperationException("JSON parsing not implemented yet");
-}
+    // Stub for parsing arguments from CSV file
+    private static String[] readArgsFromCsv(String filePath, String endpointName) {
+        // TODO implement
+        throw new UnsupportedOperationException("CSV parsing not implemented yet");
+    }
 
-// Stub for parsing arguments from CSV file
-private static String[] readArgsFromCsv(String filePath, String endpointName) {
-    // TODO implement
-    throw new UnsupportedOperationException("CSV parsing not implemented yet");
-}
-	
     static void printVersion() {
         Properties props = new Properties();
-                try (InputStream in = LeshanClientDemo.class.getClassLoader().getResourceAsStream("app-version.properties")) {
-                    if (in != null) {
-                        props.load(in);
-                        String version = props.getProperty("version");
-                        System.out.println("Version: " + (version != null ? version : "SNAPSHOT"));
-                    } else {
-                        System.out.println("Version: SNAPSHOT");
-                    }
-                } catch (IOException e) {
-                    System.out.println("Version: SNAPSHOT");
-                }
+        try (InputStream in = LeshanClientDemo.class.getClassLoader().getResourceAsStream("app-version.properties")) {
+            if (in != null) {
+                props.load(in);
+                String version = props.getProperty("version");
+                System.out.println("Version: " + (version != null ? version : "SNAPSHOT"));
+            } else {
+                System.out.println("Version: SNAPSHOT");
+            }
+        } catch (IOException e) {
+            System.out.println("Version: SNAPSHOT");
         }
+    }
 }
