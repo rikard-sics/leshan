@@ -1232,7 +1232,7 @@ public class LeshanClientDemo {
         }
 
         for (String s : fileArgs) {
-            if (s.startsWith("-") && cliOpts.contains(s)) {
+            if (s.startsWith("-") && cliOpts.contains(s) && !"-n".equals(s)) {
                 System.err.println("Warning: option " + s + " provided both in CLI and file. Using value from file.");
             }
         }
