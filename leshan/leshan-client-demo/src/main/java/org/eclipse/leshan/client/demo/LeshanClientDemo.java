@@ -23,10 +23,13 @@ package org.eclipse.leshan.client.demo;
 import static org.eclipse.leshan.client.object.Security.*;
 import static org.eclipse.leshan.core.LwM2mId.*;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.cert.Certificate;
@@ -275,7 +278,7 @@ public class LeshanClientDemo {
         options.addOption("ecpub", true, "EDHOC: Client Public Key (hex string)");
         options.addOption("ecpriv", true, "EDHOC: Client Private Key (hex string)");
 
-        options.addOption("f", true, "Path to endpoint config file (JSON or CSV).");
+        options.addOption("cfgFile", true, "Path to endpoint config file (JSON or CSV).");
 
         final StringBuilder trustStoreChapter = new StringBuilder();
         trustStoreChapter.append("\n .");
@@ -1190,12 +1193,12 @@ public class LeshanClientDemo {
             throws ParseException {
 
         // Only trigger if both -n and -f are present
-        if (!(cl.hasOption("n") && cl.hasOption("f"))) {
+        if (!(cl.hasOption("n") && cl.hasOption("cfgFile"))) {
             return cl;
         }
 
         String endpointName = cl.getOptionValue("n");
-        String filePath = cl.getOptionValue("f");
+        String filePath = cl.getOptionValue("cfgFile");
 
         String[] fileArgs;
         if (filePath.toLowerCase().endsWith(".json")) {
@@ -1243,12 +1246,6 @@ public class LeshanClientDemo {
         throw new UnsupportedOperationException("JSON parsing not implemented yet");
     }
 
-    // Stub for parsing arguments from CSV file
-    private static String[] readArgsFromCsv(String filePath, String endpointName) {
-        // TODO implement
-        throw new UnsupportedOperationException("CSV parsing not implemented yet");
-    }
-
     static void printVersion() {
         Properties props = new Properties();
         try (InputStream in = LeshanClientDemo.class.getClassLoader().getResourceAsStream("app-version.properties")) {
@@ -1262,5 +1259,124 @@ public class LeshanClientDemo {
         } catch (IOException e) {
             System.out.println("Version: SNAPSHOT");
         }
+    }
+
+    // === CSV parsing logic ===
+    /**
+     * Read command line arguments from CSV. Example format:
+     * 
+     * endpoint,u,msecret,msalt,b
+     *
+     * Test1,coap://localhost:5683,AAAA,BBBB,true
+     * 
+     * Test2,coap://1.1.1.1:5683,CCCC,DDDD,false
+     *
+     * (Ignore the newlines in the example)
+     * 
+     * The first row is the header (customizable), and following rows are configs for specific clients
+     * 
+     * @param filePath path to CSV file
+     * @param endpointName which endpoint to use the config for
+     * @return a string representing the command line arguments
+     */
+    private static String[] readArgsFromCsv(String filePath, String endpointName) {
+        List<String> args = new ArrayList<>();
+
+        try (BufferedReader reader = Files.newBufferedReader(Paths.get(filePath))) {
+            String headerLine = reader.readLine();
+
+            if (headerLine == null) {
+                throw new IllegalArgumentException("CSV file is empty: " + filePath);
+            }
+
+            String[] headers = parseCsvLine(headerLine);
+
+            int endpointColumn = -1;
+            for (int i = 0; i < headers.length; i++) {
+                if ("endpoint".equalsIgnoreCase(headers[i].trim())) {
+                    endpointColumn = i;
+                    break;
+                }
+            }
+
+            if (endpointColumn == -1) {
+                throw new IllegalArgumentException("CSV must contain an 'endpoint' column");
+            }
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] values = parseCsvLine(line);
+
+                if (values.length <= endpointColumn) {
+                    continue;
+                }
+
+                String currentEndpoint = stripQuotes(values[endpointColumn].trim());
+
+                if (!endpointName.equals(currentEndpoint)) {
+                    continue;
+                }
+
+                for (int i = 0; i < headers.length; i++) {
+                    if (i == endpointColumn) {
+                        continue;
+                    }
+
+                    String optionName = headers[i].trim();
+                    String value = i < values.length ? stripQuotes(values[i].trim()) : "";
+
+                    if (value.isEmpty()) {
+                        continue;
+                    }
+
+                    if ("true".equalsIgnoreCase(value)) {
+                        args.add("-" + optionName);
+                    } else if ("false".equalsIgnoreCase(value)) {
+                        // omit flag
+                    } else {
+                        args.add("-" + optionName);
+                        args.add(value);
+                    }
+                }
+
+                String[] result = args.toArray(new String[0]);
+                System.out.println("Read client config from CSV file: " + String.join(" ", result));
+                return result;
+            }
+
+            throw new IllegalArgumentException("Endpoint not found in CSV: " + endpointName);
+
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to read CSV file: " + filePath, e);
+        }
+    }
+
+    private static String[] parseCsvLine(String line) {
+        List<String> result = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean inQuotes = false;
+
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+
+            if (c == '"') {
+                inQuotes = !inQuotes;
+            } else if (c == ',' && !inQuotes) {
+                result.add(current.toString().trim());
+                current.setLength(0);
+            } else {
+                current.append(c);
+            }
+        }
+
+        result.add(current.toString().trim());
+        return result.toArray(new String[0]);
+    }
+
+    private static String stripQuotes(String value) {
+        if (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
+            return value.substring(1, value.length() - 1);
+        }
+        return value;
     }
 }
