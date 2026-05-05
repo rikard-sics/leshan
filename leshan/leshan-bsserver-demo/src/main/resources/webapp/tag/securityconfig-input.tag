@@ -44,7 +44,7 @@
     
     <!-- EDHOC -->
     <div if={  refs.secMode.value == "edhoc" } >
-        <edhoc-input ref="edhoc" onchange={onchange} disable={disable}></edhoc-input>
+        <edhoc-input ref="edhoc" onchange={onchange} disable={disable} hide_private_key={opts.hide_private_key}></edhoc-input>
     </div>
 
     <div class="form-group" if={  refs.secMode.value == "x509" }>

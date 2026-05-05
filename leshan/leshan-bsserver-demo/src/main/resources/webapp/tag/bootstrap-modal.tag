@@ -37,6 +37,7 @@
                                                     servercertificate= {serversecurity.certificate.hexDer}
                                                     disable = { {uri:true, serverpubkey:true, servercertificate:true}}
                                                     secmode = { {no_sec:true, psk:true,rpk:true, x509:true, oscore:true, edhoc:true} }
+                                                    hide_private_key={true}
                                                     ></securityconfig-input>
                         </div>
 
@@ -118,7 +119,6 @@
                     selectedCiphersuite : bsserverEdhoc.selectedCiphersuite,
                     clientKeyIdentifier : bsserverEdhoc.clientKeyIdentifier,
                     clientPublicKey : bsserverEdhoc.clientPublicKey,
-                    privateKey : bsserverEdhoc.privateKey,
                     peerPublicKeyIdentifier : bsserverEdhoc.peerPublicKeyIdentifier,
                     peerPublicKey : bsserverEdhoc.peerPublicKey,
                     peerEdhocCoapUriPath : bsserverEdhoc.peerEdhocCoapUriPath,

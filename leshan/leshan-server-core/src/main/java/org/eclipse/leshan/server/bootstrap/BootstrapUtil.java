@@ -19,8 +19,10 @@ package org.eclipse.leshan.server.bootstrap;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.eclipse.leshan.core.LwM2mId;
 import org.eclipse.leshan.core.node.LwM2mMultipleResource;
@@ -221,28 +223,26 @@ public class BootstrapUtil {
         for (Entry<Integer, OscoreObject> oscore : bootstrapConfig.oscore.entrySet()) {
             requests.add(toWriteRequest(oscore.getKey(), oscore.getValue(), contentFormat));
         }
-        // handle edhoc
-		boolean writingEdhoc = false;
-		
-		
-		
-		
-        for (Entry<Integer, EdhocObject> edhoc : bootstrapConfig.edhoc.entrySet()) {
-            requests.add(toWriteRequest(edhoc.getKey(), edhoc.getValue(), contentFormat));
-			writingEdhoc = true;
+        // Identify EDHOC instance IDs belonging to the BS — these are local config, not written to the client
+        Set<Integer> bsEdhocIds = new HashSet<>();
+        for (ServerSecurity sec : bootstrapConfig.security.values()) {
+            if (sec.bootstrapServer && sec.oscoreSecurityMode != null
+                    && bootstrapConfig.edhoc.containsKey(sec.oscoreSecurityMode)) {
+                bsEdhocIds.add(sec.oscoreSecurityMode);
+            }
         }
-		// Handle empty OSCORE object with link to EDHOC object
-		if (writingEdhoc) {
-			int instanceId = 1;
-			LwM2mPath path = new LwM2mPath(LwM2mId.OSCORE, instanceId);
-			Collection<LwM2mResource> resources = new ArrayList<>();
-			// integer value needs to be made into an object link
-			int edhocInstance = 1;
-			ObjectLink edhocObjLink = new ObjectLink(LwM2mId.EDHOC, edhocInstance);
-			resources.add(LwM2mSingleResource.newObjectLinkResource(6, edhocObjLink));
-			LwM2mObjectInstance oscoreInstance = new LwM2mObjectInstance(instanceId, resources);
-			requests.add(new BootstrapWriteRequest(path, oscoreInstance, contentFormat));
-		}
+        // handle edhoc — write DM EDHOC objects to the client, each paired with an OSCORE link object
+        for (Entry<Integer, EdhocObject> edhoc : bootstrapConfig.edhoc.entrySet()) {
+            if (bsEdhocIds.contains(edhoc.getKey())) continue;
+            int instanceId = edhoc.getKey();
+            requests.add(toWriteRequest(instanceId, edhoc.getValue(), contentFormat));
+            LwM2mPath path = new LwM2mPath(LwM2mId.OSCORE, instanceId);
+            Collection<LwM2mResource> resources = new ArrayList<>();
+            ObjectLink edhocObjLink = new ObjectLink(LwM2mId.EDHOC, instanceId);
+            resources.add(LwM2mSingleResource.newObjectLinkResource(6, edhocObjLink));
+            LwM2mObjectInstance oscoreInstance = new LwM2mObjectInstance(instanceId, resources);
+            requests.add(new BootstrapWriteRequest(path, oscoreInstance, contentFormat));
+        }
 
 		// // handle edhoc (for testing TODO RH: Remove)
 		// // Can delete this now, taken from GUI config. But keep for testing.

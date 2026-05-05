@@ -39,7 +39,7 @@
         </div>
     </div>
 
-    <div class={ form-group:true }>
+    <div class={ form-group:true } if={!opts.hide_private_key}>
         <label for="privateKey" class="col-sm-4 control-label">Private Key</label>
         <div class="col-sm-8">
             <textarea class="form-control" style="resize:none" rows="2" id="privateKey" ref="privateKey"></textarea>
