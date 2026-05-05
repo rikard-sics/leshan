@@ -260,7 +260,7 @@
             tag.refs.selectedCiphersuite.value = '2';
             tag.refs.clientKeyIdentifier.value = '2b';
             tag.refs.clientPublicKey.value = 'a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8';
-            tag.refs.privateKey.value = 'fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b';
+            if (tag.refs.privateKey) tag.refs.privateKey.value = 'fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b';
             tag.refs.peerPublicKeyIdentifier.value = '32';
             tag.refs.peerPublicKey.value = 'a2026b6578616d706c652e65647508a101a501020241322001215820bbc34960526ea4d32e940cad2a234148ddc21791a12afbcbac93622046dd44f02258204519e257236b2a0ce2023f0931f1f386ca7afda64fcde0108c224c51eabf6072';
             tag.refs.peerEdhocCoapUriPath.value = '.well-known/edhoc';
@@ -273,7 +273,7 @@
             tag.refs.selectedCiphersuite.value = '2';
             tag.refs.clientKeyIdentifier.value = '08';
             tag.refs.clientPublicKey.value = 'a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8';
-            tag.refs.privateKey.value = 'fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b';
+            if (tag.refs.privateKey) tag.refs.privateKey.value = 'fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b';
             tag.refs.peerPublicKeyIdentifier.value = '25';
             tag.refs.peerPublicKey.value = 'a2026b6578616d706c652e65647508a101a501020241322001215820bbc34960526ea4d32e940cad2a234148ddc21791a12afbcbac93622046dd44f02258204519e257236b2a0ce2023f0931f1f386ca7afda64fcde0108c224c51eabf6072';
             tag.refs.edhocOscoreCombinedSupport.value = 'False';

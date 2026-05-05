@@ -15,13 +15,18 @@
  *******************************************************************************/
 package org.eclipse.leshan.server.bootstrap;
 
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
+import org.eclipse.californium.oscore.OSCoreCtx;
 import org.eclipse.leshan.core.request.BootstrapDownlinkRequest;
 import org.eclipse.leshan.core.request.BootstrapFinishRequest;
 import org.eclipse.leshan.core.request.BootstrapRequest;
 import org.eclipse.leshan.core.request.Identity;
 import org.eclipse.leshan.core.response.LwM2mResponse;
+import org.eclipse.leshan.core.util.Hex;
+import org.eclipse.leshan.server.OscoreHandler;
 import org.eclipse.leshan.server.security.BootstrapSecurityStore;
 import org.eclipse.leshan.server.security.SecurityChecker;
 import org.eclipse.leshan.server.security.SecurityInfo;
@@ -68,6 +73,7 @@ public class DefaultBootstrapSessionManager implements BootstrapSessionManager {
         boolean authorized;
         if (bsSecurityStore != null) {
             Iterator<SecurityInfo> securityInfos = bsSecurityStore.getAllByEndpoint(request.getEndpointName());
+            securityInfos = resolveEdhocSecurityInfos(securityInfos, request.getEndpointName(), clientIdentity);
             authorized = securityChecker.checkSecurityInfos(request.getEndpointName(), clientIdentity, securityInfos);
         } else {
             authorized = true;
@@ -75,6 +81,33 @@ public class DefaultBootstrapSessionManager implements BootstrapSessionManager {
         DefaultBootstrapSession session = new DefaultBootstrapSession(request, clientIdentity, authorized);
         LOG.trace("Bootstrap session started : {}", session);
         return session;
+    }
+
+    private Iterator<SecurityInfo> resolveEdhocSecurityInfos(Iterator<SecurityInfo> securityInfos,
+            String endpoint, Identity clientIdentity) {
+        if (securityInfos == null || !clientIdentity.isOSCORE()) {
+            return securityInfos;
+        }
+        List<SecurityInfo> resolved = new ArrayList<>();
+        while (securityInfos.hasNext()) {
+            SecurityInfo info = securityInfos.next();
+            if (info.getBuiltFromEdhoc()) {
+                String oscoreId = clientIdentity.getOscoreIdentity();
+                if (oscoreId != null && oscoreId.contains("rid=")) {
+                    try {
+                        byte[] clientRid = Hex.decodeHex(oscoreId.split("rid=")[1].toCharArray());
+                        OSCoreCtx realCtx = OscoreHandler.getContextDB().getContext(clientRid);
+                        if (realCtx != null) {
+                            info = SecurityInfo.newOSCoreInfo(endpoint, realCtx);
+                        }
+                    } catch (Exception e) {
+                        LOG.warn("Failed to resolve EDHOC-derived OSCORE context for endpoint {}", endpoint, e);
+                    }
+                }
+            }
+            resolved.add(info);
+        }
+        return resolved.iterator();
     }
 
     @Override

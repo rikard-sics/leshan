@@ -23,8 +23,10 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
 
+import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.californium.oscore.OSCoreCtx;
+import org.eclipse.californium.oscore.OSException;
 import org.eclipse.leshan.core.SecurityMode;
 import org.eclipse.leshan.core.util.Hex;
 import org.eclipse.leshan.core.util.SecurityUtil;
@@ -94,6 +96,28 @@ public class BootstrapConfigSecurityStore implements BootstrapSecurityStore {
     public Iterator<SecurityInfo> getAllByEndpoint(String endpoint) {
     	System.out.println("Identity 2");
         BootstrapConfig bsConfig = bootstrapConfigStore.get(endpoint, null, null);
+
+        // Extract EDHOC security info (placeholder — real context resolved later in session manager)
+        if (bsConfig != null && bsConfig.edhoc != null && !bsConfig.edhoc.isEmpty()) {
+            for (ServerSecurity security : bsConfig.security.values()) {
+                Integer oscoreInstanceId = security.oscoreSecurityMode;
+                if (security.bootstrapServer && oscoreInstanceId != null
+                        && bsConfig.edhoc.containsKey(oscoreInstanceId)) {
+                    try {
+                        OSCoreCtx placeholder = new OSCoreCtx(new byte[0], true,
+                                AlgorithmID.AES_CCM_16_64_128, new byte[0],
+                                new byte[] { 0x11, 0x22, 0x33, 0x44 },
+                                AlgorithmID.HKDF_HMAC_SHA_256, 32, null, null, 2048);
+                        SecurityInfo securityInfo = SecurityInfo.newOSCoreInfo(endpoint, placeholder);
+                        securityInfo.setBuiltFromEdhoc(true);
+                        return Arrays.asList(securityInfo).iterator();
+                    } catch (OSException e) {
+                        LOG.error("Failed to create EDHOC placeholder context for {}", endpoint, e);
+                        return null;
+                    }
+                }
+            }
+        }
 
         // TODO this should be done via OSCORE store ?
         // Extract OSCORE security info

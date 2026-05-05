@@ -479,7 +479,7 @@ public class LeshanBootstrapServerDemo {
 
         LeshanBootstrapServer bsServer = builder.build();
         bsServer.start();
-        OscoreHandler.setLwServer(bsServer.getCoapServer());
+		OscoreHandler.setLwServer(bsServer.coap().getServer());
 
 		System.out.println("Port1 demo: " + bsServer.getUnsecuredAddress());
 		System.out.println("Local address after server start: " + localAddress);

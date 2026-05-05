@@ -228,11 +228,12 @@ public class BootstrapServlet extends HttpServlet {
             appStatements.put("/.well-known/edhoc", appStatement);
 
             HashMapCtxDB db = OscoreHandler.getContextDB();
-            EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(
-                    EdhocHandler.idCreds, EdhocHandler.creds, EdhocHandler.keyPairs,
-                    EdhocHandler.peerPublicKeys, EdhocHandler.peerCredentials, edhocSessions,
-                    usedConnectionIds, supportedCiphersuites, new HashSet<>(), null,
-                    Constants.TRUST_MODEL_NO_LEARNING, db, URI_LOCAL, OSCORE_REPLAY_WINDOW, 2048, appStatements);
+			Set<Integer> supportedEads = new HashSet<Integer>();
+			HashMap<Integer, List<CBORObject>> eadProductionInput = null;
+			EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(EdhocHandler.idCreds, EdhocHandler.creds,
+					EdhocHandler.keyPairs, EdhocHandler.peerPublicKeys, EdhocHandler.peerCredentials, edhocSessions,
+					usedConnectionIds, supportedCiphersuites, supportedEads, eadProductionInput,
+					Constants.TRUST_MODEL_NO_LEARNING, db, URI_LOCAL, OSCORE_REPLAY_WINDOW, 2048, appStatements);
 
             CoapResource edhocResource = new EdhocResource("edhoc", edhocEndpointInfo, EdhocHandler.ownIdCreds);
             CoapResource wellKnownResource = new WellKnownResource();
