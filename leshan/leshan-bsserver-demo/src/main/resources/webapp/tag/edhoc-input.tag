@@ -3,72 +3,8 @@
     
     <!-- TODO: Add validation -->
     
-    <button type="button" onclick="
-         document.getElementById('initiator').value = 'True';
-         document.getElementById('authenticationMethod').value = '3';
-         document.getElementById('selectedCiphersuite').value = '2';
-         document.getElementById('clientKeyIdentifier').value = '2b';
-         document.getElementById('clientPublicKey').value = 'a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8';
-         document.getElementById('privateKey').value = 'fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b';
-         document.getElementById('peerPublicKeyIdentifier').value = '32';
-         document.getElementById('peerPublicKey').value = 'a2026b6578616d706c652e65647508a101a501020241322001215820bbc34960526ea4d32e940cad2a234148ddc21791a12afbcbac93622046dd44f02258204519e257236b2a0ce2023f0931f1f386ca7afda64fcde0108c224c51eabf6072';
-         document.getElementById('peerEdhocCoapUriPath').value = '.well-known/edhoc';
-         document.getElementById('edhocOscoreCombinedSupport').value = 'False';
-         
-         document.getElementById('initiator').innerHTML = 'True';
-         document.getElementById('authenticationMethod').innerHTML = '3';
-         document.getElementById('selectedCiphersuite').innerHTML = '2';
-         document.getElementById('clientKeyIdentifier').innerHTML = '2b';
-         document.getElementById('clientPublicKey').innerHTML = 'a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8';
-         document.getElementById('privateKey').innerHTML = 'fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b';
-         document.getElementById('peerPublicKeyIdentifier').innerHTML = '32';
-         document.getElementById('peerPublicKey').innerHTML = 'a2026b6578616d706c652e65647508a101a501020241322001215820bbc34960526ea4d32e940cad2a234148ddc21791a12afbcbac93622046dd44f02258204519e257236b2a0ce2023f0931f1f386ca7afda64fcde0108c224c51eabf6072';
-         document.getElementById('peerEdhocCoapUriPath').innerHTML = '.well-known/edhoc';
-         document.getElementById('edhocOscoreCombinedSupport').innerHTML = 'False';
-         
-         document.getElementById('initiator').innerText = 'True';
-         document.getElementById('authenticationMethod').innerText = '3';
-         document.getElementById('selectedCiphersuite').innerText = '2';
-         document.getElementById('clientKeyIdentifier').innerText = '2b';
-         document.getElementById('clientPublicKey').innerText = 'a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8';
-         document.getElementById('privateKey').innerText = 'fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b';
-         document.getElementById('peerPublicKeyIdentifier').innerText = '32';
-         document.getElementById('peerPublicKey').innerText = 'a2026b6578616d706c652e65647508a101a501020241322001215820bbc34960526ea4d32e940cad2a234148ddc21791a12afbcbac93622046dd44f02258204519e257236b2a0ce2023f0931f1f386ca7afda64fcde0108c224c51eabf6072';
-         document.getElementById('peerEdhocCoapUriPath').innerText = '.well-known/edhoc';
-         document.getElementById('edhocOscoreCombinedSupport').innerText = 'False';
-    ">Fill Client<->DM config</button> 
-         
-    <button type="button" hidden onclick="
-         document.getElementById('initiator').value = 'True';
-         document.getElementById('authenticationMethod').value = '3';
-         document.getElementById('selectedCiphersuite').value = '2';
-         document.getElementById('clientKeyIdentifier').value = '08';
-         document.getElementById('clientPublicKey').value = 'a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8';
-         document.getElementById('privateKey').value = 'fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b';
-         document.getElementById('peerPublicKeyIdentifier').value = '25';
-         document.getElementById('peerPublicKey').value = 'a2026b6578616d706c652e65647508a101a501020241322001215820bbc34960526ea4d32e940cad2a234148ddc21791a12afbcbac93622046dd44f02258204519e257236b2a0ce2023f0931f1f386ca7afda64fcde0108c224c51eabf6072';
-         document.getElementById('edhocOscoreCombinedSupport').value = 'False';
-         
-         document.getElementById('initiator').innerText = 'True';
-         document.getElementById('authenticationMethod').innerText = '3';
-         document.getElementById('selectedCiphersuite').innerText = '2';
-         document.getElementById('clientKeyIdentifier').innerText = '08';
-         document.getElementById('clientPublicKey').innerText = 'a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8';
-         document.getElementById('privateKey').innerText = 'fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b';
-         document.getElementById('peerPublicKeyIdentifier').innerText = '25';
-         document.getElementById('peerPublicKey').innerText = 'a2026b6578616d706c652e65647508a101a501020241322001215820bbc34960526ea4d32e940cad2a234148ddc21791a12afbcbac93622046dd44f02258204519e257236b2a0ce2023f0931f1f386ca7afda64fcde0108c224c51eabf6072';
-         document.getElementById('edhocOscoreCombinedSupport').innerText = 'False';
-         
-         document.getElementById('initiator').innerHTML = 'True';
-         document.getElementById('authenticationMethod').innerHTML = '3';
-         document.getElementById('selectedCiphersuite').innerHTML = '2';
-         document.getElementById('clientKeyIdentifier').innerHTML = '08';
-         document.getElementById('clientPublicKey').innerHTML = 'a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8';
-         document.getElementById('privateKey').innerHTML = 'fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b';
-         document.getElementById('peerPublicKeyIdentifier').innerHTML = '25';
-         document.getElementById('peerPublicKey').innerHTML = 'a2026b6578616d706c652e65647508a101a501020241322001215820bbc34960526ea4d32e940cad2a234148ddc21791a12afbcbac93622046dd44f02258204519e257236b2a0ce2023f0931f1f386ca7afda64fcde0108c224c51eabf6072';
-         document.getElementById('edhocOscoreCombinedSupport').innerHTML = 'False';
-    ">Fill Client<->AS config</button> 
+    <button type="button" onclick={fill_dm_config}>Fill Client&lt;-&gt;DM config</button>
+    <button type="button" hidden onclick={fill_as_config}>Fill Client&lt;-&gt;AS config</button>
     
     
     <div class={ form-group:true }>
@@ -154,7 +90,9 @@
         tag.onchange = opts.onchange;
         // Tag API
         tag.has_error = has_error;
-        tag.get_value = get_value
+        tag.get_value = get_value;
+        tag.fill_dm_config = fill_dm_config;
+        tag.fill_as_config = fill_as_config;
         // Tag internal state
         tag.masterSecret={};
         tag.masterSalt={};
@@ -314,6 +252,31 @@
                 default:
                     return alg;
             }
+        }
+
+        function fill_dm_config(){
+            tag.refs.initiator.value = 'True';
+            tag.refs.authenticationMethod.value = '3';
+            tag.refs.selectedCiphersuite.value = '2';
+            tag.refs.clientKeyIdentifier.value = '2b';
+            tag.refs.clientPublicKey.value = 'a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8';
+            tag.refs.privateKey.value = 'fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b';
+            tag.refs.peerPublicKeyIdentifier.value = '32';
+            tag.refs.peerPublicKey.value = 'a2026b6578616d706c652e65647508a101a501020241322001215820bbc34960526ea4d32e940cad2a234148ddc21791a12afbcbac93622046dd44f02258204519e257236b2a0ce2023f0931f1f386ca7afda64fcde0108c224c51eabf6072';
+            tag.refs.peerEdhocCoapUriPath.value = '.well-known/edhoc';
+            tag.refs.edhocOscoreCombinedSupport.value = 'False';
+        }
+
+        function fill_as_config(){
+            tag.refs.initiator.value = 'True';
+            tag.refs.authenticationMethod.value = '3';
+            tag.refs.selectedCiphersuite.value = '2';
+            tag.refs.clientKeyIdentifier.value = '08';
+            tag.refs.clientPublicKey.value = 'a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8';
+            tag.refs.privateKey.value = 'fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b';
+            tag.refs.peerPublicKeyIdentifier.value = '25';
+            tag.refs.peerPublicKey.value = 'a2026b6578616d706c652e65647508a101a501020241322001215820bbc34960526ea4d32e940cad2a234148ddc21791a12afbcbac93622046dd44f02258204519e257236b2a0ce2023f0931f1f386ca7afda64fcde0108c224c51eabf6072';
+            tag.refs.edhocOscoreCombinedSupport.value = 'False';
         }
 
         function get_value(){

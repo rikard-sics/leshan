@@ -13,6 +13,12 @@ var configFromRestToUI = function(config){
             if(oscore){
                 newConfig.bs.push({oscore:oscore});
             }
+
+            // add edhoc object (if any) to bs
+            var edhoc = config.edhoc[oscoreObjectInstanceId];
+            if(edhoc){
+                newConfig.bs.push({edhoc:edhoc});
+            }
         }else{
             newConfig.dm = [];
             // search for DM information;
@@ -53,6 +59,7 @@ var configFromUIToRest = function(config){
         var bs = config.bs[i];
         newConfig.security[i] = bs.security;
         newConfig.oscore[i] = bs.oscore;
+        newConfig.edhoc[i] = bs.edhoc;
         writingOscore |= (bs.oscore != null);
     }
     for (var j = 0; j < config.dm.length; j++) {

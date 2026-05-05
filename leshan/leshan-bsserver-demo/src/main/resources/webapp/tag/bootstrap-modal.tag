@@ -36,7 +36,7 @@
                                                     serverpubkey= {serversecurity.rpk.hexDer}
                                                     servercertificate= {serversecurity.certificate.hexDer}
                                                     disable = { {uri:true, serverpubkey:true, servercertificate:true}}
-                                                    secmode = { {no_sec:true, psk:true,rpk:true, x509:true, oscore:true} }
+                                                    secmode = { {no_sec:true, psk:true,rpk:true, x509:true, oscore:true, edhoc:true} }
                                                     ></securityconfig-input>
                         </div>
 
@@ -106,6 +106,25 @@
                     oscoreMasterSalt : bsserverOscore.masterSalt,
                 }
                 var bsOscoreSecurityMode = 0; // link to bs oscore object
+                bsserver.secmode = "NO_SEC"; // act as no_sec from here
+            }
+
+            if(bsserver.secmode === "EDHOC") {
+                var bsserverEdhoc = bsserver.edhoc;
+                var bsEdhoc =
+                {
+                    initiator : bsserverEdhoc.initiator,
+                    authenticationMethod : bsserverEdhoc.authenticationMethod,
+                    selectedCiphersuite : bsserverEdhoc.selectedCiphersuite,
+                    clientKeyIdentifier : bsserverEdhoc.clientKeyIdentifier,
+                    clientPublicKey : bsserverEdhoc.clientPublicKey,
+                    privateKey : bsserverEdhoc.privateKey,
+                    peerPublicKeyIdentifier : bsserverEdhoc.peerPublicKeyIdentifier,
+                    peerPublicKey : bsserverEdhoc.peerPublicKey,
+                    peerEdhocCoapUriPath : bsserverEdhoc.peerEdhocCoapUriPath,
+                    edhocOscoreCombinedSupport : bsserverEdhoc.edhocOscoreCombinedSupport,
+                }
+                var bsOscoreSecurityMode = 0; // link to bs edhoc object
                 bsserver.secmode = "NO_SEC"; // act as no_sec from here
             }
 
@@ -186,7 +205,8 @@
                         uri : bsserver.uri,
                         oscoreSecurityMode : bsOscoreSecurityMode
                       },
-                      oscore : bsOscore
+                      oscore : bsOscore,
+                      edhoc : bsEdhoc
                 }]
             });
             $('#bootstrap-modal').modal('hide');
