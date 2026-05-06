@@ -55,7 +55,7 @@ import org.eclipse.californium.oscore.OSException;
 import org.eclipse.leshan.core.util.Hex;
 import org.eclipse.leshan.core.util.SecurityUtil;
 import org.eclipse.leshan.server.OscoreHandler;
-import org.eclipse.leshan.server.EdhocHandler;
+import org.eclipse.leshan.server.EdhocCredHolder;
 import org.eclipse.leshan.server.security.SecurityInfo;
 
 import com.google.gson.JsonDeserializationContext;
@@ -321,7 +321,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				// Set<CBORObject> ownIdCreds = new HashSet<>();
 
 				// --- Key Pairs ---
-				    HashMap<Integer, OneKey> inner = EdhocHandler.keyPairs.get(Constants.ECDH_KEY);
+				    HashMap<Integer, OneKey> inner = EdhocCredHolder.keyPairs.get(Constants.ECDH_KEY);
 				    if ((selectedCiphersuite == 2 || selectedCiphersuite == 3) && (method == 1 || method == 3)) {
 					OneKey old = inner.put(Constants.CURVE_P256, keyPair);
 					if (old != null && !oneKeysEqual(old, keyPair)) {
@@ -335,7 +335,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 					}
 				    }
 
-				    inner = EdhocHandler.keyPairs.get(Constants.SIGNATURE_KEY);
+				    inner = EdhocCredHolder.keyPairs.get(Constants.SIGNATURE_KEY);
 				    if ((selectedCiphersuite == 2 || selectedCiphersuite == 3) && (method == 0 || method == 2)) {
 					OneKey old = inner.put(Constants.CURVE_P256, keyPair);
 					if (old != null && !oneKeysEqual(old, keyPair)) {
@@ -350,7 +350,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				    }
 
 				    // --- Creds ---
-				    HashMap<Integer, CBORObject> innerC = EdhocHandler.creds.get(Constants.ECDH_KEY);
+				    HashMap<Integer, CBORObject> innerC = EdhocCredHolder.creds.get(Constants.ECDH_KEY);
 				    if ((selectedCiphersuite == 2 || selectedCiphersuite == 3) && (method == 1 || method == 3)) {
 					CBORObject newCred = CBORObject.FromObject(cred);
 					CBORObject old = innerC.put(Constants.CURVE_P256, newCred);
@@ -366,7 +366,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 					}
 				    }
 
-				    innerC = EdhocHandler.creds.get(Constants.SIGNATURE_KEY);
+				    innerC = EdhocCredHolder.creds.get(Constants.SIGNATURE_KEY);
 				    if ((selectedCiphersuite == 2 || selectedCiphersuite == 3) && (method == 0 || method == 2)) {
 					CBORObject newCred = CBORObject.FromObject(cred);
 					CBORObject old = innerC.put(Constants.CURVE_P256, newCred);
@@ -383,7 +383,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				    }
 
 				    // --- ID Creds ---
-				    HashMap<Integer, CBORObject> innerD = EdhocHandler.idCreds.get(Constants.ECDH_KEY);
+				    HashMap<Integer, CBORObject> innerD = EdhocCredHolder.idCreds.get(Constants.ECDH_KEY);
 				    if ((selectedCiphersuite == 2 || selectedCiphersuite == 3) && (method == 1 || method == 3)) {
 					CBORObject old = innerD.put(Constants.CURVE_P256, idCred);
 					if (old != null && !cborObjectsEqual(old, idCred)) {
@@ -397,7 +397,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 					}
 				    }
 
-				    innerD = EdhocHandler.idCreds.get(Constants.SIGNATURE_KEY);
+				    innerD = EdhocCredHolder.idCreds.get(Constants.SIGNATURE_KEY);
 				    if ((selectedCiphersuite == 2 || selectedCiphersuite == 3) && (method == 0 || method == 2)) {
 					CBORObject old = innerD.put(Constants.CURVE_P256, idCred);
 					if (old != null && !cborObjectsEqual(old, idCred)) {
@@ -412,14 +412,14 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				    }
 
 				// Complete map with own ID creds
-				EdhocHandler.ownIdCreds.add(idCred);
+				EdhocCredHolder.ownIdCreds.add(idCred);
 
-				if (EdhocHandler.getEndpointAdded() == false) {
+				if (EdhocCredHolder.getEndpointAdded() == false) {
 					HashMapCtxDB db = OscoreHandler.getContextDB();
 
-					EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(EdhocHandler.idCreds,
-							EdhocHandler.creds, EdhocHandler.keyPairs, EdhocHandler.peerPublicKeys,
-							EdhocHandler.peerCredentials, edhocSessions,
+					EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(EdhocCredHolder.idCreds,
+							EdhocCredHolder.creds, EdhocCredHolder.keyPairs, EdhocCredHolder.peerPublicKeys,
+							EdhocCredHolder.peerCredentials, edhocSessions,
 							usedConnectionIds, supportedCiphersuites, supportedEads, eadProductionInput,
 							Constants.TRUST_MODEL_NO_LEARNING, db, uriLocal, OSCORE_REPLAY_WINDOW, 2048, appStatements);
 
@@ -432,14 +432,14 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 
 					// Build well-known and EDHOC resource
 					// provide an instance of a .well-known/edhoc resource
-					CoapResource edhocResource = new EdhocResource("edhoc", edhocEndpointInfo, EdhocHandler.ownIdCreds);
+					CoapResource edhocResource = new EdhocResource("edhoc", edhocEndpointInfo, EdhocCredHolder.ownIdCreds);
 					CoapResource wellKnownResource = new WellKnown();
 					wellKnownResource.add(edhocResource);
 
 					// Add resource to the CoapServer
 					if (OscoreHandler.getLwServer() != null) {
 						OscoreHandler.getLwServer().add(wellKnownResource);
-						EdhocHandler.setEndpointAdded(true);
+						EdhocCredHolder.setEndpointAdded(true);
 					}
 				}
 
@@ -557,18 +557,18 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 			// byte[] peerKid = new byte[] { (byte) 0x07 };
 			System.out.println("Peer ID Cred " + Utils.toHexString(peerKid));
 			CBORObject idCredPeer = org.eclipse.californium.edhoc.Util.buildIdCredKid(peerKid);
-			EdhocHandler.peerPublicKeys.put(idCredPeer, peerPublicKey);
+			EdhocCredHolder.peerPublicKeys.put(idCredPeer, peerPublicKey);
 			// Set the related CRED (full CCS)
 			peerCred = thePeerPublicKey.clone();
-			EdhocHandler.peerCredentials.put(idCredPeer, CBORObject.FromObject(peerCred));
+			EdhocCredHolder.peerCredentials.put(idCredPeer, CBORObject.FromObject(peerCred));
 			System.out.println("Adding peer key: " + StringUtil.byteArray2Hex(peerCred));
 			break;
 		default:
 			System.err.println("ERROR in cred type switch!");
 			break;
 		}
-		EdhocHandler.peerPublicKeys.put(peerIdCred, peerPublicKey);
-		EdhocHandler.peerCredentials.put(peerIdCred, CBORObject.FromObject(peerCred));
+		EdhocCredHolder.peerPublicKeys.put(peerIdCred, peerPublicKey);
+		EdhocCredHolder.peerCredentials.put(peerIdCred, CBORObject.FromObject(peerCred));
 	}
 
 	/*

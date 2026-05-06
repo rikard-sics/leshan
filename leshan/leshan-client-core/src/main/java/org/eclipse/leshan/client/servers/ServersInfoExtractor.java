@@ -40,7 +40,7 @@ import java.util.Map;
 
 import org.eclipse.californium.oscore.OSCoreCtx;
 import org.eclipse.californium.oscore.OSException;
-import org.eclipse.leshan.client.OscoreHandler;
+import org.eclipse.leshan.client.OscoreEdhocHandler;
 import org.eclipse.leshan.client.resource.LwM2mInstanceEnabler;
 import org.eclipse.leshan.client.resource.LwM2mObjectEnabler;
 import org.eclipse.leshan.core.CertificateUsage;
@@ -271,11 +271,11 @@ public class ServersInfoExtractor {
 						System.out.println("Client using OSCORE after EDHOC to DM");
 
 						// Retrieve OSCORE context established by EDHOC String
-						String lwServerUri = OscoreHandler.getlwServerUri();
+						String lwServerUri = OscoreEdhocHandler.getlwServerUri();
 						OSCoreCtx ctx = null;
 						try {
 							System.out.println("Looking for Context with string: " + lwServerUri);
-							ctx = OscoreHandler.getContextDB().getContext(lwServerUri);
+							ctx = OscoreEdhocHandler.getContextDB().getContext(lwServerUri);
 						} catch (OSException e) {
 							System.err.println("Failed to retrieve OSCORE context established by EDHOC");
 							e.printStackTrace();

@@ -1,17 +1,19 @@
 package org.eclipse.leshan.client;
 
 /**
- * Class to manage client credentials indicated on the command line.
+ * Class to manage override client EDHOC credentials indicated on the command
+ * line. Note that this class only handles the credentials meant to override
+ * what is received from the BS.
  * 
  *
  */
-public final class ClientCredentialManager {
+public final class ClientBootstrapOverrideCreds {
 
 	private static byte[] clientKeyIdentifier;
 	private static byte[] clientPublicKey;
 	private static byte[] privateKey;
 
-	private ClientCredentialManager() {
+	private ClientBootstrapOverrideCreds() {
 	}
 
 	public static byte[] getClientKeyIdentifier() {

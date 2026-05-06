@@ -18,7 +18,6 @@ package org.eclipse.leshan.client;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import org.eclipse.californium.oscore.HashMapCtxDB;
@@ -26,8 +25,12 @@ import org.eclipse.leshan.client.object.Edhoc;
 
 import com.upokecenter.cbor.CBORObject;
 
-//TODO OSCORE : remove this class and static access.
-public class OscoreHandler {
+/**
+ * Class to hold client config for EDHOC and OSCORE.
+ * 
+ *
+ */
+public class OscoreEdhocHandler {
 
     private static HashMapCtxDB db;
 	private static String lwServerUri;

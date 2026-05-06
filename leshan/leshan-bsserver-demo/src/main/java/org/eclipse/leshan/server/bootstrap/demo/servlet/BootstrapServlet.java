@@ -46,7 +46,7 @@ import org.eclipse.californium.edhoc.EdhocSession;
 import org.eclipse.californium.edhoc.SharedSecretCalculation;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.leshan.core.request.BindingMode;
-import org.eclipse.leshan.server.EdhocHandler;
+import org.eclipse.leshan.server.EdhocCredHolder;
 import org.eclipse.leshan.server.OscoreHandler;
 import org.eclipse.leshan.server.bootstrap.BootstrapConfig;
 import org.eclipse.leshan.server.bootstrap.EditableBootstrapConfigStore;
@@ -201,7 +201,7 @@ public class BootstrapServlet extends HttpServlet {
         }
         if (bsEdhoc == null) return;
 
-        EdhocHandler.init();
+        EdhocCredHolder.init();
         org.eclipse.californium.edhoc.Util.installCryptoProvider();
 
         if (supportedCiphersuites.isEmpty())
@@ -217,9 +217,9 @@ public class BootstrapServlet extends HttpServlet {
         }
 
         CBORObject idCred = org.eclipse.californium.edhoc.Util.buildIdCredKid(bsEdhoc.peerPublicKeyIdentifier);
-        EdhocHandler.ownIdCreds.add(idCred);
+        EdhocCredHolder.ownIdCreds.add(idCred);
 
-        if (!EdhocHandler.getEndpointAdded() && OscoreHandler.getLwServer() != null) {
+        if (!EdhocCredHolder.getEndpointAdded() && OscoreHandler.getLwServer() != null) {
             Set<Integer> authMethods = new HashSet<>(Arrays.asList(0, 1, 2, 3));
             AppProfile appStatement = new AppProfile(authMethods, false, true, false);
             HashMap<String, AppProfile> appStatements = new HashMap<>();
@@ -230,16 +230,16 @@ public class BootstrapServlet extends HttpServlet {
             HashMapCtxDB db = OscoreHandler.getContextDB();
 			Set<Integer> supportedEads = new HashSet<Integer>();
 			HashMap<Integer, List<CBORObject>> eadProductionInput = null;
-			EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(EdhocHandler.idCreds, EdhocHandler.creds,
-					EdhocHandler.keyPairs, EdhocHandler.peerPublicKeys, EdhocHandler.peerCredentials, edhocSessions,
+			EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(EdhocCredHolder.idCreds, EdhocCredHolder.creds,
+					EdhocCredHolder.keyPairs, EdhocCredHolder.peerPublicKeys, EdhocCredHolder.peerCredentials, edhocSessions,
 					usedConnectionIds, supportedCiphersuites, supportedEads, eadProductionInput,
 					Constants.TRUST_MODEL_NO_LEARNING, db, URI_LOCAL, OSCORE_REPLAY_WINDOW, 2048, appStatements);
 
-            CoapResource edhocResource = new EdhocResource("edhoc", edhocEndpointInfo, EdhocHandler.ownIdCreds);
+            CoapResource edhocResource = new EdhocResource("edhoc", edhocEndpointInfo, EdhocCredHolder.ownIdCreds);
             CoapResource wellKnownResource = new WellKnownResource();
             wellKnownResource.add(edhocResource);
             OscoreHandler.getLwServer().add(wellKnownResource);
-            EdhocHandler.setEndpointAdded(true);
+            EdhocCredHolder.setEndpointAdded(true);
         }
     }
 
@@ -249,12 +249,12 @@ public class BootstrapServlet extends HttpServlet {
         CBORObject idCred = org.eclipse.californium.edhoc.Util.buildIdCredKid(myKid);
         CBORObject cred = CBORObject.FromObject(stripPrivateKeyFromCcs(myCcs));
 
-        HashMap<Integer, OneKey> kpEcdh = EdhocHandler.keyPairs.get(Constants.ECDH_KEY);
-        HashMap<Integer, OneKey> kpSig  = EdhocHandler.keyPairs.get(Constants.SIGNATURE_KEY);
-        HashMap<Integer, CBORObject> crEcdh = EdhocHandler.creds.get(Constants.ECDH_KEY);
-        HashMap<Integer, CBORObject> crSig  = EdhocHandler.creds.get(Constants.SIGNATURE_KEY);
-        HashMap<Integer, CBORObject> idEcdh = EdhocHandler.idCreds.get(Constants.ECDH_KEY);
-        HashMap<Integer, CBORObject> idSig  = EdhocHandler.idCreds.get(Constants.SIGNATURE_KEY);
+        HashMap<Integer, OneKey> kpEcdh = EdhocCredHolder.keyPairs.get(Constants.ECDH_KEY);
+        HashMap<Integer, OneKey> kpSig  = EdhocCredHolder.keyPairs.get(Constants.SIGNATURE_KEY);
+        HashMap<Integer, CBORObject> crEcdh = EdhocCredHolder.creds.get(Constants.ECDH_KEY);
+        HashMap<Integer, CBORObject> crSig  = EdhocCredHolder.creds.get(Constants.SIGNATURE_KEY);
+        HashMap<Integer, CBORObject> idEcdh = EdhocCredHolder.idCreds.get(Constants.ECDH_KEY);
+        HashMap<Integer, CBORObject> idSig  = EdhocCredHolder.idCreds.get(Constants.SIGNATURE_KEY);
 
         if ((selectedCiphersuite == 2 || selectedCiphersuite == 3) && (method == 1 || method == 3)) {
             kpEcdh.put(Constants.CURVE_P256, keyPair);
@@ -279,8 +279,8 @@ public class BootstrapServlet extends HttpServlet {
 
         OneKey peerPublicKey = oneKeyFromCcs(peerCcs, false);
         CBORObject peerIdCred = org.eclipse.californium.edhoc.Util.buildIdCredKid(peerKid);
-        EdhocHandler.peerPublicKeys.put(peerIdCred, peerPublicKey);
-        EdhocHandler.peerCredentials.put(peerIdCred, CBORObject.FromObject(peerCcs));
+        EdhocCredHolder.peerPublicKeys.put(peerIdCred, peerPublicKey);
+        EdhocCredHolder.peerCredentials.put(peerIdCred, CBORObject.FromObject(peerCcs));
     }
 
     private static OneKey oneKeyFromCcs(byte[] ccsBytes, boolean requirePrivate) throws CoseException {

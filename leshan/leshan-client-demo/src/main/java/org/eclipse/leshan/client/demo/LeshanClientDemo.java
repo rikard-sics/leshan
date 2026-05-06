@@ -78,8 +78,8 @@ import org.eclipse.californium.scandium.dtls.SessionAdapter;
 import org.eclipse.californium.scandium.dtls.SessionId;
 import org.eclipse.californium.scandium.dtls.SingleNodeConnectionIdGenerator;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
-import org.eclipse.leshan.client.ClientCredentialManager;
-import org.eclipse.leshan.client.OscoreHandler;
+import org.eclipse.leshan.client.ClientBootstrapOverrideCreds;
+import org.eclipse.leshan.client.OscoreEdhocHandler;
 import org.eclipse.leshan.client.californium.LeshanClient;
 import org.eclipse.leshan.client.californium.LeshanClientBuilder;
 import org.eclipse.leshan.client.engine.DefaultRegistrationEngineFactory;
@@ -375,7 +375,7 @@ public class LeshanClientDemo {
 
         // Check if EDHOC is supported
         if (cl.hasOption("edhoc")) {
-            OscoreHandler.setWithEdhoc(true);
+            OscoreEdhocHandler.setWithEdhoc(true);
         }
 
         // Abort if all X509 config is not complete
@@ -700,7 +700,7 @@ public class LeshanClientDemo {
         String modelsFolderPath = cl.getOptionValue("m");
 
         // TODO OSCORE : OSCoreCoapStack should be create in Default endpoint factory
-        HashMapCtxDB db = OscoreHandler.getContextDB();
+        HashMapCtxDB db = OscoreEdhocHandler.getContextDB();
         OSCoreCoapStackFactory.useAsDefault(db);
 
         // Set parameters controlling OSCORE usage
@@ -792,7 +792,7 @@ public class LeshanClientDemo {
             }
 
             byte[] edhocClientKeyIdentifier = StringUtil.hex2ByteArray(edhocClientKeyIdentifierStr);
-            ClientCredentialManager.setClientKeyIdentifier(edhocClientKeyIdentifier);
+            ClientBootstrapOverrideCreds.setClientKeyIdentifier(edhocClientKeyIdentifier);
         }
 
         if (cl.hasOption("ecpub")) {
@@ -805,7 +805,7 @@ public class LeshanClientDemo {
             }
 
             byte[] edhocClientPublicKey = StringUtil.hex2ByteArray(edhocClientPublicKeyStr);
-            ClientCredentialManager.setClientPublicKey(edhocClientPublicKey);
+            ClientBootstrapOverrideCreds.setClientPublicKey(edhocClientPublicKey);
         }
 
         if (cl.hasOption("ecpriv")) {
@@ -818,29 +818,29 @@ public class LeshanClientDemo {
             }
 
             byte[] edhocPrivateKey = StringUtil.hex2ByteArray(edhocPrivateKeyStr);
-            ClientCredentialManager.setPrivateKey(edhocPrivateKey);
+            ClientBootstrapOverrideCreds.setPrivateKey(edhocPrivateKey);
         }
 
         if (cl.hasOption("ecpkid")) {
             byte[] val = StringUtil.hex2ByteArray(cl.getOptionValue("ecpkid"));
-            OscoreHandler.setBsPeerKeyIdentifier(val);
+            OscoreEdhocHandler.setBsPeerKeyIdentifier(val);
         }
 
         if (cl.hasOption("ecppub")) {
             byte[] val = StringUtil.hex2ByteArray(cl.getOptionValue("ecppub"));
-            OscoreHandler.setBsPeerPublicKey(val);
+            OscoreEdhocHandler.setBsPeerPublicKey(val);
         }
 
         if (cl.hasOption("ecppath")) {
-            OscoreHandler.setBsPeerEdhocPath(cl.getOptionValue("ecppath"));
+            OscoreEdhocHandler.setBsPeerEdhocPath(cl.getOptionValue("ecppath"));
         }
 
         if (cl.hasOption("ecpm")) {
-            OscoreHandler.setBsAuthMethod(Integer.parseInt(cl.getOptionValue("ecpm")));
+            OscoreEdhocHandler.setBsAuthMethod(Integer.parseInt(cl.getOptionValue("ecpm")));
         }
 
         if (cl.hasOption("ecpcs")) {
-            OscoreHandler.setBsCiphersuite(Integer.parseInt(cl.getOptionValue("ecpcs")));
+            OscoreEdhocHandler.setBsCiphersuite(Integer.parseInt(cl.getOptionValue("ecpcs")));
         }
 
         try {

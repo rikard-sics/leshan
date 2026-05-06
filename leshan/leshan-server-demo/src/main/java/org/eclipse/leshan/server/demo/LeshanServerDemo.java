@@ -63,7 +63,7 @@ import org.eclipse.leshan.core.node.codec.DefaultLwM2mNodeDecoder;
 import org.eclipse.leshan.core.node.codec.DefaultLwM2mNodeEncoder;
 import org.eclipse.leshan.core.node.codec.LwM2mNodeDecoder;
 import org.eclipse.leshan.core.util.SecurityUtil;
-import org.eclipse.leshan.server.EdhocHandler;
+import org.eclipse.leshan.server.EdhocCredHolder;
 import org.eclipse.leshan.server.OscoreHandler;
 import org.eclipse.leshan.server.californium.LeshanServer;
 import org.eclipse.leshan.server.californium.LeshanServerBuilder;
@@ -118,7 +118,7 @@ public class LeshanServerDemo {
     public static void main(String[] args) {
 
 		printVersion();
-		EdhocHandler.init();
+		EdhocCredHolder.init();
 
     	// Delete old config files
 		String serverData = "data/security.data";

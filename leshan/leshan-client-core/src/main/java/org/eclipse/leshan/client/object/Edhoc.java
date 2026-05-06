@@ -42,8 +42,8 @@ import org.eclipse.californium.edhoc.EdhocSession;
 import org.eclipse.californium.edhoc.SharedSecretCalculation;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.oscore.HashMapCtxDB;
-import org.eclipse.leshan.client.ClientCredentialManager;
-import org.eclipse.leshan.client.OscoreHandler;
+import org.eclipse.leshan.client.ClientBootstrapOverrideCreds;
+import org.eclipse.leshan.client.OscoreEdhocHandler;
 import org.eclipse.leshan.client.resource.BaseInstanceEnabler;
 import org.eclipse.leshan.client.servers.ServerIdentity;
 import org.eclipse.leshan.core.model.ObjectModel;
@@ -131,7 +131,7 @@ public class Edhoc extends BaseInstanceEnabler {
 
 		// RH: Run EDHOC now (when reaching the last resource)
 		// RH: TODO: Do somewhere else instead?
-		if (resourceId == Edhoc_Oscore_Combined_Support && !OscoreHandler.getEdhocWithDmDone()) {
+		if (resourceId == Edhoc_Oscore_Combined_Support && !OscoreEdhocHandler.getEdhocWithDmDone()) {
 
 			// Utils.printPause("Running EDHOC with Device Manager");
 			
@@ -153,9 +153,9 @@ public class Edhoc extends BaseInstanceEnabler {
 
 			// Specify the processor of External Authorization Data
 			String args[] = new String[0];
-			HashMapCtxDB db = OscoreHandler.getContextDB();
+			HashMapCtxDB db = OscoreEdhocHandler.getContextDB();
 			// String edhocURI = identity.getUri() + "/.well-known/edhoc";
-			String edhocURI = OscoreHandler.getlwServerUri() + "/.well-known/edhoc";
+			String edhocURI = OscoreEdhocHandler.getlwServerUri() + "/.well-known/edhoc";
 			// String edhocURI = "coap://127.0.0.2" + "/.well-known/edhoc";
 			System.out.println("Running EDHOC with DM at: " + edhocURI);
 
@@ -300,13 +300,13 @@ public class Edhoc extends BaseInstanceEnabler {
 					null, combinedRequestAppPayload);
 			System.out.println("EDHOC succeeded: " + ret);
 			
-			OscoreHandler.setEdhocWithDmDone(true);
-		} else if (resourceId == Edhoc_Oscore_Combined_Support && OscoreHandler.getEdhocWithDmDone()) {
+			OscoreEdhocHandler.setEdhocWithDmDone(true);
+		} else if (resourceId == Edhoc_Oscore_Combined_Support && OscoreEdhocHandler.getEdhocWithDmDone()) {
 			Edhoc temp = new Edhoc(100, initiator, authenticationMethod.longValue(), selectedCiphersuite.longValue(),
 		            clientKeyIdentifier,
 		            clientPublicKey, privateKey, peerPublicKeyIdentifier, peerPublicKey,
 					peerEdhocCoapUriPath, edhocOscoreCombinedSupport);
-			OscoreHandler.setAsEdhocObj(temp);
+			OscoreEdhocHandler.setAsEdhocObj(temp);
 			
 		}
 		// End run EDHOC
@@ -346,10 +346,10 @@ public class Edhoc extends BaseInstanceEnabler {
 		    }
 		    clientKeyIdentifier = (byte[]) value.getValue();
 		    if (clientKeyIdentifier == null || clientKeyIdentifier.length == 0) {
-		        clientKeyIdentifier = ClientCredentialManager.getClientKeyIdentifier();
+		        clientKeyIdentifier = ClientBootstrapOverrideCreds.getClientKeyIdentifier();
 		        System.out.println("Using local information for EDHOC Client Key Identifier");
 		    } else {
-		        if (ClientCredentialManager.getClientKeyIdentifier() != null) {
+		        if (ClientBootstrapOverrideCreds.getClientKeyIdentifier() != null) {
 		            System.out.println("Warning: Received EDHOC Client Key Identifier configuration from both BS and command line!");
 		        }
 		    }
@@ -361,10 +361,10 @@ public class Edhoc extends BaseInstanceEnabler {
 		    }
 		    clientPublicKey = (byte[]) value.getValue();
 		    if (clientPublicKey == null || clientPublicKey.length == 0) {
-		        clientPublicKey = ClientCredentialManager.getClientPublicKey();
+		        clientPublicKey = ClientBootstrapOverrideCreds.getClientPublicKey();
 		        System.out.println("Using local information for EDHOC Client Public Key");
 		    } else {
-		        if (ClientCredentialManager.getClientPublicKey() != null) {
+		        if (ClientBootstrapOverrideCreds.getClientPublicKey() != null) {
 		            System.out.println("Warning: Received Client EDHOC Public Key configuration from both BS and command line!");
 		        }
 		    }
@@ -376,10 +376,10 @@ public class Edhoc extends BaseInstanceEnabler {
 		    }
 		    privateKey = (byte[]) value.getValue();
 		    if (privateKey == null || privateKey.length == 0) {
-		        privateKey = ClientCredentialManager.getPrivateKey();
+		        privateKey = ClientBootstrapOverrideCreds.getPrivateKey();
 		        System.out.println("Using local information for EDHOC (Client) Private Key");
 		    } else {
-		        if (ClientCredentialManager.getPrivateKey() != null) {
+		        if (ClientBootstrapOverrideCreds.getPrivateKey() != null) {
 		            System.out.println("Warning: Received EDHOC Client Private Key configuration from both BS and command line!");
 		        }
 		    }
@@ -482,7 +482,7 @@ public class Edhoc extends BaseInstanceEnabler {
 	// Other variables needed
 	static final int keyCurve = KeyKeys.EC2_P256.AsInt32(); // ECDSA
 	static HashMap<CBORObject, EdhocSession> edhocSessions = new HashMap<CBORObject, EdhocSession>();
-	static Set<CBORObject> usedConnectionIds = OscoreHandler.getUsedConnectionIds();
+	static Set<CBORObject> usedConnectionIds = OscoreEdhocHandler.getUsedConnectionIds();
 	static String uriLocal = "coap://localhost";
 	static final int OSCORE_REPLAY_WINDOW = 32;
 	static HashMap<String, AppProfile> appStatements = new HashMap<String, AppProfile>();;

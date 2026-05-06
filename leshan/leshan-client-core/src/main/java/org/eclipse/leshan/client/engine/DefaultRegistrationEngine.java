@@ -55,7 +55,7 @@ import org.eclipse.californium.oscore.OSCoreCtx;
 import org.eclipse.californium.oscore.OSException;
 import org.eclipse.leshan.client.object.Edhoc;
 import org.eclipse.leshan.client.EndpointsManager;
-import org.eclipse.leshan.client.OscoreHandler;
+import org.eclipse.leshan.client.OscoreEdhocHandler;
 import org.eclipse.leshan.client.RegistrationUpdate;
 import org.eclipse.leshan.client.bootstrap.BootstrapHandler;
 import org.eclipse.leshan.client.observer.LwM2mClientObserver;
@@ -245,7 +245,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
             LOG.info("Trying to start bootstrap session to {} ...", bootstrapServerInfo.getFullUri());
 
             // If CLI-supplied BS EDHOC peer config is present, run EDHOC now and derive OSCORE context
-            if (OscoreHandler.getBsPeerKeyIdentifier() != null && OscoreHandler.getBsPeerPublicKey() != null) {
+            if (OscoreEdhocHandler.getBsPeerKeyIdentifier() != null && OscoreEdhocHandler.getBsPeerPublicKey() != null) {
                 runEdhocWithBootstrapServer(bootstrapServerInfo);
             }
 
@@ -369,10 +369,10 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
                 LOG.info("Registered with location '{}'.", registrationID);
 
                 // Run EDHOC with application server
-                if(!edhocWithASsDone && OscoreHandler.withEdhoc()) {
+                if(!edhocWithASsDone && OscoreEdhocHandler.withEdhoc()) {
                     Utils.printPause("Will now run EDHOC with Application Server: ");
                     
-                	for(int i = 0 ; i < OscoreHandler.getAsEdhocObjs().size() ; i++) {
+                	for(int i = 0 ; i < OscoreEdhocHandler.getAsEdhocObjs().size() ; i++) {
 						System.out.println("To be aligned with new approach for external AS");
 						// runEdhoc(OscoreHandler.getAsEdhocObjs().get(i));
                 	}
@@ -381,7 +381,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
                 	
                 	Utils.printPause("Will do an initial request to the Application Server: ");
                 	//
-                	CoapClient c = new CoapClient(OscoreHandler.getAsServerUri() + "/test");
+                	CoapClient c = new CoapClient(OscoreEdhocHandler.getAsServerUri() + "/test");
             		Request r = new Request(Code.GET);
             		r.getOptions().setOscore(Bytes.EMPTY);
             		try {
@@ -647,7 +647,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
     // Task for AS requests
     private synchronized void scheduleAsRequest(long timeInMs) {
     	
-    	if(asRequestPending || !OscoreHandler.withEdhoc()) {
+    	if(asRequestPending || !OscoreEdhocHandler.withEdhoc()) {
     		return;
     	}
     	
@@ -674,7 +674,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
                 try {
             		asRequestPending = false;
                 	//
-                	CoapClient c = new CoapClient(OscoreHandler.getAsServerUri() + "/test");
+                	CoapClient c = new CoapClient(OscoreEdhocHandler.getAsServerUri() + "/test");
             		Request r = new Request(Code.GET);
             		r.getOptions().setOscore(Bytes.EMPTY);
             		try {
@@ -1002,14 +1002,14 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
     private void runEdhocWithBootstrapServer(ServerInfo bootstrapServerInfo) {
         org.eclipse.californium.edhoc.Util.installCryptoProvider();
 
-        byte[] clientKid = org.eclipse.leshan.client.ClientCredentialManager.getClientKeyIdentifier();
-        byte[] clientCcs = org.eclipse.leshan.client.ClientCredentialManager.getClientPublicKey();
-        byte[] clientPriv = org.eclipse.leshan.client.ClientCredentialManager.getPrivateKey();
-        byte[] peerKid    = OscoreHandler.getBsPeerKeyIdentifier();
-        byte[] peerCcs    = OscoreHandler.getBsPeerPublicKey();
-        int    method     = OscoreHandler.getBsAuthMethod();
-        int    suite      = OscoreHandler.getBsCiphersuite();
-        String edhocPath  = OscoreHandler.getBsPeerEdhocPath();
+        byte[] clientKid = org.eclipse.leshan.client.ClientBootstrapOverrideCreds.getClientKeyIdentifier();
+        byte[] clientCcs = org.eclipse.leshan.client.ClientBootstrapOverrideCreds.getClientPublicKey();
+        byte[] clientPriv = org.eclipse.leshan.client.ClientBootstrapOverrideCreds.getPrivateKey();
+        byte[] peerKid    = OscoreEdhocHandler.getBsPeerKeyIdentifier();
+        byte[] peerCcs    = OscoreEdhocHandler.getBsPeerPublicKey();
+        int    method     = OscoreEdhocHandler.getBsAuthMethod();
+        int    suite      = OscoreEdhocHandler.getBsCiphersuite();
+        String edhocPath  = OscoreEdhocHandler.getBsPeerEdhocPath();
 
         // Build the EDHOC URI from the bootstrap server URI
         String bsUri   = bootstrapServerInfo.getFullUri().toString();
@@ -1080,7 +1080,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
         HashMap<String, AppProfile> bsAppStatements = new HashMap<>();
         bsAppStatements.put(edhocUri, new AppProfile(authMethods, false, true, false));
 
-        HashMapCtxDB db = OscoreHandler.getContextDB();
+        HashMapCtxDB db = OscoreEdhocHandler.getContextDB();
         Set<Integer> supportedEads = new HashSet<>();
 
         EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(idCreds, creds, keyPairs, peerPublicKeys,
@@ -1135,7 +1135,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 	// Other variables needed
 	static final int keyCurve = KeyKeys.EC2_P256.AsInt32(); // ECDSA
 	static HashMap<CBORObject, EdhocSession> edhocSessions = new HashMap<CBORObject, EdhocSession>();
-	static Set<CBORObject> usedConnectionIds = OscoreHandler.getUsedConnectionIds();
+	static Set<CBORObject> usedConnectionIds = OscoreEdhocHandler.getUsedConnectionIds();
 	static String uriLocal = "coap://localhost";
 	static final int OSCORE_REPLAY_WINDOW = 32;
 	static HashMap<String, AppProfile> appStatements = new HashMap<String, AppProfile>();

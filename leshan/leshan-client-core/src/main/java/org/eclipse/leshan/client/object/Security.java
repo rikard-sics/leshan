@@ -22,7 +22,7 @@ import static org.eclipse.leshan.core.LwM2mId.*;
 import java.util.Arrays;
 import java.util.List;
 
-import org.eclipse.leshan.client.OscoreHandler;
+import org.eclipse.leshan.client.OscoreEdhocHandler;
 import org.eclipse.leshan.client.resource.BaseInstanceEnabler;
 import org.eclipse.leshan.client.resource.LwM2mInstanceEnabler;
 import org.eclipse.leshan.client.servers.ServerIdentity;
@@ -243,11 +243,11 @@ public class Security extends BaseInstanceEnabler {
             if(!bootstrapServer && shortServerId == 123) {
             	System.out.println("Short server ID: " + shortServerId);
             	System.out.println("Device Manager URI: " + serverUri);
-            	OscoreHandler.setlwServerUri(serverUri); // RH: TODO: Move?
+            	OscoreEdhocHandler.setlwServerUri(serverUri); // RH: TODO: Move?
             } else if(!bootstrapServer) {
             	System.out.println("Short server ID: " + shortServerId);
             	System.out.println("AS URI: " + serverUri);
-            	OscoreHandler.setAsServerUri(serverUri); // RH: TODO: Move?
+            	OscoreEdhocHandler.setAsServerUri(serverUri); // RH: TODO: Move?
             }
             
             return WriteResponse.success();

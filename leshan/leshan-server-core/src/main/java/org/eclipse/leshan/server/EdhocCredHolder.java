@@ -24,7 +24,11 @@ import org.eclipse.californium.cose.OneKey;
 import org.eclipse.californium.edhoc.Constants;
 import com.upokecenter.cbor.CBORObject;
 
-public class EdhocHandler {
+/**
+ * Class store credentials and configuration for EDHOC for this server instance.
+ *
+ */
+public class EdhocCredHolder {
 
 	private static boolean endpointAdded = false;
 	private static boolean initiated = false;

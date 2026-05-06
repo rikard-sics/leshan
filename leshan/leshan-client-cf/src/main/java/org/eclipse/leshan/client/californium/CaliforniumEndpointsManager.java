@@ -53,7 +53,7 @@ import org.eclipse.californium.scandium.dtls.x509.NewAdvancedCertificateVerifier
 import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
 import org.eclipse.californium.scandium.dtls.x509.StaticNewAdvancedCertificateVerifier;
 import org.eclipse.leshan.client.EndpointsManager;
-import org.eclipse.leshan.client.OscoreHandler;
+import org.eclipse.leshan.client.OscoreEdhocHandler;
 import org.eclipse.leshan.client.servers.ServerIdentity;
 import org.eclipse.leshan.client.servers.ServerIdentity.Role;
 import org.eclipse.leshan.client.servers.ServerInfo;
@@ -234,7 +234,7 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
             // oscore only mode
             LOG.info("Adding OSCORE context for " + serverInfo.getFullUri().toASCIIString());
             // TODO OSCORE : use OscoreStore instead ?
-            HashMapCtxDB db = OscoreHandler.getContextDB();
+            HashMapCtxDB db = OscoreEdhocHandler.getContextDB();
 
             AlgorithmID hkdfAlg = null;
             try {
