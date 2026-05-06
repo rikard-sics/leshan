@@ -291,7 +291,7 @@
                 selectedCiphersuite:tag.refs.selectedCiphersuite.value,
                 clientKeyIdentifier:tag.refs.clientKeyIdentifier.value,
                 clientPublicKey:tag.refs.clientPublicKey.value,
-                privateKey:tag.refs.privateKey.value,
+                privateKey:tag.refs.privateKey ? tag.refs.privateKey.value : '',
                 peerPublicKeyIdentifier:tag.refs.peerPublicKeyIdentifier.value,
                 peerPublicKey:tag.refs.peerPublicKey.value,
                 peerEdhocCoapUriPath:tag.refs.peerEdhocCoapUriPath.value,
