@@ -16,10 +16,13 @@
 package org.eclipse.leshan.client.engine;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,10 +44,16 @@ import org.eclipse.californium.core.coap.CoAP.Code;
 import org.eclipse.californium.cose.KeyKeys;
 import org.eclipse.californium.cose.OneKey;
 import org.eclipse.californium.edhoc.AppProfile;
+import org.eclipse.californium.edhoc.ClientEdhocExecutor;
 import org.eclipse.californium.edhoc.Constants;
+import org.eclipse.californium.edhoc.EdhocEndpointInfo;
 import org.eclipse.californium.edhoc.EdhocSession;
 import org.eclipse.californium.elements.exception.ConnectorException;
 import org.eclipse.californium.elements.util.Bytes;
+import org.eclipse.californium.oscore.HashMapCtxDB;
+import org.eclipse.californium.oscore.OSCoreCtx;
+import org.eclipse.californium.oscore.OSException;
+import org.eclipse.leshan.client.object.Edhoc;
 import org.eclipse.leshan.client.EndpointsManager;
 import org.eclipse.leshan.client.OscoreHandler;
 import org.eclipse.leshan.client.RegistrationUpdate;
@@ -234,6 +243,11 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
 
         if (bootstrapHandler.tryToInitSession()) {
             LOG.info("Trying to start bootstrap session to {} ...", bootstrapServerInfo.getFullUri());
+
+            // If CLI-supplied BS EDHOC peer config is present, run EDHOC now and derive OSCORE context
+            if (OscoreHandler.getBsPeerKeyIdentifier() != null && OscoreHandler.getBsPeerPublicKey() != null) {
+                runEdhocWithBootstrapServer(bootstrapServerInfo);
+            }
 
             // Clear all registered server, cancel all current task and recreate all endpoints
             registeredServers.clear();
@@ -980,9 +994,131 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
     }
     
     
-    // Initiate EDHOC
-    
-    
+    /**
+     * Runs EDHOC with the Bootstrap Server using CLI-supplied peer credentials,
+     * then populates bootstrapServerInfo with the derived OSCORE context so that
+     * createEndpoint() treats the connection as OSCORE (builtFromEdhoc=true).
+     */
+    private void runEdhocWithBootstrapServer(ServerInfo bootstrapServerInfo) {
+        org.eclipse.californium.edhoc.Util.installCryptoProvider();
+
+        byte[] clientKid = org.eclipse.leshan.client.ClientCredentialManager.getClientKeyIdentifier();
+        byte[] clientCcs = org.eclipse.leshan.client.ClientCredentialManager.getClientPublicKey();
+        byte[] clientPriv = org.eclipse.leshan.client.ClientCredentialManager.getPrivateKey();
+        byte[] peerKid    = OscoreHandler.getBsPeerKeyIdentifier();
+        byte[] peerCcs    = OscoreHandler.getBsPeerPublicKey();
+        int    method     = OscoreHandler.getBsAuthMethod();
+        int    suite      = OscoreHandler.getBsCiphersuite();
+        String edhocPath  = OscoreHandler.getBsPeerEdhocPath();
+
+        // Build the EDHOC URI from the bootstrap server URI
+        String bsUri   = bootstrapServerInfo.getFullUri().toString();
+        String edhocUri = bsUri.endsWith("/") ? bsUri + edhocPath : bsUri + "/" + edhocPath;
+        System.out.println("Running EDHOC with Bootstrap Server at: " + edhocUri);
+
+        // Set up identity keys using Edhoc's static helper
+        try {
+            keyPair = Edhoc.oneKeyFromCcs(clientCcs, clientPriv);
+        } catch (Exception e) {
+            System.err.println("Failed to build client COSE key for BS EDHOC: " + e.getMessage());
+            return;
+        }
+        idCred = org.eclipse.californium.edhoc.Util.buildIdCredKid(clientKid);
+        cred   = clientCcs.clone();
+
+        CBORObject peerIdCred = org.eclipse.californium.edhoc.Util.buildIdCredKid(peerKid);
+        try {
+            OneKey peerKey = Edhoc.oneKeyFromCcs(peerCcs);
+            peerPublicKeys.put(peerIdCred, peerKey);
+            peerCredentials.put(peerIdCred, CBORObject.FromObject(peerCcs.clone()));
+        } catch (Exception e) {
+            System.err.println("Failed to build peer COSE key for BS EDHOC: " + e.getMessage());
+            return;
+        }
+
+        // Supported ciphersuite
+        List<Integer> bsSupportedCiphersuites = new ArrayList<>();
+        bsSupportedCiphersuites.add(suite);
+
+        // Build key maps
+        HashMap<Integer, HashMap<Integer, OneKey>>    keyPairs  = new HashMap<>();
+        HashMap<Integer, HashMap<Integer, CBORObject>> idCreds  = new HashMap<>();
+        HashMap<Integer, HashMap<Integer, CBORObject>> creds    = new HashMap<>();
+        keyPairs.put(Constants.SIGNATURE_KEY, new HashMap<Integer, OneKey>());
+        keyPairs.put(Constants.ECDH_KEY,      new HashMap<Integer, OneKey>());
+        creds.put(Constants.SIGNATURE_KEY,    new HashMap<Integer, CBORObject>());
+        creds.put(Constants.ECDH_KEY,         new HashMap<Integer, CBORObject>());
+        idCreds.put(Constants.SIGNATURE_KEY,  new HashMap<Integer, CBORObject>());
+        idCreds.put(Constants.ECDH_KEY,       new HashMap<Integer, CBORObject>());
+
+        if ((suite == 2 || suite == 3) && (method == 1 || method == 3)) {
+            keyPairs.get(Constants.ECDH_KEY).put(Constants.CURVE_P256, keyPair);
+            creds.get(Constants.ECDH_KEY).put(Constants.CURVE_P256, CBORObject.FromObject(cred));
+            idCreds.get(Constants.ECDH_KEY).put(Constants.CURVE_P256, idCred);
+        }
+        if ((suite == 0 || suite == 1) && (method == 1 || method == 3)) {
+            keyPairs.get(Constants.ECDH_KEY).put(Constants.CURVE_X25519, keyPair);
+            creds.get(Constants.ECDH_KEY).put(Constants.CURVE_X25519, CBORObject.FromObject(cred));
+            idCreds.get(Constants.ECDH_KEY).put(Constants.CURVE_X25519, idCred);
+        }
+        if ((suite == 2 || suite == 3) && (method == 0 || method == 2)) {
+            keyPairs.get(Constants.SIGNATURE_KEY).put(Constants.CURVE_P256, keyPair);
+            creds.get(Constants.SIGNATURE_KEY).put(Constants.CURVE_P256, CBORObject.FromObject(cred));
+            idCreds.get(Constants.SIGNATURE_KEY).put(Constants.CURVE_P256, idCred);
+        }
+        if ((suite == 0 || suite == 1) && (method == 0 || method == 2)) {
+            keyPairs.get(Constants.SIGNATURE_KEY).put(Constants.CURVE_Ed25519, keyPair);
+            creds.get(Constants.SIGNATURE_KEY).put(Constants.CURVE_Ed25519, CBORObject.FromObject(cred));
+            idCreds.get(Constants.SIGNATURE_KEY).put(Constants.CURVE_Ed25519, idCred);
+        }
+
+        Set<CBORObject> ownIdCreds = new HashSet<>();
+        ownIdCreds.add(idCred);
+
+        Set<Integer> authMethods = new HashSet<>();
+        authMethods.add(method);
+        HashMap<String, AppProfile> bsAppStatements = new HashMap<>();
+        bsAppStatements.put(edhocUri, new AppProfile(authMethods, false, true, false));
+
+        HashMapCtxDB db = OscoreHandler.getContextDB();
+        Set<Integer> supportedEads = new HashSet<>();
+
+        EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(idCreds, creds, keyPairs, peerPublicKeys,
+                peerCredentials, edhocSessions, usedConnectionIds, bsSupportedCiphersuites, supportedEads,
+                null, Constants.TRUST_MODEL_NO_LEARNING, db, edhocUri, OSCORE_REPLAY_WINDOW, 2048,
+                bsAppStatements);
+
+        ClientEdhocExecutor executor = new ClientEdhocExecutor();
+        List<Integer> peerSuites = new ArrayList<>();
+        boolean ok = executor.startEdhocExchangeAsInitiator(method, peerSuites, ownIdCreds,
+                edhocEndpointInfo, false, "", Code.GET, null, null);
+        System.out.println("BS EDHOC succeeded: " + ok);
+
+        if (!ok) {
+            System.err.println("EDHOC with Bootstrap Server failed — falling back to non-OSCORE");
+            return;
+        }
+
+        // Retrieve derived OSCORE context and populate bootstrapServerInfo
+        try {
+            OSCoreCtx ctx = db.getContext(edhocUri);
+            if (ctx == null) {
+                System.err.println("No OSCORE context found after BS EDHOC at URI: " + edhocUri);
+                return;
+            }
+            bootstrapServerInfo.useOscore     = true;
+            bootstrapServerInfo.builtFromEdhoc = true;
+            bootstrapServerInfo.masterSecret   = ctx.getMasterSecret();
+            bootstrapServerInfo.senderId       = ctx.getSenderId();
+            bootstrapServerInfo.recipientId    = ctx.getRecipientId();
+            bootstrapServerInfo.aeadAlgorithm  = ctx.getAlg().AsCBOR().AsInt32();
+            bootstrapServerInfo.hkdfAlgorithm  = ctx.getKdf().AsCBOR().AsInt32();
+            bootstrapServerInfo.masterSalt     = ctx.getSalt();
+            System.out.println("Bootstrap Server OSCORE context set up from EDHOC");
+        } catch (OSException e) {
+            System.err.println("Failed to retrieve OSCORE context after BS EDHOC: " + e.getMessage());
+        }
+    }
 
     /* === RH: EDHOC support methods === */
 

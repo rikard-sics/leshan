@@ -80,7 +80,7 @@ public class OscoreHandler {
 	private static Set<CBORObject> usedConnectionIds = new HashSet<>();
 
 	public static Set<CBORObject> getUsedConnectionIds() {
-		
+
 		return usedConnectionIds;
 	}
 
@@ -91,5 +91,27 @@ public class OscoreHandler {
 	public static void setWithEdhoc(boolean b) {
 		withEdhoc = b;
 	}
-	
+
+	// BS EDHOC peer configuration (set from CLI args)
+	private static byte[] bsPeerKeyIdentifier;
+	private static byte[] bsPeerPublicKey;
+	private static String bsPeerEdhocPath = ".well-known/edhoc";
+	private static int bsAuthMethod = 3;
+	private static int bsCiphersuite = 2;
+
+	public static byte[] getBsPeerKeyIdentifier() { return bsPeerKeyIdentifier; }
+	public static void setBsPeerKeyIdentifier(byte[] b) { bsPeerKeyIdentifier = b; }
+
+	public static byte[] getBsPeerPublicKey() { return bsPeerPublicKey; }
+	public static void setBsPeerPublicKey(byte[] b) { bsPeerPublicKey = b; }
+
+	public static String getBsPeerEdhocPath() { return bsPeerEdhocPath; }
+	public static void setBsPeerEdhocPath(String p) { bsPeerEdhocPath = p; }
+
+	public static int getBsAuthMethod() { return bsAuthMethod; }
+	public static void setBsAuthMethod(int m) { bsAuthMethod = m; }
+
+	public static int getBsCiphersuite() { return bsCiphersuite; }
+	public static void setBsCiphersuite(int c) { bsCiphersuite = c; }
+
 }

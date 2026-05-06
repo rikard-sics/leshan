@@ -278,6 +278,12 @@ public class LeshanClientDemo {
         options.addOption("ecpub", true, "EDHOC: Client Public Key (hex string)");
         options.addOption("ecpriv", true, "EDHOC: Client Private Key (hex string)");
 
+        options.addOption("ecpkid", true, "EDHOC: Bootstrap Server (Peer) Key Identifier (hex string)");
+        options.addOption("ecppub", true, "EDHOC: Bootstrap Server (Peer) Public Key CCS (hex string)");
+        options.addOption("ecppath", true, "EDHOC: Bootstrap Server EDHOC CoAP URI path (default: .well-known/edhoc)");
+        options.addOption("ecpm", true, "EDHOC: Authentication method for BS (default: 3)");
+        options.addOption("ecpcs", true, "EDHOC: Selected ciphersuite for BS (default: 2)");
+
         options.addOption("cfgFile", true, "Path to endpoint config file (JSON or CSV).");
 
         final StringBuilder trustStoreChapter = new StringBuilder();
@@ -813,6 +819,28 @@ public class LeshanClientDemo {
 
             byte[] edhocPrivateKey = StringUtil.hex2ByteArray(edhocPrivateKeyStr);
             ClientCredentialManager.setPrivateKey(edhocPrivateKey);
+        }
+
+        if (cl.hasOption("ecpkid")) {
+            byte[] val = StringUtil.hex2ByteArray(cl.getOptionValue("ecpkid"));
+            OscoreHandler.setBsPeerKeyIdentifier(val);
+        }
+
+        if (cl.hasOption("ecppub")) {
+            byte[] val = StringUtil.hex2ByteArray(cl.getOptionValue("ecppub"));
+            OscoreHandler.setBsPeerPublicKey(val);
+        }
+
+        if (cl.hasOption("ecppath")) {
+            OscoreHandler.setBsPeerEdhocPath(cl.getOptionValue("ecppath"));
+        }
+
+        if (cl.hasOption("ecpm")) {
+            OscoreHandler.setBsAuthMethod(Integer.parseInt(cl.getOptionValue("ecpm")));
+        }
+
+        if (cl.hasOption("ecpcs")) {
+            OscoreHandler.setBsCiphersuite(Integer.parseInt(cl.getOptionValue("ecpcs")));
         }
 
         try {
