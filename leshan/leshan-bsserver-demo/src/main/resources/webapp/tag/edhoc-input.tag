@@ -254,6 +254,12 @@
             }
         }
 
+        // CCS for the BS responder key (kid 0x32), with private key -4 embedded. Used when
+        // configuring the BS itself (hide_private_key=true), since the BS needs its own keypair.
+        var BS_PEER_CCS_WITH_PRIV = 'a2026b6578616d706c652e65647508a101a601020241322001215820bbc34960526ea4d32e940cad2a234148ddc21791a12afbcbac93622046dd44f02258204519e257236b2a0ce2023f0931f1f386ca7afda64fcde0108c224c51eabf607223582072cc4761dbd4c78f758931aa589d348d1ef874a7e303ede2f140dcf3e6aa4aac';
+        // Public-only CCS for the same key. Used when the client receives this as the server's credential.
+        var BS_PEER_CCS_PUB_ONLY  = 'a2026b6578616d706c652e65647508a101a501020241322001215820bbc34960526ea4d32e940cad2a234148ddc21791a12afbcbac93622046dd44f02258204519e257236b2a0ce2023f0931f1f386ca7afda64fcde0108c224c51eabf6072';
+
         function fill_dm_config(){
             tag.refs.initiator.value = 'True';
             tag.refs.authenticationMethod.value = '3';
@@ -262,7 +268,7 @@
             tag.refs.clientPublicKey.value = 'a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8';
             if (tag.refs.privateKey) tag.refs.privateKey.value = 'fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b';
             tag.refs.peerPublicKeyIdentifier.value = '32';
-            tag.refs.peerPublicKey.value = 'a2026b6578616d706c652e65647508a101a501020241322001215820bbc34960526ea4d32e940cad2a234148ddc21791a12afbcbac93622046dd44f02258204519e257236b2a0ce2023f0931f1f386ca7afda64fcde0108c224c51eabf6072';
+            tag.refs.peerPublicKey.value = opts.hide_private_key ? BS_PEER_CCS_WITH_PRIV : BS_PEER_CCS_PUB_ONLY;
             tag.refs.peerEdhocCoapUriPath.value = '.well-known/edhoc';
             tag.refs.edhocOscoreCombinedSupport.value = 'False';
         }
@@ -275,7 +281,7 @@
             tag.refs.clientPublicKey.value = 'a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8';
             if (tag.refs.privateKey) tag.refs.privateKey.value = 'fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b';
             tag.refs.peerPublicKeyIdentifier.value = '25';
-            tag.refs.peerPublicKey.value = 'a2026b6578616d706c652e65647508a101a501020241322001215820bbc34960526ea4d32e940cad2a234148ddc21791a12afbcbac93622046dd44f02258204519e257236b2a0ce2023f0931f1f386ca7afda64fcde0108c224c51eabf6072';
+            tag.refs.peerPublicKey.value = opts.hide_private_key ? BS_PEER_CCS_WITH_PRIV : BS_PEER_CCS_PUB_ONLY;
             tag.refs.edhocOscoreCombinedSupport.value = 'False';
         }
 
