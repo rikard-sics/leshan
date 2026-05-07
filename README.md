@@ -43,34 +43,33 @@ In general start the applications using
 _java -jar X.jar_
 
 Bootstrap Server with  
--lh 127.0.0.3 -slh 127.0.0.3 -wh 127.0.0.3
+`-lh 127.0.0.3 -slh 127.0.0.3 -wh 127.0.0.3`
 
 Leshan Server with  
--lh 127.0.0.2 -slh 127.0.0.2 -wh 127.0.0.2
+`-lh 127.0.0.2 -slh 127.0.0.2 -wh 127.0.0.2`
 
-Leshan Client with  
--b -n Test -msec AAAA -sid BB -rid CC -u 127.0.0.3
-(Bootstrapping using OSCORE)  
+Leshan Client OSCORE bootstrap with  
+`-b -n Test -msec AAAA -sid BB -rid CC -u 127.0.0.3`
 
--n Test -b -u localhost:5683 -eckid 2b -ecpub a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8 -ecpriv fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b -ecpkid 09 -ecppub a20262303908a101a5010202410920012158206f9702a66602d78f5e81bac1e0af01f8b52810c502e87ebb7c926c07426fd02f225820c8d33274c71c9b3ee57d842bbf2238b8283cb410eca216fb72a78ea7a870f800 -ecpm 3 -ecpcs 2  
-(Bootstrapping using EDHOC)  
+Leshan Client EDHOC bootstrap with  
+`-n Test -b -u localhost:5683 -eckid 2b -ecpub a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8 -ecpriv fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b -ecpkid 09 -ecppub a20262303908a101a5010202410920012158206f9702a66602d78f5e81bac1e0af01f8b52810c502e87ebb7c926c07426fd02f225820c8d33274c71c9b3ee57d842bbf2238b8283cb410eca216fb72a78ea7a870f800 -ecpm 3 -ecpcs 2`    
 
 ## Overriding EDHOC config received from the Bootstrap Server
 
-When performing bootstrapping using OSCORE it is possible to specify the Client Key Identifier, Client Public Key and (Client) Private Key to be used by the Client when running EDHOC with the Device Manager as command line arguments. This configuration will take precedence over any of the same parameters received from the Bootstap Server. The arguments are the following:
+It is possible to specify the Client Key Identifier, Client Public Key and (Client) Private Key to be used by the Client when running EDHOC with the Device Manager as command line arguments. This configuration will take precedence over any of the same parameters received from the Bootstap Server. The arguments are the following:
 
 -eckid: Client Key Identifier  
 -ecpub: Client Public Key  
 -ecpriv: Client Private Key  
 
 Example Client invocation:  
--b -n Test -msec AAAA -sid BB -rid CC -eckid 2b -ecpub a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8 -ecpriv fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b -u 127.0.0.3
+`-b -n Test -msec AAAA -sid BB -rid CC -eckid 2b -ecpub a2027734322d35302d33312d46462d45462d33372d33322d333908a101a5010202412b2001215820ac75e9ece3e50bfc8ed60399889522405c47bf16df96660a41298cb4307f7eb62258206e5de611388a4b8a8211334ac7d37ecb52a387d257e6db3c2a93df21ff3affc8 -ecpriv fb13adeb6518cee5f88417660841142e830a81fe334380a953406a1305e8706b -u 127.0.0.3`
 
 ## Configuration in applications
 
 Navigate to 127.0.0.2:8080 and 127.0.0.3:8080 in a browser.
 
-Set the EDHOC config custom or using the pre-defined configs by pressing the special buttons.
+Set the EDHOC config custom or using the pre-defined configs by pressing the special buttons. Using the fill buttons in the GUI configuration for using EDHOC between the Client and Device Manager and/or the Bootstrap Server can be set up.  
 
 ## Possible isuses with newer Java versions
   
