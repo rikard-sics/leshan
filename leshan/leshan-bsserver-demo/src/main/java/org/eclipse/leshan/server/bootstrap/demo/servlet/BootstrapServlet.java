@@ -99,6 +99,12 @@ public class BootstrapServlet extends HttpServlet {
                 .registerTypeAdapter(new TypeToken<EnumSet<BindingMode>>() {
                 }.getType(), new BindingModeTypeAdapter()) //
                 .registerTypeHierarchyAdapter(Byte.class, new SignedByteUnsignedByteAdapter()).create();
+
+        // Configs persisted from a previous run (bootstrap.json) are loaded without passing through doPost, so
+        // set up their EDHOC credentials and the EDHOC resource here
+        for (BootstrapConfig cfg : bsStore.getAll().values()) {
+            configureEdhocIfNeeded(cfg);
+        }
     }
 
     @Override
@@ -189,6 +195,8 @@ public class BootstrapServlet extends HttpServlet {
     private static final int OSCORE_REPLAY_WINDOW = 32;
 
     private void configureEdhocIfNeeded(BootstrapConfig cfg) {
+        if (cfg.security == null || cfg.edhoc == null) return;
+
         BootstrapConfig.EdhocObject bsEdhoc = null;
         for (BootstrapConfig.ServerSecurity sec : cfg.security.values()) {
             if (sec.bootstrapServer && sec.oscoreSecurityMode != null) {

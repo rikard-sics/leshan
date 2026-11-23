@@ -355,12 +355,14 @@ public class BootstrapConfig implements Serializable {
         public String toString() {
             return String.format(
                     "EdhocObject [initiator=%s, authenticationMethod=%s, selectedCiphersuite=%s, clientKeyIdentifier=%s, clientPublicKey=%s, privateKey=%s, "
-                            + "peerPublicKeyIdentifier=%s, peerPublicKey=%s, peerEdhocCoapUriPath=%s, edhocOscoreCombinedSupport]",
-                    initiator.toString(), authenticationMethod.toString(), selectedCiphersuite.toString(),
-                    Hex.encodeHexString(clientKeyIdentifier), Hex.encodeHexString(clientPublicKey),
-                    Hex.encodeHexString(privateKey), Hex.encodeHexString(peerPublicKeyIdentifier),
-                    Hex.encodeHexString(peerPublicKey), peerEdhocCoapUriPath.toString(),
-                    edhocOscoreCombinedSupport.toString());
+                            + "peerPublicKeyIdentifier=%s, peerPublicKey=%s, peerEdhocCoapUriPath=%s, edhocOscoreCombinedSupport=%s]",
+                    initiator, authenticationMethod, selectedCiphersuite, hex(clientKeyIdentifier),
+                    hex(clientPublicKey), hex(privateKey), hex(peerPublicKeyIdentifier), hex(peerPublicKey),
+                    peerEdhocCoapUriPath, edhocOscoreCombinedSupport);
+        }
+
+        private static String hex(byte[] bytes) {
+            return bytes == null ? "null" : Hex.encodeHexString(bytes);
         }
     }
 

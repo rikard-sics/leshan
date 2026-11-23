@@ -22,7 +22,6 @@ import static org.eclipse.leshan.core.LwM2mId.*;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.security.Security;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -65,7 +64,7 @@ import org.eclipse.leshan.core.util.datatype.ULong;
  */
 public class Edhoc extends BaseInstanceEnabler {
 
-    private static final Logger LOG = LoggerFactory.getLogger(Security.class);
+    private static final Logger LOG = LoggerFactory.getLogger(Edhoc.class);
 
     private final static List<Integer> supportedResources = Arrays.asList(Initiator, Method, Selected_Ciphersuite,
             Client_Key_Identifier, Client_Public_Key, Private_Key, Peer_Public_Key_Identifier, Peer_Public_Key,
@@ -154,9 +153,7 @@ public class Edhoc extends BaseInstanceEnabler {
 			// Specify the processor of External Authorization Data
 			String args[] = new String[0];
 			HashMapCtxDB db = OscoreEdhocHandler.getContextDB();
-			// String edhocURI = identity.getUri() + "/.well-known/edhoc";
-			String edhocURI = OscoreEdhocHandler.getlwServerUri() + "/.well-known/edhoc";
-			// String edhocURI = "coap://127.0.0.2" + "/.well-known/edhoc";
+			String edhocURI = buildEdhocUri(OscoreEdhocHandler.getlwServerUri(), peerEdhocCoapUriPath);
 			System.out.println("Running EDHOC with DM at: " + edhocURI);
 
 			URI uri = null;
@@ -515,6 +512,8 @@ public class Edhoc extends BaseInstanceEnabler {
 	 */
 	private static void setupSupportedCipherSuites(int suite) {
 
+		// Fresh list per EDHOC run, so suites do not accumulate across runs
+		supportedCiphersuites = new ArrayList<Integer>();
 		supportedCiphersuites.add(suite);
 
 		// if (keyCurve == KeyKeys.EC2_P256.AsInt32()) {
@@ -568,7 +567,6 @@ public class Edhoc extends BaseInstanceEnabler {
 		// Build COSE OneKey for server, including public key
 		OneKey peerPublicKey = null;
 		byte[] peerCred = null;
-		CBORObject peerIdCred = null;
 
 		try {
 			peerPublicKey = oneKeyFromCcs(thePeerPublicKey);
@@ -594,11 +592,24 @@ public class Edhoc extends BaseInstanceEnabler {
 			System.err.println("ERROR in cred type switch!");
 			break;
 		}
-		peerPublicKeys.put(peerIdCred, peerPublicKey);
-		peerCredentials.put(peerIdCred, CBORObject.FromObject(peerCred));
 	}
 
 	// --- Utility methods ---
+
+	static final String DEFAULT_EDHOC_PATH = ".well-known/edhoc";
+
+	/**
+	 * Builds the URI of a peer's EDHOC resource from its server URI and the
+	 * Peer EDHOC CoAP URI Path resource. Falls back to .well-known/edhoc if no
+	 * path is configured.
+	 */
+	static String buildEdhocUri(String serverUri, String edhocPath) {
+		String path = (edhocPath == null || edhocPath.trim().isEmpty()) ? DEFAULT_EDHOC_PATH : edhocPath.trim();
+		while (path.startsWith("/")) {
+			path = path.substring(1);
+		}
+		return serverUri.endsWith("/") ? serverUri + path : serverUri + "/" + path;
+	}
 
 	/**
 	 * Extracts the innermost COSE_Key map from a CCS and returns it as a COSE
@@ -644,7 +655,8 @@ public class Edhoc extends BaseInstanceEnabler {
 		// separate method as the OneKey constructor can currently not handle
 		// them)
 		OneKey keyToReturn = null;
-		if (keyMap.ContainsKey(-1) && keyMap.get(-1) == CBORObject.FromObject(4)) {
+		CBORObject crv = keyMap.get(KeyKeys.OKP_Curve.AsCBOR());
+		if (crv != null && crv.equals(KeyKeys.OKP_X25519)) {
 			byte[] publicKeyBytes = keyMap.get(-2).GetByteString();
 			keyToReturn = SharedSecretCalculation.buildCurve25519OneKey(privateKey, publicKeyBytes);
 		} else {

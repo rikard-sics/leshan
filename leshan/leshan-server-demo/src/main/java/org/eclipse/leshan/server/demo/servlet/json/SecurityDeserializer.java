@@ -483,13 +483,14 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 	 */
 	private static void setupSupportedCipherSuites() {
 
-		supportedCiphersuites.add(0);
-		supportedCiphersuites.add(1);
-		supportedCiphersuites.add(2);
-		supportedCiphersuites.add(3);
-		supportedCiphersuites.add(4);
-		supportedCiphersuites.add(5);
-		supportedCiphersuites.add(6);
+		// Called for every EDHOC client config; only fill once so the
+		// (shared) list does not accumulate duplicates
+		if (!supportedCiphersuites.isEmpty()) {
+			return;
+		}
+		for (int i = 0; i <= 6; i++) {
+			supportedCiphersuites.add(i);
+		}
 
 		// if (keyCurve == KeyKeys.EC2_P256.AsInt32()) {
 		// supportedCiphersuites.add(Constants.EDHOC_CIPHER_SUITE_2);

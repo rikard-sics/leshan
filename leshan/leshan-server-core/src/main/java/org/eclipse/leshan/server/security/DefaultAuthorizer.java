@@ -49,7 +49,10 @@ public class DefaultAuthorizer implements Authorizer {
 
 		// If this client used EDHOC the security info needs to be updated with
 		// the context that EDHOC actually created
-		if (securityStore.getByEndpoint(registration.getEndpoint()).getBuiltFromEdhoc()) {
+		// (clients without security info, e.g. NoSec, have no entry in the store)
+		SecurityInfo storedInfo = securityStore != null ? securityStore.getByEndpoint(registration.getEndpoint())
+				: null;
+		if (storedInfo != null && storedInfo.getBuiltFromEdhoc()) {
 			// System.out.println("class " + securityStore.getClass());
 
 			System.out.println("Checking rights for client that started by using EDHOC: " + senderIdentity);

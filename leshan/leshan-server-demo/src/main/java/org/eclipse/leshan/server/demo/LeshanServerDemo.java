@@ -122,11 +122,7 @@ public class LeshanServerDemo {
 
     	// Delete old config files
 		String serverData = "data/security.data";
-		// String bsServerData =
-		// "/home/segrid-1/Leshan-Critisec2/leshan/leshan/leshan-bsserver-demo/data/bootstrap.json";
     	File rmFile = new File(serverData);
-    	rmFile.delete();
-		// rmFile = new File(bsServerData);
     	rmFile.delete();
 
         // Define options for command line tools
