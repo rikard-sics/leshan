@@ -52,40 +52,43 @@ public class DefaultAuthorizer implements Authorizer {
 		// (clients without security info, e.g. NoSec, have no entry in the store)
 		SecurityInfo storedInfo = securityStore != null ? securityStore.getByEndpoint(registration.getEndpoint())
 				: null;
-		if (storedInfo != null && storedInfo.getBuiltFromEdhoc()) {
-			// System.out.println("class " + securityStore.getClass());
+		// The swap is done whenever the sender uses a different OSCORE identity
+		// than the stored one, i.e. on the first request after each new EDHOC
+		// run (e.g. after a client restart), not on every request.
+		if (storedInfo != null && storedInfo.getBuiltFromEdhoc() && senderIdentity.isOSCORE()
+				&& !senderIdentity.getOscoreIdentity().equals(storedInfo.getOscoreIdentity())) {
 
 			System.out.println("Checking rights for client that started by using EDHOC: " + senderIdentity);
-			
-			if(senderIdentity.toString().contains("rid=") == false) {
-				System.err.println("Error: Client using EDHOC has no Recipient ID in its Sender Identity");
-			}
-			
-			String[] identityParts = senderIdentity.toString().split("rid=");
-			
-			// Added extra debug printing
-			System.out.println("senderIdentity.toString(): " + senderIdentity.toString());
-			System.out.println("identityParts.length: " + identityParts.length);
-			for (int i = 0; i < identityParts.length; i++) {
-			    System.out.println("identityParts[" + i + "]: " + identityParts[i]);
-			}
-			
-			byte[] clientRid = Hex.decodeHex(identityParts[1].replace("]", "").toCharArray());
-			OSCoreCtx clientCtx = OscoreHandler.getContextDB().getContext(clientRid);
 
-			// Update info in security store
-			if (securityStore instanceof FileSecurityStore) {
-				FileSecurityStore myStore = (FileSecurityStore) securityStore;
-				myStore.remove(registration.getEndpoint(), false);
-				SecurityInfo info = SecurityInfo.newOSCoreInfo(registration.getEndpoint(), clientCtx);
-				try {
-					myStore.add(info);
-				} catch (NonUniqueSecurityInfoException e) {
-					System.err.println("Failed to add OSCORE context generated from EDHOC");
-					e.printStackTrace();
+			// Identity has the form "sid=<hex>,rid=<hex>". Note that the RID can
+			// be empty (e.g. EDHOC connection identifier h'')
+			String oscoreIdentity = senderIdentity.getOscoreIdentity();
+			int ridIndex = oscoreIdentity.indexOf("rid=");
+			if (ridIndex < 0) {
+				System.err.println("Error: Client using EDHOC has no Recipient ID in its Sender Identity");
+			} else {
+				String ridHex = oscoreIdentity.substring(ridIndex + "rid=".length());
+				byte[] clientRid = Hex.decodeHex(ridHex.toCharArray());
+				OSCoreCtx clientCtx = OscoreHandler.getContextDB().getContext(clientRid);
+
+				if (clientCtx == null) {
+					System.err.println("Error: No OSCORE context found for Recipient ID " + ridHex);
+				} else if (securityStore instanceof FileSecurityStore) {
+					// Update info in security store
+					FileSecurityStore myStore = (FileSecurityStore) securityStore;
+					myStore.remove(registration.getEndpoint(), false);
+					SecurityInfo info = SecurityInfo.newOSCoreInfo(registration.getEndpoint(), clientCtx);
+					// Keep the EDHOC flag, so the context can be replaced again
+					// after a new EDHOC run
+					info.setBuiltFromEdhoc(true);
+					try {
+						myStore.add(info);
+					} catch (NonUniqueSecurityInfoException e) {
+						System.err.println("Failed to add OSCORE context generated from EDHOC");
+						e.printStackTrace();
+					}
 				}
 			}
-
 		}
 
         // do we have security information for this client?
