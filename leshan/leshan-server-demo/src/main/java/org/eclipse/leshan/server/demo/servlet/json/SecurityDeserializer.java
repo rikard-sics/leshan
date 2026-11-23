@@ -52,6 +52,7 @@ import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.californium.oscore.OSCoreCtx;
 import org.eclipse.californium.oscore.OSException;
+import org.eclipse.leshan.server.demo.AtomicFiles;
 import org.eclipse.leshan.core.util.Hex;
 import org.eclipse.leshan.core.util.SecurityUtil;
 import org.eclipse.leshan.server.OscoreHandler;
@@ -68,12 +69,8 @@ import com.upokecenter.cbor.CBORObject;
 import com.upokecenter.cbor.CBORType;
 
 import com.google.gson.GsonBuilder;
-import java.io.BufferedWriter;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 
 public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 
@@ -750,21 +747,8 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 	    Path file = directory.resolve(safeEndpoint + ".json");
 
 	    try {
-	        Files.createDirectories(directory);
-
-	        try (BufferedWriter writer = Files.newBufferedWriter(
-	                file,
-	                StandardCharsets.UTF_8,
-	                StandardOpenOption.CREATE,
-	                StandardOpenOption.TRUNCATE_EXISTING,
-	                StandardOpenOption.WRITE
-	        )) {
-	            new GsonBuilder()
-	                    .setPrettyPrinting()
-	                    .create()
-	                    .toJson(object, writer);
-	        }
-
+	        // Atomic write: a crash of the server never leaves a truncated config file behind
+	        AtomicFiles.write(file, new GsonBuilder().setPrettyPrinting().create().toJson(object));
 	    } catch (IOException e) {
 	        throw new JsonParseException(
 	                "Failed to save endpoint config to " + file.toAbsolutePath(),

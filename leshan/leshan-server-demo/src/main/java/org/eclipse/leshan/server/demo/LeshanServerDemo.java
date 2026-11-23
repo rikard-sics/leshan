@@ -78,7 +78,7 @@ import org.eclipse.leshan.server.model.VersionedModelProvider;
 import org.eclipse.leshan.server.redis.RedisRegistrationStore;
 import org.eclipse.leshan.server.redis.RedisSecurityStore;
 import org.eclipse.leshan.server.security.EditableSecurityStore;
-import org.eclipse.leshan.server.security.FileSecurityStore;
+import org.eclipse.leshan.server.security.InMemorySecurityStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.Properties;
@@ -597,8 +597,10 @@ public class LeshanServerDemo {
         // Set securityStore & registrationStore
         EditableSecurityStore securityStore;
         if (jedis == null) {
-            // use file persistence
-            securityStore = new FileSecurityStore();
+            // In memory only: the security infos are persisted (and restored at startup) as one file per endpoint in
+            // data/endpoints/ (see SecurityDeserializer / loadEndpointConfigs). A FileSecurityStore would rewrite
+            // all entries to data/security.data on every add, which gets slower as the number of clients grows.
+            securityStore = new InMemorySecurityStore();
         } else {
             // use Redis Store
             securityStore = new RedisSecurityStore(jedis);

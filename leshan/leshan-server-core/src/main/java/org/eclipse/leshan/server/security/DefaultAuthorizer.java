@@ -73,9 +73,9 @@ public class DefaultAuthorizer implements Authorizer {
 
 				if (clientCtx == null) {
 					System.err.println("Error: No OSCORE context found for Recipient ID " + ridHex);
-				} else if (securityStore instanceof FileSecurityStore) {
+				} else if (securityStore instanceof EditableSecurityStore) {
 					// Update info in security store
-					FileSecurityStore myStore = (FileSecurityStore) securityStore;
+					EditableSecurityStore myStore = (EditableSecurityStore) securityStore;
 					myStore.remove(registration.getEndpoint(), false);
 					SecurityInfo info = SecurityInfo.newOSCoreInfo(registration.getEndpoint(), clientCtx);
 					// Keep the EDHOC flag, so the context can be replaced again

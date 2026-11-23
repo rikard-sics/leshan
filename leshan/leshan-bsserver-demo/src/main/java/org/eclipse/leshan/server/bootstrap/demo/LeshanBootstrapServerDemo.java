@@ -122,7 +122,9 @@ public class LeshanBootstrapServerDemo {
         options.addOption("wp", "webport", true, "Set the HTTP port for web server.\nDefault: 8080.");
         options.addOption("m", "modelsfolder", true, "A folder which contains object models in OMA DDF(.xml) format.");
         options.addOption("cfg", "configfile", true,
-                "Set the filename for the configuration.\nDefault: " + JSONFileBootstrapStore.DEFAULT_FILE + ".");
+                "Set the directory for the configuration (one file per endpoint).\nDefault: "
+                        + JSONFileBootstrapStore.DEFAULT_DIRECTORY
+                        + ".\nA path ending in .json (old single-file format) is imported once.");
         options.addOption("oc", "activate support of old/deprecated cipher suites.");
         options.addOption("cid", true, "Control usage of DTLS connection ID." //
                 + "\n - 'on' to activate Connection ID support (same as -cid 6)" //
@@ -254,7 +256,7 @@ public class LeshanBootstrapServerDemo {
         // Get config file
         String configFilename = cl.getOptionValue("cfg");
         if (configFilename == null) {
-            configFilename = JSONFileBootstrapStore.DEFAULT_FILE;
+            configFilename = JSONFileBootstrapStore.DEFAULT_DIRECTORY;
         }
 
         // Get CID config
