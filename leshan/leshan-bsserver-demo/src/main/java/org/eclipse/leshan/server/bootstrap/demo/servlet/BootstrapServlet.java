@@ -229,7 +229,7 @@ public class BootstrapServlet extends HttpServlet {
 
         if (!EdhocCredHolder.getEndpointAdded() && OscoreHandler.getLwServer() != null) {
             Set<Integer> authMethods = new HashSet<>(Arrays.asList(0, 1, 2, 3));
-            AppProfile appStatement = new AppProfile(authMethods, false, true, false);
+            AppProfile appStatement = new AppProfile(authMethods, false, true, false, null, false, false, false);
             HashMap<String, AppProfile> appStatements = new HashMap<>();
             appStatements.put(URI_LOCAL, appStatement);
             appStatements.put(URI_LOCAL + "/.well-known/edhoc", appStatement);

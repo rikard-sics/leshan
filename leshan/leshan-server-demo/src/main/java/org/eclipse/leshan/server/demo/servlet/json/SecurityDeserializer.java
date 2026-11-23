@@ -277,7 +277,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				authMethods.add(1);
 				authMethods.add(2);
 				authMethods.add(3);
-				AppProfile appStatement = new AppProfile(authMethods, false, true, false);
+				AppProfile appStatement = new AppProfile(authMethods, false, true, false, null, false, false, false);
 				appStatements.put(uriLocal,   appStatement);
 				appStatements.put(uriLocal + "/.well-known/edhoc", appStatement);
 				appStatements.put("/.well-known/edhoc", appStatement);

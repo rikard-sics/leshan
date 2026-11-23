@@ -1078,7 +1078,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
         Set<Integer> authMethods = new HashSet<>();
         authMethods.add(method);
         HashMap<String, AppProfile> bsAppStatements = new HashMap<>();
-        bsAppStatements.put(edhocUri, new AppProfile(authMethods, false, true, false));
+        bsAppStatements.put(edhocUri, new AppProfile(authMethods, false, true, false, null, false, false, false));
 
         HashMapCtxDB db = OscoreEdhocHandler.getContextDB();
         Set<Integer> supportedEads = new HashSet<>();

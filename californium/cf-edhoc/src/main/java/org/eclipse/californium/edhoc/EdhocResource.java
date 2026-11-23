@@ -32,6 +32,8 @@ import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.cose.AlgorithmID;
+import org.eclipse.californium.oscore.CoapOSException;
+import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.californium.oscore.OSCoreCtx;
 import org.eclipse.californium.oscore.OSException;
 
@@ -186,7 +188,8 @@ public class EdhocResource extends CoapResource {
 			SideProcessor sideProcessor = new SideProcessor(edhocEndpointInfo.getTrustModel(),
 															edhocEndpointInfo.getPeerPublicKeys(),
 															edhocEndpointInfo.getPeerCredentials(),
-															edhocEndpointInfo.getEadProductionInput());
+															edhocEndpointInfo.getEadProductionInput(),
+															appProfile);
 			
 			processingResult = MessageProcessor.readMessage1(message, true,
 															 edhocEndpointInfo.getSupportedCipherSuites(),
@@ -442,6 +445,9 @@ public class EdhocResource extends CoapResource {
 		        Response myResponse = new Response(ResponseCode.CHANGED);
 		        
 		        if (mySession.getApplicationProfile().getUseMessage4() == false) {
+		        	// Ignore EDHOC error messages received from now on for this EDHOC session 
+		        	mySession.setIgnoreErrorMessage(true);
+		        	
 			        // Just send an empty response back
 		        	
 		        	// Uncomment to have the response as a confirmable Separate Response
@@ -592,6 +598,40 @@ public class EdhocResource extends CoapResource {
 	    		if (mySession == null) {
 	    			System.err.println("EDHOC session to delete not found");
 	    			return;
+	    		}
+	    		
+	    		if (mySession.getIgnoreErrorMessage()) {
+	    			System.out.println("Ignoring the EDHOC error message (received after completing the EDHOC session)\n");
+	    			return;
+	    		}
+	    		
+	    		if (mySession.getCurrentStep() == Constants.EDHOC_SENT_M4) {
+	    			if (mySession.getApplicationProfile().getUsedForOSCORE() == true) {
+		    			OSCoreCtx ctx = null;
+		    			HashMapCtxDB db = edhocEndpointInfo.getOscoreDb();
+		    			
+		    			synchronized (db) {
+			    			try {
+								ctx = edhocEndpointInfo.getOscoreDb().getContext(connectionIdentifier, null);
+							} catch (CoapOSException e) {
+				    			System.err.println("Unable to retrieve the OSCORE Security Context associated with the EDHOC session");
+				    			return;
+							}
+			    			if (ctx == null) {
+				    			System.err.println("Unable to retrieve the OSCORE Security Context associated with the EDHOC session");
+				    			return;
+			    			}
+			    			synchronized (ctx) {
+			    				if (ctx.getRecipientReplayWindow() != 0) {
+			    					// At least one OSCORE-protected incoming message
+			    					// was successfully decrypted and verified
+			    					mySession.setIgnoreErrorMessage(true);
+			    	    			System.out.println("Ignoring the EDHOC error message (received after completing the EDHOC session)\n");
+			    	    			return;
+			    				}
+			    			}
+		    			}
+	    			}
 	    		}
 	    		
 	        	Util.purgeSession(mySession, connectionIdentifier,
