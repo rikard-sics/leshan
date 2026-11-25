@@ -115,9 +115,10 @@ public class SecurityServlet extends HttpServlet {
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             resp.getWriter().append(e.getMessage()).flush();
         } catch (JsonParseException e) {
-            LOG.warn("Could not parse request body", e);
+            // The message says what is wrong (e.g. the EDHOC validation errors), so return it to the caller
+            LOG.warn("Rejected security info: {}", e.getMessage());
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            resp.getWriter().append("Invalid request body").flush();
+            resp.getWriter().append(e.getMessage() != null ? e.getMessage() : "Invalid request body").flush();
         } catch (RuntimeException e) {
             LOG.warn("unexpected error for request " + req.getPathInfo(), e);
             resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);

@@ -54,6 +54,9 @@ import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.californium.oscore.OSCoreCtx;
 import org.eclipse.californium.oscore.OSException;
 import org.eclipse.leshan.server.demo.AtomicFiles;
+import org.eclipse.leshan.core.edhoc.EdhocConfigValidator;
+import org.eclipse.leshan.core.edhoc.EdhocConfigValidator.Mode;
+import org.eclipse.leshan.core.edhoc.EdhocConfigValidator.Result;
 import org.eclipse.leshan.core.util.Hex;
 import org.eclipse.leshan.core.util.SecurityUtil;
 import org.eclipse.leshan.server.OscoreHandler;
@@ -106,10 +109,6 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
                 throw new JsonParseException("Missing endpoint");
             }
             
-            // Save config
-			if (save == true) {
-				saveEndpointConfig(object, endpoint);
-			}
 
             JsonObject psk = (JsonObject) object.get("psk");
             JsonObject rpk = (JsonObject) object.get("rpk");
@@ -220,18 +219,42 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 
                 info = SecurityInfo.newOSCoreInfo(endpoint, ctx);
 			} else if (edhoc != null) {
-				// EDHOC Deserialization
-				Boolean initiator = edhoc.get("initiator").getAsBoolean();
-				Long method = edhoc.get("authenticationMethod").getAsLong();
-				Long selectedCiphersuite = edhoc.get("selectedCiphersuite").getAsLong();
-				byte[] clientKeyIdentifier = Hex
-						.decodeHex(edhoc.get("clientKeyIdentifier").getAsString().toCharArray());
-				byte[] clientPublicKey = Hex.decodeHex(edhoc.get("clientPublicKey").getAsString().toCharArray());
-				byte[] peerPublicKeyIdentifier = Hex
-						.decodeHex(edhoc.get("peerPublicKeyIdentifier").getAsString().toCharArray());
-				byte[] peerPublicKey = Hex.decodeHex(edhoc.get("peerPublicKey").getAsString().toCharArray());
-				String peerEdhocCoapUriPath = edhoc.get("peerEdhocCoapUriPath").getAsString();
-				Boolean edhocOscoreCombinedSupport = edhoc.get("edhocOscoreCombinedSupport").getAsBoolean();
+				// EDHOC Deserialization (null-safe: missing or invalid fields are reported below)
+				List<String> fieldErrors = new ArrayList<String>();
+				Boolean initiator = boolField(edhoc, "initiator", "Initiator", fieldErrors);
+				Long method = longField(edhoc, "authenticationMethod", EdhocConfigValidator.METHOD, fieldErrors);
+				Long selectedCiphersuite = longField(edhoc, "selectedCiphersuite", EdhocConfigValidator.CIPHER_SUITE,
+						fieldErrors);
+				byte[] clientKeyIdentifier = hexField(edhoc, "clientKeyIdentifier", EdhocConfigValidator.CLIENT_KEY_ID,
+						fieldErrors);
+				byte[] clientPublicKey = hexField(edhoc, "clientPublicKey", EdhocConfigValidator.CLIENT_PUBLIC_KEY,
+						fieldErrors);
+				byte[] peerPublicKeyIdentifier = hexField(edhoc, "peerPublicKeyIdentifier",
+						EdhocConfigValidator.PEER_KEY_ID, fieldErrors);
+				byte[] peerPublicKey = hexField(edhoc, "peerPublicKey", EdhocConfigValidator.PEER_PUBLIC_KEY,
+						fieldErrors);
+				JsonElement pathElement = field(edhoc, "peerEdhocCoapUriPath");
+				String peerEdhocCoapUriPath = pathElement == null ? null : pathElement.getAsString();
+				Boolean edhocOscoreCombinedSupport = boolField(edhoc, "edhocOscoreCombinedSupport",
+						"EDHOC OSCORE Combined Support", fieldErrors);
+
+				// Validate (the DM's own entry: its private key must be in the Peer Public Key)
+				String edhocContext = "EDHOC config for " + endpoint;
+				if (!fieldErrors.isEmpty()) {
+					StringBuilder msg = new StringBuilder();
+					for (String error : fieldErrors) {
+						msg.append(msg.length() > 0 ? "\n" : "").append(edhocContext).append(": ").append(error);
+					}
+					throw new JsonParseException(msg.toString());
+				}
+				Result validation = EdhocConfigValidator.validate(Mode.SERVER, method, selectedCiphersuite,
+						clientKeyIdentifier, clientPublicKey, null, peerPublicKeyIdentifier, peerPublicKey);
+				if (!validation.getWarnings().isEmpty()) {
+					System.out.println("Warning: " + validation.warningMessage(edhocContext));
+				}
+				if (!validation.isValid()) {
+					throw new JsonParseException(validation.errorMessage(edhocContext));
+				}
 
 				// RH: TODO: Remove debug print
 				System.out.println("Configured EDHOC object: ");
@@ -451,6 +474,11 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 
             } else {
                 throw new JsonParseException("Invalid security info content");
+            }
+
+            // Save config (only once it was accepted, so a rejected config is not restored at startup)
+            if (save == true) {
+                saveEndpointConfig(object, endpoint);
             }
         }
 
@@ -741,6 +769,52 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 
 		// Re-encode the full CCS with only that field removed
 		return ccs.EncodeToBytes();
+	}
+
+	// --- Null-safe access to EDHOC config fields ---
+
+	private static JsonElement field(JsonObject object, String name) {
+		JsonElement element = object.get(name);
+		return element == null || element.isJsonNull() ? null : element;
+	}
+
+	private static Long longField(JsonObject object, String name, String label, List<String> errors) {
+		JsonElement element = field(object, name);
+		if (element == null) {
+			return null; // reported as missing by the validator
+		}
+		try {
+			return element.getAsLong();
+		} catch (RuntimeException e) {
+			errors.add(label + ": '" + element.getAsString() + "' is not a number");
+			return null;
+		}
+	}
+
+	private static Boolean boolField(JsonObject object, String name, String label, List<String> errors) {
+		JsonElement element = field(object, name);
+		if (element == null) {
+			return null;
+		}
+		try {
+			return element.getAsBoolean();
+		} catch (RuntimeException e) {
+			errors.add(label + ": '" + element + "' is not a boolean");
+			return null;
+		}
+	}
+
+	private static byte[] hexField(JsonObject object, String name, String label, List<String> errors) {
+		JsonElement element = field(object, name);
+		if (element == null) {
+			return null; // reported as missing by the validator
+		}
+		try {
+			return Hex.decodeHex(element.getAsString().trim().toCharArray());
+		} catch (RuntimeException e) {
+			errors.add(label + ": is not valid hexadecimal");
+			return null;
+		}
 	}
 
 	private void saveEndpointConfig(JsonObject object, String endpoint) throws JsonParseException {

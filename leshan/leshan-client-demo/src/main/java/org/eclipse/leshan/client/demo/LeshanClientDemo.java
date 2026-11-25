@@ -80,6 +80,9 @@ import org.eclipse.californium.scandium.dtls.SingleNodeConnectionIdGenerator;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
 import org.eclipse.leshan.client.ClientBootstrapOverrideCreds;
 import org.eclipse.leshan.client.OscoreEdhocHandler;
+import org.eclipse.leshan.core.edhoc.EdhocConfigValidator;
+import org.eclipse.leshan.core.edhoc.EdhocConfigValidator.Mode;
+import org.eclipse.leshan.core.edhoc.EdhocConfigValidator.Result;
 import org.eclipse.leshan.client.californium.LeshanClient;
 import org.eclipse.leshan.client.californium.LeshanClientBuilder;
 import org.eclipse.leshan.client.engine.DefaultRegistrationEngineFactory;
@@ -782,65 +785,71 @@ public class LeshanClientDemo {
         }
 
         // Set optional parameters for EDHOC
-        if (cl.hasOption("eckid")) {
+        try {
+            if (cl.hasOption("eckid")) {
+                ClientBootstrapOverrideCreds.setClientKeyIdentifier(hexOption(cl, "eckid"));
+            }
+            if (cl.hasOption("ecpub")) {
+                ClientBootstrapOverrideCreds.setClientPublicKey(hexOption(cl, "ecpub"));
+            }
+            if (cl.hasOption("ecpriv")) {
+                ClientBootstrapOverrideCreds.setPrivateKey(hexOption(cl, "ecpriv"));
+            }
+            if (cl.hasOption("ecpkid")) {
+                OscoreEdhocHandler.setBsPeerKeyIdentifier(hexOption(cl, "ecpkid"));
+            }
+            if (cl.hasOption("ecppub")) {
+                OscoreEdhocHandler.setBsPeerPublicKey(hexOption(cl, "ecppub"));
+            }
+            if (cl.hasOption("ecppath")) {
+                OscoreEdhocHandler.setBsPeerEdhocPath(cl.getOptionValue("ecppath"));
+            }
+            if (cl.hasOption("ecpm")) {
+                OscoreEdhocHandler.setBsAuthMethod(intOption(cl, "ecpm"));
+            }
+            if (cl.hasOption("ecpcs")) {
+                OscoreEdhocHandler.setBsCiphersuite(intOption(cl, "ecpcs"));
+            }
+        } catch (IllegalArgumentException e) {
+            System.err.println("EDHOC: " + e.getMessage());
+            formatter.printHelp(USAGE, options);
+            return;
+        }
 
-            String edhocClientKeyIdentifierStr = cl.getOptionValue("eckid");
-            if (edhocClientKeyIdentifierStr == null) {
-                System.err.println("EDHOC: Client Key Identifier must be provided");
-                formatter.printHelp(USAGE, options);
+        // Validate the EDHOC configuration given on the command line
+        Result edhocValidation = null;
+        String edhocContext = null;
+        if (cl.hasOption("ecpkid") || cl.hasOption("ecppub")) {
+            // EDHOC with the Bootstrap Server: the complete configuration must be given
+            edhocValidation = EdhocConfigValidator.validate(Mode.CLIENT,
+                    Long.valueOf(OscoreEdhocHandler.getBsAuthMethod()),
+                    Long.valueOf(OscoreEdhocHandler.getBsCiphersuite()),
+                    ClientBootstrapOverrideCreds.getClientKeyIdentifier(),
+                    ClientBootstrapOverrideCreds.getClientPublicKey(), ClientBootstrapOverrideCreds.getPrivateKey(),
+                    OscoreEdhocHandler.getBsPeerKeyIdentifier(), OscoreEdhocHandler.getBsPeerPublicKey());
+            edhocContext = "EDHOC with the Bootstrap Server (command line)";
+        } else if (cl.hasOption("eckid") || cl.hasOption("ecpub") || cl.hasOption("ecpriv")) {
+            // Only client credentials (used for EDHOC objects received from the BS): check what is given
+            edhocValidation = EdhocConfigValidator.validate(Mode.CLIENT_CREDENTIALS_ONLY, null, null,
+                    ClientBootstrapOverrideCreds.getClientKeyIdentifier(),
+                    ClientBootstrapOverrideCreds.getClientPublicKey(), ClientBootstrapOverrideCreds.getPrivateKey(),
+                    null, null);
+            edhocContext = "EDHOC client credentials (command line)";
+        }
+        if (edhocValidation != null) {
+            if (!edhocValidation.getWarnings().isEmpty()) {
+                System.out.println("Warning: " + edhocValidation.warningMessage(edhocContext));
+            }
+            if (!edhocValidation.isValid()) {
+                System.err.println("Invalid EDHOC configuration:");
+                System.err.println(edhocValidation.errorMessage(edhocContext));
+                System.err.println("(-eckid: " + EdhocConfigValidator.CLIENT_KEY_ID + ", -ecpub: "
+                        + EdhocConfigValidator.CLIENT_PUBLIC_KEY + ", -ecpriv: " + EdhocConfigValidator.PRIVATE_KEY
+                        + ", -ecpkid: " + EdhocConfigValidator.PEER_KEY_ID + ", -ecppub: "
+                        + EdhocConfigValidator.PEER_PUBLIC_KEY + ", -ecpm: " + EdhocConfigValidator.METHOD
+                        + ", -ecpcs: " + EdhocConfigValidator.CIPHER_SUITE + ")");
                 return;
             }
-
-            byte[] edhocClientKeyIdentifier = StringUtil.hex2ByteArray(edhocClientKeyIdentifierStr);
-            ClientBootstrapOverrideCreds.setClientKeyIdentifier(edhocClientKeyIdentifier);
-        }
-
-        if (cl.hasOption("ecpub")) {
-
-            String edhocClientPublicKeyStr = cl.getOptionValue("ecpub");
-            if (edhocClientPublicKeyStr == null) {
-                System.err.println("EDHOC: Client Public Key must be provided");
-                formatter.printHelp(USAGE, options);
-                return;
-            }
-
-            byte[] edhocClientPublicKey = StringUtil.hex2ByteArray(edhocClientPublicKeyStr);
-            ClientBootstrapOverrideCreds.setClientPublicKey(edhocClientPublicKey);
-        }
-
-        if (cl.hasOption("ecpriv")) {
-
-            String edhocPrivateKeyStr = cl.getOptionValue("ecpriv");
-            if (edhocPrivateKeyStr == null) {
-                System.err.println("EDHOC: Private Key must be provided");
-                formatter.printHelp(USAGE, options);
-                return;
-            }
-
-            byte[] edhocPrivateKey = StringUtil.hex2ByteArray(edhocPrivateKeyStr);
-            ClientBootstrapOverrideCreds.setPrivateKey(edhocPrivateKey);
-        }
-
-        if (cl.hasOption("ecpkid")) {
-            byte[] val = StringUtil.hex2ByteArray(cl.getOptionValue("ecpkid"));
-            OscoreEdhocHandler.setBsPeerKeyIdentifier(val);
-        }
-
-        if (cl.hasOption("ecppub")) {
-            byte[] val = StringUtil.hex2ByteArray(cl.getOptionValue("ecppub"));
-            OscoreEdhocHandler.setBsPeerPublicKey(val);
-        }
-
-        if (cl.hasOption("ecppath")) {
-            OscoreEdhocHandler.setBsPeerEdhocPath(cl.getOptionValue("ecppath"));
-        }
-
-        if (cl.hasOption("ecpm")) {
-            OscoreEdhocHandler.setBsAuthMethod(Integer.parseInt(cl.getOptionValue("ecpm")));
-        }
-
-        if (cl.hasOption("ecpcs")) {
-            OscoreEdhocHandler.setBsCiphersuite(Integer.parseInt(cl.getOptionValue("ecpcs")));
         }
 
         try {
@@ -1286,6 +1295,31 @@ public class LeshanClientDemo {
             }
         } catch (IOException e) {
             System.out.println("Version: SNAPSHOT");
+        }
+    }
+
+    // === EDHOC command line helpers ===
+
+    /** Value of a hexadecimal option, or IllegalArgumentException with a message naming the option */
+    private static byte[] hexOption(CommandLine cl, String option) {
+        String value = cl.getOptionValue(option);
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException("-" + option + " requires a value");
+        }
+        try {
+            return StringUtil.hex2ByteArray(value.trim());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("-" + option + " is not valid hexadecimal: " + e.getMessage());
+        }
+    }
+
+    /** Value of an integer option, or IllegalArgumentException with a message naming the option */
+    private static int intOption(CommandLine cl, String option) {
+        String value = cl.getOptionValue(option);
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException("-" + option + " must be a number, but is '" + value + "'");
         }
     }
 

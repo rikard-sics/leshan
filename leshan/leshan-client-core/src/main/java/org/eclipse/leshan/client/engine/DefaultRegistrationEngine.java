@@ -297,6 +297,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
                     }
                 } else {
                     LOG.info("Bootstrap failed: {} {}.", response.getCode(), response.getErrorMessage());
+                    logEdhocHint(bootstrapServerInfo.builtFromEdhoc, response.getErrorMessage(), "Bootstrap Server");
                     if (observer != null) {
                         observer.onBootstrapFailure(bootstrapServer, request, response.getCode(),
                                 response.getErrorMessage(), null);
@@ -408,6 +409,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
                 return Status.SUCCESS;
             } else {
                 LOG.info("Registration failed: {} {}.", response.getCode(), response.getErrorMessage());
+                logEdhocHint(dmInfo.builtFromEdhoc, response.getErrorMessage(), "Device Manager");
                 if (observer != null) {
                     observer.onRegistrationFailure(server, request, response.getCode(), response.getErrorMessage(),
                             null);
@@ -529,6 +531,7 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
                 return Status.SUCCESS;
             } else {
                 LOG.info("Registration update failed: {} {}.", response.getCode(), response.getErrorMessage());
+                logEdhocHint(dmInfo.builtFromEdhoc, response.getErrorMessage(), "Device Manager");
                 if (observer != null) {
                     observer.onUpdateFailure(server, request, response.getCode(), response.getErrorMessage(), null);
                 }
@@ -999,6 +1002,20 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
      * then populates bootstrapServerInfo with the derived OSCORE context so that
      * createEndpoint() treats the connection as OSCORE (builtFromEdhoc=true).
      */
+    /**
+     * If a request over an OSCORE context derived with EDHOC is rejected because the server cannot use that context,
+     * the EDHOC exchange most likely failed on the server side (the client cannot always tell, e.g. when the server
+     * fails while processing EDHOC message 3). Log a hint pointing there.
+     */
+    private static void logEdhocHint(boolean builtFromEdhoc, String errorMessage, String serverName) {
+        if (builtFromEdhoc && errorMessage != null && (errorMessage.contains("Decryption failed")
+                || errorMessage.contains("Security context not found"))) {
+            LOG.warn("Hint: the OSCORE context with the {} was derived with EDHOC, but the {} cannot use it. "
+                    + "It most likely rejected the EDHOC exchange (e.g. unknown or invalid client credentials, "
+                    + "or a configuration mismatch). Check the {} log.", serverName, serverName, serverName);
+        }
+    }
+
     private void runEdhocWithBootstrapServer(ServerInfo bootstrapServerInfo) {
         org.eclipse.californium.edhoc.Util.installCryptoProvider();
 
@@ -1051,22 +1068,24 @@ public class DefaultRegistrationEngine implements RegistrationEngine {
         idCreds.put(Constants.SIGNATURE_KEY,  new HashMap<Integer, CBORObject>());
         idCreds.put(Constants.ECDH_KEY,       new HashMap<Integer, CBORObject>());
 
-        if ((suite == 2 || suite == 3) && (method == 1 || method == 3)) {
+        // The client is the EDHOC Initiator: it authenticates with a static DH key in
+        // methods 2 and 3, and with a signature key in methods 0 and 1 (RFC 9528).
+        if ((suite == 2 || suite == 3) && (method == 2 || method == 3)) {
             keyPairs.get(Constants.ECDH_KEY).put(Constants.CURVE_P256, keyPair);
             creds.get(Constants.ECDH_KEY).put(Constants.CURVE_P256, CBORObject.FromObject(cred));
             idCreds.get(Constants.ECDH_KEY).put(Constants.CURVE_P256, idCred);
         }
-        if ((suite == 0 || suite == 1) && (method == 1 || method == 3)) {
+        if ((suite == 0 || suite == 1) && (method == 2 || method == 3)) {
             keyPairs.get(Constants.ECDH_KEY).put(Constants.CURVE_X25519, keyPair);
             creds.get(Constants.ECDH_KEY).put(Constants.CURVE_X25519, CBORObject.FromObject(cred));
             idCreds.get(Constants.ECDH_KEY).put(Constants.CURVE_X25519, idCred);
         }
-        if ((suite == 2 || suite == 3) && (method == 0 || method == 2)) {
+        if ((suite == 2 || suite == 3) && (method == 0 || method == 1)) {
             keyPairs.get(Constants.SIGNATURE_KEY).put(Constants.CURVE_P256, keyPair);
             creds.get(Constants.SIGNATURE_KEY).put(Constants.CURVE_P256, CBORObject.FromObject(cred));
             idCreds.get(Constants.SIGNATURE_KEY).put(Constants.CURVE_P256, idCred);
         }
-        if ((suite == 0 || suite == 1) && (method == 0 || method == 2)) {
+        if ((suite == 0 || suite == 1) && (method == 0 || method == 1)) {
             keyPairs.get(Constants.SIGNATURE_KEY).put(Constants.CURVE_Ed25519, keyPair);
             creds.get(Constants.SIGNATURE_KEY).put(Constants.CURVE_Ed25519, CBORObject.FromObject(cred));
             idCreds.get(Constants.SIGNATURE_KEY).put(Constants.CURVE_Ed25519, idCred);

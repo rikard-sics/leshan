@@ -43,6 +43,9 @@ import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.leshan.client.ClientBootstrapOverrideCreds;
 import org.eclipse.leshan.client.OscoreEdhocHandler;
+import org.eclipse.leshan.core.edhoc.EdhocConfigValidator;
+import org.eclipse.leshan.core.edhoc.EdhocConfigValidator.Mode;
+import org.eclipse.leshan.core.edhoc.EdhocConfigValidator.Result;
 import org.eclipse.leshan.client.resource.BaseInstanceEnabler;
 import org.eclipse.leshan.client.servers.ServerIdentity;
 import org.eclipse.leshan.core.model.ObjectModel;
@@ -119,11 +122,11 @@ public class Edhoc extends BaseInstanceEnabler {
             System.out.println("initiator: " + initiator);
             System.out.println("authenticationMethod: " + authenticationMethod);
             System.out.println("selectedCiphersuite: " + selectedCiphersuite);
-            System.out.println("clientKeyIdentifier: " + Hex.encodeHexString(clientKeyIdentifier));
-            System.out.println("clientPublicKey: " + Hex.encodeHexString(clientPublicKey));
-            System.out.println("privateKey: " + Hex.encodeHexString(privateKey));
-            System.out.println("peerPublicKeyIdentifier: " + Hex.encodeHexString(peerPublicKeyIdentifier));
-            System.out.println("peerPublicKey: " + Hex.encodeHexString(peerPublicKey));
+            System.out.println("clientKeyIdentifier: " + hexOrNull(clientKeyIdentifier));
+            System.out.println("clientPublicKey: " + hexOrNull(clientPublicKey));
+            System.out.println("privateKey: " + hexOrNull(privateKey));
+            System.out.println("peerPublicKeyIdentifier: " + hexOrNull(peerPublicKeyIdentifier));
+            System.out.println("peerPublicKey: " + hexOrNull(peerPublicKey));
 			System.out.println("peerEdhocCoapUriPath: " + peerEdhocCoapUriPath);
             System.out.println("edhocOscoreCombinedSupport: " + (boolean) value.getValue());
         }
@@ -131,6 +134,33 @@ public class Edhoc extends BaseInstanceEnabler {
 		// RH: Run EDHOC now (when reaching the last resource)
 		// RH: TODO: Do somewhere else instead?
 		if (resourceId == Edhoc_Oscore_Combined_Support && !OscoreEdhocHandler.getEdhocWithDmDone()) {
+
+			// Client fields the BS did not write at all: fill from the command line, like empty ones
+			if (clientKeyIdentifier == null || clientKeyIdentifier.length == 0) {
+				clientKeyIdentifier = ClientBootstrapOverrideCreds.getClientKeyIdentifier();
+			}
+			if (clientPublicKey == null || clientPublicKey.length == 0) {
+				clientPublicKey = ClientBootstrapOverrideCreds.getClientPublicKey();
+			}
+			if (privateKey == null || privateKey.length == 0) {
+				privateKey = ClientBootstrapOverrideCreds.getPrivateKey();
+			}
+
+			// Check the complete EDHOC object (incl. values filled from the command line) before using it
+			Result validation = EdhocConfigValidator.validate(Mode.CLIENT,
+					authenticationMethod == null ? null : Long.valueOf(authenticationMethod.longValue()),
+					selectedCiphersuite == null ? null : Long.valueOf(selectedCiphersuite.longValue()),
+					clientKeyIdentifier, clientPublicKey, privateKey, peerPublicKeyIdentifier, peerPublicKey);
+			String context = "EDHOC object " + getId() + " received from " + identity;
+			if (!validation.getWarnings().isEmpty()) {
+				System.out.println("Warning: " + validation.warningMessage(context));
+			}
+			if (!validation.isValid()) {
+				String message = validation.errorMessage(context);
+				System.err.println("Invalid EDHOC configuration, not running EDHOC with the Device Manager:");
+				System.err.println(message);
+				return WriteResponse.badRequest(message);
+			}
 
 			// Utils.printPause("Running EDHOC with Device Manager");
 			
@@ -199,58 +229,60 @@ public class Edhoc extends BaseInstanceEnabler {
 			// Build an integer
 			int method = authenticationMethod.intValue();
 			int suite = selectedCiphersuite.intValue();
+			// The client is the EDHOC Initiator: it authenticates with a static DH key in
+			// methods 2 and 3, and with a signature key in methods 0 and 1 (RFC 9528).
 			// Key Pairs
 			HashMap<Integer, OneKey> inner = keyPairs.get(Constants.ECDH_KEY);
-			if ((suite == 2 || suite == 3) && (method == 1 || method == 3)) {
+			if ((suite == 2 || suite == 3) && (method == 2 || method == 3)) {
 			    inner.put(Constants.CURVE_P256, keyPair);
 			}
-			if ((suite == 0 || suite == 1) && (method == 1 || method == 3)) {
+			if ((suite == 0 || suite == 1) && (method == 2 || method == 3)) {
 			    inner.put(Constants.CURVE_X25519, keyPair);
 			}
 			
 			inner = keyPairs.get(Constants.SIGNATURE_KEY);
-			if ((suite == 2 || suite == 3) && (method == 0 || method == 2)) {
+			if ((suite == 2 || suite == 3) && (method == 0 || method == 1)) {
 			    inner.put(Constants.CURVE_P256, keyPair);
 			}
-			if ((suite == 0 || suite == 1) && (method == 0 || method == 2)) {
+			if ((suite == 0 || suite == 1) && (method == 0 || method == 1)) {
 			    inner.put(Constants.CURVE_Ed25519, keyPair);
 			}
 			
 			// --- Creds ---
 			HashMap<Integer, CBORObject> innerC = creds.get(Constants.ECDH_KEY);
-			if ((suite == 2 || suite == 3) && (method == 1 || method == 3)) {
+			if ((suite == 2 || suite == 3) && (method == 2 || method == 3)) {
 			    CBORObject newCred = CBORObject.FromObject(cred);
 			    innerC.put(Constants.CURVE_P256, newCred);
 			}
-			if ((suite == 0 || suite == 1) && (method == 1 || method == 3)) {
+			if ((suite == 0 || suite == 1) && (method == 2 || method == 3)) {
 			    CBORObject newCred = CBORObject.FromObject(cred);
 			    innerC.put(Constants.CURVE_X25519, newCred);
 			}
 			
 			innerC = creds.get(Constants.SIGNATURE_KEY);
-			if ((suite == 2 || suite == 3) && (method == 0 || method == 2)) {
+			if ((suite == 2 || suite == 3) && (method == 0 || method == 1)) {
 			    CBORObject newCred = CBORObject.FromObject(cred);
 			    innerC.put(Constants.CURVE_P256, newCred);
 			}
-			if ((suite == 0 || suite == 1) && (method == 0 || method == 2)) {
+			if ((suite == 0 || suite == 1) && (method == 0 || method == 1)) {
 			    CBORObject newCred = CBORObject.FromObject(cred);
 			    innerC.put(Constants.CURVE_Ed25519, newCred);
 			}
 			
 			// --- ID Creds ---
 			HashMap<Integer, CBORObject> innerD = idCreds.get(Constants.ECDH_KEY);
-			if ((suite == 2 || suite == 3) && (method == 1 || method == 3)) {
+			if ((suite == 2 || suite == 3) && (method == 2 || method == 3)) {
 			    innerD.put(Constants.CURVE_P256, idCred);
 			}
-			if ((suite == 0 || suite == 1) && (method == 1 || method == 3)) {
+			if ((suite == 0 || suite == 1) && (method == 2 || method == 3)) {
 			    innerD.put(Constants.CURVE_X25519, idCred);
 			}
 			
 			innerD = idCreds.get(Constants.SIGNATURE_KEY);
-			if ((suite == 2 || suite == 3) && (method == 0 || method == 2)) {
+			if ((suite == 2 || suite == 3) && (method == 0 || method == 1)) {
 			    innerD.put(Constants.CURVE_P256, idCred);
 			}
-			if ((suite == 0 || suite == 1) && (method == 0 || method == 2)) {
+			if ((suite == 0 || suite == 1) && (method == 0 || method == 1)) {
 			    innerD.put(Constants.CURVE_Ed25519, idCred);
 			}
 			
@@ -595,6 +627,11 @@ public class Edhoc extends BaseInstanceEnabler {
 	}
 
 	// --- Utility methods ---
+
+	/** Hex string for printing; fields may still be empty (e.g. to be filled from the command line) */
+	private static String hexOrNull(byte[] bytes) {
+		return bytes == null ? "null" : Hex.encodeHexString(bytes);
+	}
 
 	static final String DEFAULT_EDHOC_PATH = ".well-known/edhoc";
 

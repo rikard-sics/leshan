@@ -50,10 +50,16 @@ import org.eclipse.leshan.core.request.BindingMode;
 import org.eclipse.leshan.server.EdhocCredHolder;
 import org.eclipse.leshan.server.SynchronizedHashMap;
 import org.eclipse.leshan.server.OscoreHandler;
+import org.eclipse.leshan.core.edhoc.EdhocConfigValidator;
+import org.eclipse.leshan.core.edhoc.EdhocConfigValidator.Mode;
+import org.eclipse.leshan.core.edhoc.EdhocConfigValidator.Result;
 import org.eclipse.leshan.server.bootstrap.BootstrapConfig;
 import org.eclipse.leshan.server.bootstrap.EditableBootstrapConfigStore;
 import org.eclipse.leshan.server.bootstrap.InvalidConfigurationException;
 import org.eclipse.leshan.server.bootstrap.demo.json.BindingModeTypeAdapter;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -89,6 +95,8 @@ public class BootstrapServlet extends HttpServlet {
             return new JsonPrimitive((int) src & 0xff);
         }
     }
+
+    private static final Logger LOG = LoggerFactory.getLogger(BootstrapServlet.class);
 
     private final EditableBootstrapConfigStore bsStore;
 
@@ -143,8 +151,12 @@ public class BootstrapServlet extends HttpServlet {
         try {
             BootstrapConfig cfg = gson.fromJson(new InputStreamReader(req.getInputStream()), BootstrapConfig.class);
 
+            String edhocErrors = cfg == null ? null : validateEdhoc(endpoint, cfg);
             if (cfg == null) {
                 sendError(resp, HttpServletResponse.SC_BAD_REQUEST, "no content");
+            } else if (edhocErrors != null) {
+                LOG.warn("Rejected bootstrap config for {}:\n{}", endpoint, edhocErrors);
+                sendError(resp, HttpServletResponse.SC_BAD_REQUEST, edhocErrors);
             } else {
                 bsStore.add(endpoint, cfg);
                 configureEdhocIfNeeded(cfg);
@@ -186,6 +198,44 @@ public class BootstrapServlet extends HttpServlet {
         resp.setContentType("text/plain; charset=UTF-8");
         if (errorMessage != null)
             resp.getOutputStream().write(errorMessage.getBytes(StandardCharsets.UTF_8));
+    }
+
+    // --- EDHOC validation ---
+
+    /**
+     * Validate the EDHOC objects of a config (see {@link EdhocConfigValidator}). Warnings are logged.
+     *
+     * @return the errors as one message, or null if the EDHOC objects (if any) are valid
+     */
+    private static String validateEdhoc(String endpoint, BootstrapConfig cfg) {
+        if (cfg.edhoc == null || cfg.edhoc.isEmpty() || cfg.security == null) {
+            return null;
+        }
+        StringBuilder errors = new StringBuilder();
+        for (BootstrapConfig.ServerSecurity sec : cfg.security.values()) {
+            BootstrapConfig.EdhocObject edhoc = sec.oscoreSecurityMode == null ? null
+                    : cfg.edhoc.get(sec.oscoreSecurityMode);
+            if (edhoc == null) {
+                continue;
+            }
+            // The BS's own EDHOC object is used by the BS; the others are written to the client
+            Mode mode = sec.bootstrapServer ? Mode.SERVER : Mode.WRITTEN_TO_CLIENT;
+            String context = "EDHOC object " + sec.oscoreSecurityMode + " ("
+                    + (sec.bootstrapServer ? "Bootstrap Server" : "server " + sec.uri) + ")";
+            Result result = EdhocConfigValidator.validate(mode, edhoc.authenticationMethod,
+                    edhoc.selectedCiphersuite, edhoc.clientKeyIdentifier, edhoc.clientPublicKey, edhoc.privateKey,
+                    edhoc.peerPublicKeyIdentifier, edhoc.peerPublicKey);
+            if (!result.getWarnings().isEmpty()) {
+                LOG.warn("Bootstrap config for {}:\n{}", endpoint, result.warningMessage(context));
+            }
+            if (!result.isValid()) {
+                if (errors.length() > 0) {
+                    errors.append('\n');
+                }
+                errors.append(result.errorMessage(context));
+            }
+        }
+        return errors.length() > 0 ? errors.toString() : null;
     }
 
     // --- EDHOC setup ---
