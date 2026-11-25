@@ -22,6 +22,7 @@ import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -47,6 +48,7 @@ import org.eclipse.californium.edhoc.SharedSecretCalculation;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.leshan.core.request.BindingMode;
 import org.eclipse.leshan.server.EdhocCredHolder;
+import org.eclipse.leshan.server.SynchronizedHashMap;
 import org.eclipse.leshan.server.OscoreHandler;
 import org.eclipse.leshan.server.bootstrap.BootstrapConfig;
 import org.eclipse.leshan.server.bootstrap.EditableBootstrapConfigStore;
@@ -188,13 +190,22 @@ public class BootstrapServlet extends HttpServlet {
 
     // --- EDHOC setup ---
 
-    private static final HashMap<CBORObject, EdhocSession> edhocSessions = new HashMap<>();
-    private static final Set<CBORObject> usedConnectionIds = new HashSet<>();
+    // Used by the EDHOC resource on CoAP threads, possibly for many clients at the same time
+    private static final HashMap<CBORObject, EdhocSession> edhocSessions = new SynchronizedHashMap<>();
+    private static final Set<CBORObject> usedConnectionIds = Collections.synchronizedSet(new HashSet<CBORObject>());
     private static final List<Integer> supportedCiphersuites = new ArrayList<>();
     private static final String URI_LOCAL = "coap://localhost";
     private static final int OSCORE_REPLAY_WINDOW = 32;
 
     private void configureEdhocIfNeeded(BootstrapConfig cfg) {
+        // Configs may be POSTed in parallel: hold the lock so that the credentials of a client are added together and
+        // the EDHOC resource is only created once
+        synchronized (EdhocCredHolder.LOCK) {
+            configureEdhocLocked(cfg);
+        }
+    }
+
+    private void configureEdhocLocked(BootstrapConfig cfg) {
         if (cfg.security == null || cfg.edhoc == null) return;
 
         BootstrapConfig.EdhocObject bsEdhoc = null;

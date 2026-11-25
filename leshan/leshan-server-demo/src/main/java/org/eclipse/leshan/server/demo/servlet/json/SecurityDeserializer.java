@@ -31,6 +31,7 @@ import java.security.spec.ECPublicKeySpec;
 import java.security.spec.KeySpec;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -57,6 +58,7 @@ import org.eclipse.leshan.core.util.Hex;
 import org.eclipse.leshan.core.util.SecurityUtil;
 import org.eclipse.leshan.server.OscoreHandler;
 import org.eclipse.leshan.server.EdhocCredHolder;
+import org.eclipse.leshan.server.SynchronizedHashMap;
 import org.eclipse.leshan.server.security.SecurityInfo;
 
 import com.google.gson.JsonDeserializationContext;
@@ -256,6 +258,11 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 				info = SecurityInfo.newOSCoreInfo(endpoint, ctx);
 				info.setBuiltFromEdhoc(true); // Started from EDHOC
 
+				// Security infos may be PUT in parallel: the EDHOC setup below uses shared state (the
+				// credential maps, and static fields between setupIdentityKeys() and the key maps), so
+				// hold the lock for all of it. This also ensures the EDHOC resource is only created once.
+				synchronized (EdhocCredHolder.LOCK) {
+
 				// Install crypto provider
 				org.eclipse.californium.edhoc.Util.installCryptoProvider();
 
@@ -440,6 +447,8 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 					}
 				}
 
+				} // synchronized (EdhocCredHolder.LOCK)
+
             } else {
                 throw new JsonParseException("Invalid security info content");
             }
@@ -463,11 +472,12 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 	// HashMap<CBORObject, CBORObject>();
 	static List<Integer> supportedCiphersuites = new ArrayList<Integer>();
 	// Other variables needed
-	static HashMap<CBORObject, EdhocSession> edhocSessions = new HashMap<CBORObject, EdhocSession>();
-	static Set<CBORObject> usedConnectionIds = new HashSet<CBORObject>();
+	// Used by the EDHOC resource on CoAP threads, possibly for many clients at the same time
+	static HashMap<CBORObject, EdhocSession> edhocSessions = new SynchronizedHashMap<CBORObject, EdhocSession>();
+	static Set<CBORObject> usedConnectionIds = Collections.synchronizedSet(new HashSet<CBORObject>());
 	static String uriLocal = "coap://localhost";
 	static final int OSCORE_REPLAY_WINDOW = 32;
-	static HashMap<String, AppProfile> appStatements = new HashMap<String, AppProfile>();
+	static HashMap<String, AppProfile> appStatements = new SynchronizedHashMap<String, AppProfile>();
 
 	/**
 	 * RH: General method for setting up all EDHOC parameters needed to build
@@ -537,7 +547,6 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 
 		// Build COSE OneKey for server, including public key
 		OneKey peerPublicKey = null;
-		CBORObject peerIdCred = null;
 		byte[] peerCred = null;
 
 		try {
@@ -565,8 +574,6 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 			System.err.println("ERROR in cred type switch!");
 			break;
 		}
-		EdhocCredHolder.peerPublicKeys.put(peerIdCred, peerPublicKey);
-		EdhocCredHolder.peerCredentials.put(peerIdCred, CBORObject.FromObject(peerCred));
 	}
 
 	/*
