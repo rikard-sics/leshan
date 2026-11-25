@@ -54,6 +54,7 @@ import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.californium.oscore.OSCoreCtx;
 import org.eclipse.californium.oscore.OSException;
 import org.eclipse.leshan.server.demo.AtomicFiles;
+import org.eclipse.leshan.core.edhoc.CcsUtil;
 import org.eclipse.leshan.core.edhoc.EdhocConfigValidator;
 import org.eclipse.leshan.core.edhoc.EdhocConfigValidator.Mode;
 import org.eclipse.leshan.core.edhoc.EdhocConfigValidator.Result;
@@ -735,7 +736,7 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 
 	/**
 	 * Removes COSE private key parameter (-4, 'd') from the embedded COSE_Key
-	 * inside a CCS, while preserving the full CCS structure.
+	 * inside a CCS, keeping all other bytes (including the map order) unchanged.
 	 *
 	 * Assumes CCS layout like: { ..., 8: { 1: { <COSE_Key map possibly
 	 * containing -4> } } }
@@ -744,31 +745,9 @@ public class SecurityDeserializer implements JsonDeserializer<SecurityInfo> {
 	 * @return CCS bytes with -4 removed from the embedded COSE_Key map
 	 */
 	public static byte[] stripPrivateKeyFromCcs(byte[] ccsBytes) {
-		if (ccsBytes == null || ccsBytes.length == 0) {
-			throw new IllegalArgumentException("ccsBytes is null/empty");
-		}
-
-		CBORObject ccs = CBORObject.DecodeFromBytes(ccsBytes);
-		if (ccs.getType() != CBORType.Map) {
-			throw new IllegalArgumentException("CCS root is not a CBOR map");
-		}
-
-		CBORObject claim8 = ccs.get(CBORObject.FromObject(8));
-		if (claim8 == null || claim8.getType() != CBORType.Map) {
-			throw new IllegalArgumentException("CCS missing claim 8 map");
-		}
-
-		CBORObject coseKeyMap = claim8.get(CBORObject.FromObject(1));
-		if (coseKeyMap == null || coseKeyMap.getType() != CBORType.Map) {
-			throw new IllegalArgumentException("CCS claim 8/1 is not a COSE_Key map");
-		}
-
-		// Remove private key parameter -4 (OKP/EC2/RSA private component label
-		// used by COSE)
-		coseKeyMap.Remove(CBORObject.FromObject(-4));
-
-		// Re-encode the full CCS with only that field removed
-		return ccs.EncodeToBytes();
+		// Byte-level removal: re-encoding could reorder the map, and the credential must
+		// match the copy the client has (EDHOC uses the credential bytes as they are)
+		return CcsUtil.removePrivateKey(ccsBytes);
 	}
 
 	// --- Null-safe access to EDHOC config fields ---

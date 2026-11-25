@@ -50,6 +50,7 @@ import org.eclipse.leshan.core.request.BindingMode;
 import org.eclipse.leshan.server.EdhocCredHolder;
 import org.eclipse.leshan.server.SynchronizedHashMap;
 import org.eclipse.leshan.server.OscoreHandler;
+import org.eclipse.leshan.core.edhoc.CcsUtil;
 import org.eclipse.leshan.core.edhoc.EdhocConfigValidator;
 import org.eclipse.leshan.core.edhoc.EdhocConfigValidator.Mode;
 import org.eclipse.leshan.core.edhoc.EdhocConfigValidator.Result;
@@ -376,10 +377,8 @@ public class BootstrapServlet extends HttpServlet {
     }
 
     private static byte[] stripPrivateKeyFromCcs(byte[] ccsBytes) {
-        CBORObject ccs = CBORObject.DecodeFromBytes(ccsBytes);
-        CBORObject coseKeyMap = ccs.get(CBORObject.FromObject(8)).get(CBORObject.FromObject(1));
-        coseKeyMap.Remove(CBORObject.FromObject(-4));
-        return ccs.EncodeToBytes();
+        // Byte-level removal: re-encoding could reorder the map, and the credential must match the client's copy
+        return CcsUtil.removePrivateKey(ccsBytes);
     }
 
     private static class WellKnownResource extends CoapResource {
