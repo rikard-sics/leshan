@@ -280,7 +280,15 @@ public class Util {
         
         // Add the Unprotected, i.e. a CBOR map specifying the signature algorithm
         CBORObject myMap = CBORObject.NewMap();
-        myMap.Add(KeyKeys.Algorithm, publicKey.get(KeyKeys.Algorithm));
+        // As in computeSignature(): if the key has no "alg", identify the algorithm from the curve
+        CBORObject alg = publicKey.get(KeyKeys.Algorithm);
+        if (alg == null) {
+            AlgorithmID keyAlg = determineKeyAlgorithm(publicKey);
+            if (keyAlg == null)
+                return false;
+            alg = keyAlg.AsCBOR();
+        }
+        myMap.Add(KeyKeys.Algorithm, alg);
         myArray.Add(myMap);
         
         // Add the signed payload
